@@ -1,262 +1,185 @@
-# 1) `hub/{deviceId}/irsignal`
 
-학습/재생 모두 커버하도록 필드 정리.
+# IoT MQTT Topic Specification
 
-| Key | Type | 설명 |
-| --- | --- | --- |
-| ts | int64 | 공통 |
-| deviceId | string | 공통 |
-| msgId | string | 공통 |
-| schema | string | 공통 (예: `"irsignal/1.0"`) |
-| encoding | string | `NEC`/`RC5`/`Samsung`/`Sony`/`Raw` 등 |
-| carrierHz | int | 반송파(예: 38000) |
-| dutyCycle | float | 0~1 (예: 0.33) |
-| address | int/string | 프로토콜 주소/디바이스 코드 |
-| command | int/string | 커맨드 코드 |
-| timing | object | `{ header:[us,us], one:[us,us], zero:[us,us], gap:us }` |
-| rawData | int[] | 마이크로초 펄스 시퀀스(+on/-off 또는 절대 us 배열) |
-| data | string | 프로토콜 인코딩된 비트열(hex/base64) |
-| repeat | int | 재전송 횟수(버튼 길게 누르기) |
-| quality | float | 매칭 신뢰도(학습 시) |
-| remark | string | 비고 |
+본 문서는 SARS 프로젝트의 IoT 환경에서 사용되는 MQTT 토픽별 명세를 정의합니다.  
+각 토픽별 **용도, 발신·수신 주체, QoS/Retain, ACL, JSON Schema, 예시 Payload**를 제공합니다.
 
-> 추가 이유: 실기기 간 파형 오차/브랜드별 차이를 흡수하려면 carrierHz, dutyCycle, timing, repeat, quality가 필요합니다.
-> 
+---
 
-### 예시 페이로드
+## 목차
+1. [iot/{site}/{hubId}/state](#1-iotsitehubidstate)
+2. [iot/{site}/{hubId}/env](#2-iotsitehubidenv)
+3. [iot/{site}/{hubId}/irsignal/raw](#3-iotsitehubidirsignalraw)
+4. [iot/{site}/{hubId}/order](#4-iotsitehubidorder)
+5. [iot/{site}/{hubId}/order/ack](#5-iotsitehubidorderack)
+6. [iot/{site}/{hubId}/error](#6-iotsitehubiderror)
+7. [iot/{site}/{irTxId}/tx](#7-iotsiteirtxidtx)
+8. [iot/{site}/{irTxId}/tx/ack](#8-iotsiteirtxidtxack)
+9. [iot/{site}/{pirId}/event](#9-iotsitepiridevent)
+10. [iot/{site}/matlab/{nodeId}/analysis/env](#10-iotsitematlabnodeidanalysisenv)
+11. [iot/{site}/matlab/{nodeId}/analysis/irsignal](#11-iotsitematlabnodeidanalysisirsignal)
 
+---
+
+# 1) `iot/{site}/{hubId}/state`
+**용도**: 허브 상태 보고 및 LWT  
+**발신**: Hub │ **수신**: Server, MFC  
+**QoS/Retain**: QoS1, retain=true  
+**ACL**:  
+- Publish: `iot/+/{hubId}/state` (허브)  
+- Subscribe: `iot/+/+/state` (서버, MFC)
+
+**예시 Payload**
 ```json
-{
-  "ts": 1756713600123,
-  "deviceId": "hub-rpi-01",
-  "msgId": "b3b4e9c3-2d3a-4b87-9a0a-7a57c4bda911",
-  "schema": "irsignal/1.0",
-  "encoding": "NEC",
-  "carrierHz": 38000,
-  "dutyCycle": 0.33,
-  "address": "0x20DF",
-  "command": "0x10EF",
-  "timing": { "header":[9000,4500], "one":[560,1690], "zero":[560,560], "gap":40000 },
-  "rawData": [9000,4500,560,560,560,1690, ...],
-  "data": "20DF10EF",
-  "repeat": 2,
-  "quality": 0.97
-}
-
+{"ts":1756713600123,"deviceId":"hub-rpi-01","msgId":"...","schema":"state/1.0","status":"online"}
 ```
 
 ---
 
-# 2) `hub/{deviceId}/env`
+# 2) `iot/{site}/{hubId}/env`
+**용도**: 환경 센서 데이터(온도/습도/가스 등)  
+**발신**: Hub │ **수신**: Server, MATLAB, MFC  
+**QoS/Retain**: QoS1, retain=true  
+**ACL**:  
+- Publish: `iot/+/{hubId}/env` (허브)  
+- Subscribe: `iot/+/+/env` (서버, MATLAB, MFC)
 
-센서 단위·교정·이상치 처리에 필요한 필드 추가.
-
-| Key | Type | 설명 |
-| --- | --- | --- |
-| ts, deviceId, msgId, schema |  | 공통 |
-| temperature | float | 섭씨(°C) |
-| humidity | float | %RH |
-| gasDensity | float | 센서 원단위(ppm 등) |
-| units | object | `{ temperature:"C", humidity:"%RH", gasDensity:"ppm" }` |
-| calib | object | 교정 정보 `{ tOffset:0.2, hOffset:-1.1 }` |
-| sampleRateHz | float | 샘플링 주기 |
-| status | string | `ok |
-| meta | object | `{ sensorModel:"DHT11", tvoc:..., co2eq:... }` (선택) |
-
-> 운영 팁: 이 채널은 retain=true로 마지막 상태를 남겨두면 대시보드 초기 로딩이 빨라집니다.
-> 
-
-### 예시
-
+**예시 Payload**
 ```json
-{
-  "ts": 1756713600456,
-  "deviceId": "hub-rpi-01",
-  "msgId": "8b0ef0a2-7c66-4d5b-a2e7-0a1c2b9c1e55",
-  "schema": "env/1.1",
-  "temperature": 26.1,
-  "humidity": 54.2,
-  "gasDensity": 412.0,
-  "units": { "temperature": "C", "humidity": "%RH", "gasDensity": "ppm" },
-  "calib": { "tOffset": 0.2 },
-  "sampleRateHz": 1.0,
-  "status": "ok",
-  "meta": { "sensorModel": "DHT11" }
-}
-
+{"ts":1756713600456,"deviceId":"hub-rpi-01","msgId":"...","schema":"env/1.1","temperature":26.1,"humidity":54.2,"gasDensity":412}
 ```
 
 ---
 
-# 3) `hub/{deviceId}/order`
+# 3) `iot/{site}/{hubId}/irsignal/raw`
+**용도**: IR 원신호 및 메타 데이터 송신  
+**발신**: Hub │ **수신**: Server, MATLAB  
+**QoS/Retain**: QoS1, retain=false  
+**ACL**:  
+- Publish: `iot/+/{hubId}/irsignal/raw`  
+- Subscribe: `iot/+/+/irsignal/raw`
 
-지금 스펙에 **수명/우선순위/만료/응답경로**가 빠져 있습니다. 프로덕션에선 필수입니다.
-
-| Key | Type | 설명 |
-| --- | --- | --- |
-| ts, deviceId, msgId, schema, corrId |  | 공통 |
-| type | string | `"ir" |
-| priority | int | 0(낮음)~9(높음) |
-| expiresAt | int64 | 만료시각(ms). 만료 시 드롭 |
-| retry | object | `{ max:3, backoffMs:200 }` |
-| replyTo | string | 응답 토픽(예: `hub/{deviceId}/order/ack`) |
-| payload | object | 아래 **payload 스펙** 참조 |
-
-### payload 스펙 예시
-
-- **IR 송신**
-    
-    ```json
-    "payload": {
-      "ir": {
-        "encoding":"NEC",
-        "carrierHz":38000,
-        "data":"20DF10EF",
-        "repeat":2,
-        "timing":{ "gap":40000 }
-      }
-    }
-    
-    ```
-    
-- **Matter 제어**(전구 켜기)
-    
-    ```json
-    "payload": {
-      "matter": {
-        "nodeId":"0x1234",
-        "endpoint":1,
-        "cluster":"0x0006",
-        "command":"0x01",
-        "args":{}
-      }
-    }
-    
-    ```
-    
-- **시스템 제어**(예: 허브 재부팅)
-    
-    ```json
-    "payload": { "system": { "action":"reboot" } }
-    
-    ```
-    
-
-### 전체 예시
-
+**예시 Payload**
 ```json
-{
-  "ts": 1756713600789,
-  "deviceId": "controller-server",
-  "msgId": "a1bc3e77-0f8f-4c3e-8b9a-2f6e3d2a7d10",
-  "schema": "order/1.2",
-  "corrId": "workflow-20250901-0001",
-  "type": "matter",
-  "priority": 5,
-  "expiresAt": 1756713660000,
-  "retry": { "max": 3, "backoffMs": 300 },
-  "replyTo": "hub/hub-rpi-01/order/ack",
-  "payload": {
-    "matter": {
-      "nodeId": "0x1234",
-      "endpoint": 1,
-      "cluster": "0x0006",
-      "command": "0x01",
-      "args": {}
-    }
-  }
-}
-
+{"ts":1756713600780,"deviceId":"hub-rpi-01","msgId":"...","schema":"irsignal/1.0","encoding":"NEC","carrierHz":38000,"rawData":[9000,4500,560,560,...]}
 ```
 
 ---
 
-# 4) 응답/에러 채널
+# 4) `iot/{site}/{hubId}/order`
+**용도**: 허브에 명령 전달(IR, Matter, System)  
+**발신**: Server │ **수신**: Hub  
+**QoS/Retain**: QoS1, retain=false  
+**ACL**:  
+- Publish: `iot/+/{hubId}/order` (서버)  
+- Subscribe: `iot/+/{hubId}/order` (허브)
 
-## `hub/{deviceId}/order/ack`
-
-| Key | Type | 설명 |
-| --- | --- | --- |
-| ts, deviceId, schema, corrId |  | 공통 |
-| msgId | string | **요청 msgId** 를 그대로 회송(트레이싱) |
-| status | string | `accepted |
-| result | object | `{ code:0, detail:"OK" }` 혹은 디바이스 회신값 |
-| durationMs | int | 수행시간 |
-| retries | int | 실제 재시도 횟수 |
-
-예시
-
+**예시 Payload**
 ```json
-{
-  "ts": 1756713601200,
-  "deviceId": "hub-rpi-01",
-  "schema": "ack/1.0",
-  "corrId": "workflow-20250901-0001",
-  "msgId": "a1bc3e77-0f8f-4c3e-8b9a-2f6e3d2a7d10",
-  "status": "done",
-  "result": { "code": 0, "detail": "Matter On success" },
-  "durationMs": 120,
-  "retries": 0
-}
-
-```
-
-## `hub/{deviceId}/error`
-
-운영/알림을 위해 독립 채널 권장.
-
-```json
-{
-  "ts": 1756713602222,
-  "deviceId": "hub-rpi-01",
-  "schema": "error/1.0",
-  "level": "WARN",
-  "code": "IR_SEND_TIMEOUT",
-  "detail": "TX GPIO no response within 80ms",
-  "ctx": { "orderMsgId": "a1bc3e77-0f8f-4c3e-8b9a-2f6e3d2a7d10" }
-}
-
+{"ts":1756713600789,"deviceId":"server-app","msgId":"...","schema":"order/1.2","type":"matter","replyTo":"iot/lab1/hub-rpi-01/order/ack","payload":{"matter":{"nodeId":"0x1234","endpoint":1,"cluster":"0x0006","command":"0x01","args":{}}}}
 ```
 
 ---
 
-# 5) 브로커 설정(LWT & 보안)
+# 5) `iot/{site}/{hubId}/order/ack`
+**용도**: 허브 명령 처리 상태 보고  
+**발신**: Hub │ **수신**: Server, MFC  
+**QoS/Retain**: QoS1, retain=false  
+**ACL**:  
+- Publish: `iot/+/{hubId}/order/ack`  
+- Subscribe: `iot/+/+/order/ack`
 
-- **LWT**: 클라이언트 연결 시
-    - Topic: `hub/{deviceId}/state`
-    - Payload: `{"status":"offline","ts":...}`
-    - QoS 1, retain true
-- **연결/해제 시**: `online`/`offline` 게시
-- **TLS + 인증**: mTLS 또는 토큰 기반 + `sig` 필드로 이중 보호
-- **권한(ACL)**: `order`는 서버만 **publish**, 허브는 **subscribe**. `env/irsignal/ack/error/state`는 허브만 **publish**.
+**예시 Payload**
+```json
+{"ts":1756713601200,"deviceId":"hub-rpi-01","msgId":"<orderMsgId>","schema":"ack/1.0","status":"done","result":{"code":0,"detail":"OK"}}
+```
 
 ---
 
-# 6) JSON 스키마(요약)
+# 6) `iot/{site}/{hubId}/error`
+**용도**: 허브 에러 리포트  
+**발신**: Hub │ **수신**: Server, MFC  
+**QoS/Retain**: QoS1, retain=false  
+**ACL**:  
+- Publish: `iot/+/{hubId}/error`  
+- Subscribe: `iot/+/+/error`
 
-운영팀/클라이언트 검증용으로 아래처럼 최소 스키마를 두세요.
-
+**예시 Payload**
 ```json
-{
-  "$id": "https://example.com/iot/order.schema.json",
-  "type": "object",
-  "required": ["ts","deviceId","msgId","schema","type","payload"],
-  "properties": {
-    "ts": { "type": "integer" },
-    "deviceId": { "type": "string" },
-    "msgId": { "type": "string" },
-    "schema": { "type": "string" },
-    "corrId": { "type": "string" },
-    "type": { "enum": ["ir","matter","system"] },
-    "priority": { "type": "integer", "minimum": 0, "maximum": 9 },
-    "expiresAt": { "type": "integer" },
-    "retry": {
-      "type": "object",
-      "properties": { "max": { "type":"integer" }, "backoffMs": { "type":"integer" } }
-    },
-    "replyTo": { "type": "string" },
-    "payload": { "type": "object" }
-  }
-}
+{"ts":1756713602222,"deviceId":"hub-rpi-01","msgId":"...","schema":"error/1.0","level":"WARN","code":"IR_SEND_TIMEOUT","detail":"TX GPIO no response"}
+```
 
+---
+
+# 7) `iot/{site}/{irTxId}/tx`
+**용도**: IR 송신 명령(서버 → IR 디바이스)  
+**발신**: Server │ **수신**: IR-TX  
+**QoS/Retain**: QoS1, retain=false  
+**ACL**:  
+- Publish: `iot/+/{irTxId}/tx`  
+- Subscribe: `iot/+/{irTxId}/tx`
+
+**예시 Payload**
+```json
+{"ts":1756713601800,"deviceId":"server-app","msgId":"...","schema":"irtx/1.0","encoding":"NEC","carrierHz":38000,"data":"20DF10EF","repeat":2}
+```
+
+---
+
+# 8) `iot/{site}/{irTxId}/tx/ack`
+**용도**: IR 송신 결과 보고  
+**발신**: IR-TX │ **수신**: Server, Hub  
+**QoS/Retain**: QoS1, retain=false  
+**ACL**:  
+- Publish: `iot/+/{irTxId}/tx/ack`  
+- Subscribe: `iot/+/+/tx/ack`
+
+**예시 Payload**
+```json
+{"ts":1756713601850,"deviceId":"ir-esp32-01","msgId":"<orderMsgId>","schema":"ack/1.0","status":"done","result":{"code":0}}
+```
+
+---
+
+# 9) `iot/{site}/{pirId}/event`
+**용도**: PIR 인체감지 이벤트 보고  
+**발신**: PIR │ **수신**: Hub, Server  
+**QoS/Retain**: QoS1, retain=false  
+**ACL**:  
+- Publish: `iot/+/{pirId}/event`  
+- Subscribe: `iot/+/+/event`
+
+**예시 Payload**
+```json
+{"ts":1756713602600,"deviceId":"pir-arduino-01","msgId":"...","schema":"pir/1.0","motion":true,"confidence":0.92}
+```
+
+---
+
+# 10) `iot/{site}/matlab/{nodeId}/analysis/env`
+**용도**: MATLAB 환경 이상치 분석 결과  
+**발신**: MATLAB │ **수신**: Server, MFC  
+**QoS/Retain**: QoS1, retain=false  
+**ACL**:  
+- Publish: `iot/+/{matlabId}/analysis/env`  
+- Subscribe: `iot/+/matlab/+/analysis/env`
+
+**예시 Payload**
+```json
+{"ts":1756713603000,"deviceId":"matlab-01","msgId":"...","schema":"analysis.env/1.0","target":"hub-rpi-01","anomalyScore":0.81,"method":"EWMA","window":120}
+```
+
+---
+
+# 11) `iot/{site}/matlab/{nodeId}/analysis/irsignal`
+**용도**: MATLAB IR 신호 분석 결과  
+**발신**: MATLAB │ **수신**: Server, MFC  
+**QoS/Retain**: QoS1, retain=false  
+**ACL**:  
+- Publish: `iot/+/{matlabId}/analysis/irsignal`  
+- Subscribe: `iot/+/matlab/+/analysis/irsignal`
+
+**예시 Payload**
+```json
+{"ts":1756713603400,"deviceId":"matlab-01","msgId":"...","schema":"analysis.irsignal/1.0","protocol":"NEC","carrierHz":38000,"confidence":0.96}
 ```
