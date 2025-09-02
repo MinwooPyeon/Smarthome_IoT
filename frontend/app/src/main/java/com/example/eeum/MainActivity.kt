@@ -33,7 +33,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.eeum.ui.theme.EeumTheme
 
-// === M2 컴포넌트는 별칭으로 import (M3와 이름 충돌 방지) ===
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
 import androidx.compose.material.BottomAppBar
