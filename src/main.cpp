@@ -1,202 +1,177 @@
 #include <iostream>
-#include <memory>
-#include <thread>
 #include <signal.h>
-#include <fstream>
-#include <nlohmann/json.hpp>
-#include "remote.h"
-#include "config.h"
-#include "mqtt_client.h"
-#include "web_server.h"
+#include <chrono>
+#include <thread>
+#include "hardware/ir_receiver.h"
+#include "hardware/appliance_controller.h"
+#include "network/mqtt_client.h"
+#include "core/config.h"
 
-using namespace irremote;
+// 전역 변수
+std::atomic<bool> running(true);
+IRReceiver* ir_receiver = nullptr;
+ApplianceController* appliance_controller = nullptr;
+MQTTClient* mqtt_client = nullptr;
 
-// Global variables for signal handling
-std::unique_ptr<WebServer> webServer;
-std::unique_ptr<MqttClient> mqttClient;
-bool running = true;
-
+// 시그널 핸들러
 void signalHandler(int signum) {
-    std::cout << "\nReceived signal " << signum << ". Shutting down..." << std::endl;
+    std::cout << "\n시그널 수신 (" << signum << "). 프로그램을 종료합니다..." << std::endl;
     running = false;
 }
 
-std::shared_ptr<Remote> loadRemoteFromFile(const std::string& filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open remote file: " << filename << std::endl;
-        return nullptr;
-    }
-
-    std::string content((std::istreambuf_iterator<char>(file)),
-                        std::istreambuf_iterator<char>());
-    file.close();
-
-    try {
-        // Parse JSON directly using nlohmann/json
-        auto json_remote = nlohmann::json::parse(content);
+// IR 코드 수신 콜백
+void onIRCodeReceived(const std::string& ir_code) {
+    std::cout << "IR 코드 수신됨: " << ir_code << std::endl;
+    
+    if (appliance_controller) {
+        // IR 코드로 가전기기 제어
+        ControlResult result = appliance_controller->controlAppliance(ir_code);
         
-        // Create Remote object
-        auto remote = std::make_shared<Remote>(json_remote["name"]);
-        for (const auto& code : json_remote["code"]) {
-            remote->addCode(code["name"], code["code"]);
+        if (result.success) {
+            std::cout << "가전기기 제어 성공: " << result.appliance_id << std::endl;
+            
+            // MQTT로 상태 전송
+            if (mqtt_client && mqtt_client->isConnected()) {
+                nlohmann::json status_msg;
+                status_msg["appliance_id"] = result.appliance_id;
+                status_msg["command"] = static_cast<int>(result.command);
+                status_msg["success"] = result.success;
+                status_msg["timestamp"] = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+                
+                mqtt_client->publish("irremote/status", status_msg.dump());
+            }
+        } else {
+            std::cerr << "가전기기 제어 실패: " << result.message << std::endl;
         }
-        
-        return remote;
-    } catch (const std::exception& e) {
-        std::cerr << "Failed to parse remote JSON: " << e.what() << std::endl;
-        return nullptr;
     }
-
-    return remote;
 }
 
-void printUsage(const char* programName) {
-    std::cout << "Usage: " << programName << " [options] remote_proto [remote_proto ...]\n\n";
-    std::cout << "Options:\n";
-    std::cout << "  -c, --config <file>    Configuration file path\n";
-    std::cout << "  -m, --mqtt <broker>    MQTT broker address (optional)\n";
-    std::cout << "  -p, --port <port>      MQTT broker port (default: 1883)\n";
-    std::cout << "  -h, --help             Show this help message\n\n";
-    std::cout << "Positional arguments (required):\n";
-    std::cout << "  remote_json            Path to JSON-encoded remote file\n\n";
-    std::cout << "Example:\n";
-    std::cout << "  " << programName << " -c config.json cambridge_cxa.json\n";
+// 가전기기 제어 콜백
+void onControlResult(const ControlResult& result) {
+    std::cout << "제어 결과: " << result.appliance_id 
+              << " - " << (result.success ? "성공" : "실패") << std::endl;
 }
 
-int main(int argc, char* argv[]) {
-    // Set up signal handling
+// MQTT 메시지 콜백
+void onMQTTMessage(const std::string& topic, const std::string& message) {
+    std::cout << "MQTT 메시지 수신: " << topic << " - " << message << std::endl;
+    
+    try {
+        nlohmann::json msg = nlohmann::json::parse(message);
+        
+        if (topic == "irremote/control") {
+            // 원격 제어 명령 처리
+            if (msg.contains("appliance_id") && msg.contains("command")) {
+                std::string appliance_id = msg["appliance_id"];
+                ControlCommand command = static_cast<ControlCommand>(msg["command"].get<int>());
+                
+                if (appliance_controller) {
+                    ControlResult result = appliance_controller->controlAppliance(appliance_id, command);
+                    std::cout << "원격 제어 결과: " << (result.success ? "성공" : "실패") << std::endl;
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "MQTT 메시지 파싱 오류: " << e.what() << std::endl;
+    }
+}
+
+int main() {
+    std::cout << "=== IR 수신기 기반 가전기기 제어 시스템 ===" << std::endl;
+    
+    // 시그널 핸들러 설정
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
-
-    // Parse command line arguments
-    std::string configFile;
-    std::string mqttBroker;
-    int mqttPort = 1883;
-    std::vector<std::string> remoteFiles;
-
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        
-        if (arg == "-c" || arg == "--config") {
-            if (++i < argc) {
-                configFile = argv[i];
-            } else {
-                std::cerr << "Error: --config requires a file path\n";
-                return 1;
-            }
-        } else if (arg == "-m" || arg == "--mqtt") {
-            if (++i < argc) {
-                mqttBroker = argv[i];
-            } else {
-                std::cerr << "Error: --mqtt requires a broker address\n";
-                return 1;
-            }
-        } else if (arg == "-p" || arg == "--port") {
-            if (++i < argc) {
-                mqttPort = std::stoi(argv[i]);
-            } else {
-                std::cerr << "Error: --port requires a port number\n";
-                return 1;
-            }
-        } else if (arg == "-h" || arg == "--help") {
-            printUsage(argv[0]);
-            return 0;
-        } else if (arg[0] == '-') {
-            std::cerr << "Unknown option: " << arg << std::endl;
-            printUsage(argv[0]);
-            return 1;
-        } else {
-            remoteFiles.push_back(arg);
+    
+    try {
+        // 설정 로드
+        Config config;
+        if (!config.load("config/app_config.json")) {
+            std::cout << "기본 설정으로 시작합니다." << std::endl;
         }
-    }
-
-    if (remoteFiles.empty()) {
-        std::cerr << "Error: At least one remote JSON file must be specified\n";
-        printUsage(argv[0]);
-        return 1;
-    }
-
-    // Load configuration
-    std::shared_ptr<Config> config;
-    if (!configFile.empty()) {
-        config = Config::loadFromFile(configFile);
-    } else {
-        config = Config::loadDefault();
-    }
-
-    // Load remotes
-    auto remoteManager = std::make_shared<RemoteManager>();
-    for (const auto& remoteFile : remoteFiles) {
-        auto remote = loadRemoteFromFile(remoteFile);
-        if (remote) {
-            remoteManager->addRemote(remote);
-            std::cout << "Loaded remote: " << remote->getName() << std::endl;
-        }
-    }
-
-    if (remoteManager->getAllRemotes().empty()) {
-        std::cerr << "Error: No valid remotes loaded\n";
-        return 1;
-    }
-
-    // Set up MQTT client if broker is specified
-    if (!mqttBroker.empty()) {
-        mqttClient = std::make_unique<MqttClient>();
         
-        // Set up message handler
-        mqttClient->setMessageCallback([&remoteManager](const std::string& topic, const irremote::Action& action) {
-            std::cout << "Received MQTT command: " << action.remote_id() << " " << action.command() << std::endl;
+        // 가전기기 제어기 초기화
+        appliance_controller = new ApplianceController();
+        appliance_controller->setControlCallback(onControlResult);
+        
+        // 설정 파일에서 가전기기 정보 로드
+        appliance_controller->loadConfiguration("config/appliances.json");
+        
+        // IR 수신기 초기화
+        int ir_gpio_pin = config.getInt("ir_receiver.gpio_pin", 23);
+        ir_receiver = new IRReceiver(ir_gpio_pin);
+        ir_receiver->setIRCodeCallback(onIRCodeReceived);
+        
+        // MQTT 클라이언트 초기화
+        mqtt_client = new MQTTClient();
+        mqtt_client->setMessageCallback(onMQTTMessage);
+        
+        std::string mqtt_broker = config.getString("mqtt.broker", "localhost");
+        int mqtt_port = config.getInt("mqtt.port", 1883);
+        
+        if (mqtt_client->connect(mqtt_broker, mqtt_port)) {
+            std::cout << "MQTT 브로커 연결 성공: " << mqtt_broker << ":" << mqtt_port << std::endl;
             
-            if (!action.remote_id().empty() && !action.command().empty()) {
-                remoteManager->sendCommand(action.remote_id(), action.command());
-            }
-        });
-
-        // Connect to MQTT broker
-        if (!mqttClient->connect(mqttBroker, mqttPort, "", "", "irremote_client")) {
-            std::cerr << "Failed to connect to MQTT broker\n";
+            // 상태 토픽 구독
+            mqtt_client->subscribe("irremote/control");
+            mqtt_client->subscribe("irremote/status");
+        } else {
+            std::cerr << "MQTT 브로커 연결 실패" << std::endl;
+        }
+        
+        // IR 수신 시작
+        if (ir_receiver->startReceiving()) {
+            std::cout << "IR 수신 시작됨 - GPIO " << ir_gpio_pin << std::endl;
+        } else {
+            std::cerr << "IR 수신 시작 실패" << std::endl;
             return 1;
         }
-
-        // Subscribe to command topic (you can customize this)
-        mqttClient->subscribe("irremote/commands");
         
-        // Start MQTT loop in a separate thread
-        std::thread mqttThread([&mqttClient]() {
-            while (running) {
-                mqttClient->loop(100);
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::cout << "시스템이 정상적으로 시작되었습니다." << std::endl;
+        std::cout << "IR 센서에서 리모컨 신호를 기다리는 중..." << std::endl;
+        std::cout << "종료하려면 Ctrl+C를 누르세요." << std::endl;
+        
+        // 메인 루프
+        while (running) {
+            // MQTT 메시지 처리
+            if (mqtt_client && mqtt_client->isConnected()) {
+                mqtt_client->loop();
             }
-        });
-        mqttThread.detach();
+            
+            // 상태 출력 (10초마다)
+            static auto last_status_time = std::chrono::steady_clock::now();
+            auto now = std::chrono::steady_clock::now();
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - last_status_time).count() >= 10) {
+                std::cout << "시스템 상태: IR 수신 중..." << std::endl;
+                last_status_time = now;
+            }
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        
+    } catch (const std::exception& e) {
+        std::cerr << "오류 발생: " << e.what() << std::endl;
+        return 1;
     }
-
-    // Create and start web server
-    webServer = std::make_unique<WebServer>(remoteManager, config);
     
-    std::cout << "Starting IR Remote Control Server for Raspberry Pi 4" << std::endl;
-    std::cout << "Web UI will be available at: http://localhost:" << config->getWebUIPort() << std::endl;
-    if (!mqttBroker.empty()) {
-        std::cout << "MQTT connected to: " << mqttBroker << ":" << mqttPort << std::endl;
-    }
-
-    // Start web server in a separate thread
-    std::thread webThread([&webServer, &config]() {
-        webServer->run(config->getWebUIPort());
-    });
-
-    // Wait for shutdown signal
-    while (running) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-
-    std::cout << "Shutting down..." << std::endl;
+    // 정리 작업
+    std::cout << "시스템을 종료합니다..." << std::endl;
     
-    // Cleanup
-    if (mqttClient) {
-        mqttClient->disconnect();
+    if (ir_receiver) {
+        ir_receiver->stopReceiving();
+        delete ir_receiver;
     }
-
+    
+    if (mqtt_client) {
+        mqtt_client->disconnect();
+        delete mqtt_client;
+    }
+    
+    if (appliance_controller) {
+        delete appliance_controller;
+    }
+    
+    std::cout << "시스템이 정상적으로 종료되었습니다." << std::endl;
     return 0;
 }
