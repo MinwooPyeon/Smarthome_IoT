@@ -1,0 +1,52 @@
+{
+    "ir_receiver": {
+        "gpio_pin": 23,
+        "protocol": "NEC",
+        "timeout_ms": 1000,
+        "debug_mode": true
+    },
+    "mqtt": {
+        "broker": "localhost",
+        "port": 1883,
+        "client_id": "ir_receiver_hub",
+        "username": "",
+        "password": "",
+        "keepalive": 60,
+        "clean_session": true
+    },
+    "appliances": {
+        "samsung_tv": {
+            "type": "TV",
+            "gpio_pin": 24,
+            "enabled": true
+        },
+        "samsung_ac": {
+            "type": "AIR_CONDITIONER",
+            "gpio_pin": 25,
+            "enabled": true
+        },
+        "samsung_purifier": {
+            "type": "AIR_PURIFIER",
+            "gpio_pin": 26,
+            "enabled": true
+        },
+        "general_projector": {
+            "type": "PROJECTOR",
+            "gpio_pin": 27,
+            "enabled": true
+        }
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "logs/ir_receiver.log",
+        "max_size_mb": 10,
+        "max_files": 5
+    },
+    "system": {
+        "device_id": "ir_receiver_hub_01",
+        "location": "living_room",
+        "auto_start": true,
+        "watchdog_enabled": true,
+        "watchdog_timeout_sec": 30
+    }
+}
