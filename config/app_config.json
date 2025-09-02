@@ -1,40 +1,52 @@
 {
-  "app": {
-    "name": "RPI IR Remote Control",
-    "version": "2.0.0",
-    "description": "제어신호-IR신호 매핑 기반 IR 원격 제어 시스템"
-  },
-  "mqtt": {
-    "broker": "localhost",
-    "port": 1883,
-    "client_id": "hub-rpi-01",
-    "username": "",
-    "password": "",
-    "topics": {
-      "order": "hub/{deviceId}/order",
-      "response": "hub/{deviceId}/order/ack",
-      "ir_signal": "hub/{deviceId}/irsignal",
-      "status": "hub/{deviceId}/status"
+    "ir_receiver": {
+        "gpio_pin": 23,
+        "protocol": "NEC",
+        "timeout_ms": 1000,
+        "debug_mode": true
     },
-    "qos": 1,
-    "keepalive": 60
-  },
-  "ir": {
-    "device": "/dev/lirc0",
-    "timeout_ms": 5000,
-    "retry_count": 3,
-    "default_delay_ms": 100,
-    "debug_mode": false
-  },
-  "storage": {
-    "control_mappings_file": "config/control_mappings.json",
-    "auto_save": true,
-    "backup_count": 5
-  },
-  "logging": {
-    "level": "INFO",
-    "file": "logs/ir_remote.log",
-    "max_size_mb": 10,
-    "max_files": 5
-  }
+    "mqtt": {
+        "broker": "localhost",
+        "port": 1883,
+        "client_id": "ir_receiver_hub",
+        "username": "",
+        "password": "",
+        "keepalive": 60,
+        "clean_session": true
+    },
+    "appliances": {
+        "samsung_tv": {
+            "type": "TV",
+            "gpio_pin": 24,
+            "enabled": true
+        },
+        "samsung_ac": {
+            "type": "AIR_CONDITIONER",
+            "gpio_pin": 25,
+            "enabled": true
+        },
+        "samsung_purifier": {
+            "type": "AIR_PURIFIER",
+            "gpio_pin": 26,
+            "enabled": true
+        },
+        "general_projector": {
+            "type": "PROJECTOR",
+            "gpio_pin": 27,
+            "enabled": true
+        }
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "logs/ir_receiver.log",
+        "max_size_mb": 10,
+        "max_files": 5
+    },
+    "system": {
+        "device_id": "ir_receiver_hub_01",
+        "location": "living_room",
+        "auto_start": true,
+        "watchdog_enabled": true,
+        "watchdog_timeout_sec": 30
+    }
 }
