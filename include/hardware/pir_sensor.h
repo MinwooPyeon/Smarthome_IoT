@@ -2,38 +2,30 @@
 
 #include <string>
 #include <functional>
+#include <memory>
 #include <thread>
 #include <atomic>
-#include <chrono>
 
 namespace irremote {
 
 /**
- * @brief PIR 센서 상태 열거형
- */
-enum class PIRSensorState {
-    NO_MOTION,    ///< 움직임 없음
-    MOTION_DETECTED, ///< 움직임 감지됨
-    ERROR         ///< 오류 상태
-};
-
-/**
- * @brief PIR 센서 콜백 함수 타입
- */
-using PIRMotionCallback = std::function<void(bool motion_detected)>;
-
-/**
- * @brief PIR 센서 클래스
+ * @brief PIR 센서를 IR 수신 센서로 사용하는 클래스
  * 
- * 움직임 감지를 담당하며, 감지 시 콜백을 호출합니다.
+ * PIR 센서의 모션 감지 신호를 IR 신호 수신으로 해석합니다.
  */
 class PIRSensor {
 public:
     /**
-     * @brief 생성자
-     * @param gpio_pin PIR 센서가 연결된 GPIO 핀 번호
+     * @brief IR 신호 수신 콜백 함수 타입
      */
-    explicit PIRSensor(int gpio_pin = 17);
+    using IRSignalCallback = std::function<void(const std::string&, int)>;
+
+    /**
+     * @brief 센서 상태 콜백 함수 타입
+     */
+    using StatusCallback = std::function<void(bool, const std::string&)>;
+
+    PIRSensor();
     ~PIRSensor();
 
     // 복사 생성자 및 할당 연산자 (삭제)
@@ -46,116 +38,110 @@ public:
 
     /**
      * @brief PIR 센서 초기화
+     * @param gpio_pin GPIO 핀 번호
+     * @param sensitivity 감도 설정 (0.0 ~ 1.0)
      * @return 초기화 성공 여부
      */
-    bool initialize();
+    bool initialize(int gpio_pin, float sensitivity = 0.5);
 
     /**
-     * @brief PIR 센서 해제
+     * @brief 센서 해제
      */
     void cleanup();
 
     /**
-     * @brief 움직임 감지 시작
-     * @param callback 움직임 감지 시 호출될 콜백 함수
-     * @return 시작 성공 여부
+     * @brief IR 신호 수신 콜백 설정
+     * @param callback 콜백 함수
      */
-    bool startDetection(PIRMotionCallback callback = nullptr);
+    void setIRSignalCallback(IRSignalCallback callback) { ir_signal_callback_ = callback; }
 
     /**
-     * @brief 움직임 감지 중지
+     * @brief 센서 상태 콜백 설정
+     * @param callback 콜백 함수
      */
-    void stopDetection();
+    void setStatusCallback(StatusCallback callback) { status_callback_ = callback; }
 
     /**
-     * @brief 현재 움직임 감지 상태 확인
-     * @return 움직임 감지 여부
+     * @brief 센서 활성화
      */
-    bool isMotionDetected() const;
+    void enable();
 
     /**
-     * @brief 현재 센서 상태 가져오기
-     * @return 센서 상태
+     * @brief 센서 비활성화
      */
-    PIRSensorState getState() const;
+    void disable();
 
     /**
-     * @brief 움직임 감지 임계값 설정
-     * @param threshold_ms 움직임 감지 후 대기 시간 (밀리초)
+     * @brief 센서 상태 확인
+     * @return 활성화 상태
      */
-    void setDetectionThreshold(int threshold_ms);
+    bool isEnabled() const { return enabled_; }
 
     /**
-     * @brief 센서 감도 설정
-     * @param sensitivity 감도 (1-10, 높을수록 민감)
+     * @brief 마지막 감지된 IR 신호 정보 가져오기
+     * @return IR 신호 데이터
      */
-    void setSensitivity(int sensitivity);
+    std::string getLastIRSignal() const { return last_ir_signal_; }
 
     /**
-     * @brief 센서 정보 가져오기
-     * @return 센서 정보 JSON
+     * @brief 감지된 IR 신호 개수 가져오기
+     * @return 감지된 신호 개수
      */
-    std::string getSensorInfo() const;
+    int getDetectedCount() const { return detected_count_; }
 
     /**
-     * @brief 센서 통계 가져오기
-     * @return 통계 정보 JSON
+     * @brief 감도 설정
+     * @param sensitivity 감도 (0.0 ~ 1.0)
      */
-    std::string getStatistics() const;
+    void setSensitivity(float sensitivity);
 
     /**
-     * @brief 통계 초기화
+     * @brief 현재 감도 가져오기
+     * @return 현재 감도
      */
-    void resetStatistics();
-
-    /**
-     * @brief 마지막 오류 메시지 가져오기
-     * @return 오류 메시지
-     */
-    std::string getLastError() const { return last_error_; }
-
-    /**
-     * @brief 센서 테스트
-     * @return 테스트 성공 여부
-     */
-    bool testSensor();
+    float getSensitivity() const { return sensitivity_; }
 
 private:
-    // 내부 메서드들
-    void detectionLoop();
-    bool setupGPIO();
-    void cleanupGPIO();
-    bool readGPIO() const;
-    void setLastError(const std::string& error) const;
-    void updateStatistics(bool motion_detected);
+    /**
+     * @brief 센서 모니터링 스레드
+     */
+    void monitoringThread();
+
+    /**
+     * @brief IR 신호 패턴 분석
+     * @param signal_data 원시 신호 데이터
+     * @return 분석된 IR 신호
+     */
+    std::string analyzeIRPattern(const std::vector<int>& signal_data);
+
+    /**
+     * @brief 신호 노이즈 필터링
+     * @param signal_data 원시 신호 데이터
+     * @return 필터링된 신호 데이터
+     */
+    std::vector<int> filterNoise(const std::vector<int>& signal_data);
 
     // 멤버 변수들
     int gpio_pin_;
-    bool initialized_;
+    float sensitivity_;
+    std::atomic<bool> enabled_;
     std::atomic<bool> running_;
-    std::atomic<bool> motion_detected_;
-    PIRSensorState state_;
-    PIRMotionCallback motion_callback_;
     
-    // 설정
-    int detection_threshold_ms_;
-    int sensitivity_;
+    // 콜백 함수들
+    IRSignalCallback ir_signal_callback_;
+    StatusCallback status_callback_;
     
-    // 스레드
-    std::thread detection_thread_;
+    // 모니터링 스레드
+    std::unique_ptr<std::thread> monitoring_thread_;
     
-    // 통계
-    struct Statistics {
-        uint64_t total_detections;
-        uint64_t false_positives;
-        double average_detection_time;
-        std::chrono::steady_clock::time_point last_detection;
-        
-        Statistics() : total_detections(0), false_positives(0), 
-                      average_detection_time(0.0) {}
-    } stats_;
+    // 센서 데이터
+    std::string last_ir_signal_;
+    std::atomic<int> detected_count_;
     
-    mutable std::string last_error_;
+    // 신호 처리 관련
+    std::vector<int> signal_buffer_;
+    int signal_threshold_;
+    int debounce_time_ms_;
 };
 
 } // namespace irremote

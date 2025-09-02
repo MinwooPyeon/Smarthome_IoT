@@ -1,0 +1,237 @@
+{
+  "에어컨_전원": {
+    "ir_signal": "0xE0E040BF",
+    "description": "삼성 에어컨 전원 켜기/끄기",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_16도": {
+    "ir_signal": "0xE0E020DF",
+    "description": "삼성 에어컨 온도 16도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_17도": {
+    "ir_signal": "0xE0E0A05F",
+    "description": "삼성 에어컨 온도 17도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_18도": {
+    "ir_signal": "0xE0E0609F",
+    "description": "삼성 에어컨 온도 18도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_19도": {
+    "ir_signal": "0xE0E010EF",
+    "description": "삼성 에어컨 온도 19도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_20도": {
+    "ir_signal": "0xE0E0906F",
+    "description": "삼성 에어컨 온도 20도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_21도": {
+    "ir_signal": "0xE0E050AF",
+    "description": "삼성 에어컨 온도 21도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_22도": {
+    "ir_signal": "0xE0E0D02F",
+    "description": "삼성 에어컨 온도 22도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_23도": {
+    "ir_signal": "0xE0E030CF",
+    "description": "삼성 에어컨 온도 23도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_24도": {
+    "ir_signal": "0xE0E0B04F",
+    "description": "삼성 에어컨 온도 24도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_25도": {
+    "ir_signal": "0xE0E0708F",
+    "description": "삼성 에어컨 온도 25도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_26도": {
+    "ir_signal": "0xE0E000FF",
+    "description": "삼성 에어컨 온도 26도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_27도": {
+    "ir_signal": "0xE0E0807F",
+    "description": "삼성 에어컨 온도 27도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_28도": {
+    "ir_signal": "0xE0E040BF",
+    "description": "삼성 에어컨 온도 28도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_29도": {
+    "ir_signal": "0xE0E0C03F",
+    "description": "삼성 에어컨 온도 29도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_온도_30도": {
+    "ir_signal": "0xE0E020DF",
+    "description": "삼성 에어컨 온도 30도 설정",
+    "device_type": "aircon"
+  },
+  "에어컨_냉방모드": {
+    "ir_signal": "0xE0E0C03F",
+    "description": "삼성 에어컨 냉방 모드",
+    "device_type": "aircon"
+  },
+  "에어컨_난방모드": {
+    "ir_signal": "0xE0E0D02F",
+    "description": "삼성 에어컨 난방 모드",
+    "device_type": "aircon"
+  },
+  "에어컨_자동모드": {
+    "ir_signal": "0xE0E0E01F",
+    "description": "삼성 에어컨 자동 모드",
+    "device_type": "aircon"
+  },
+  "에어컨_팬_자동": {
+    "ir_signal": "0xE0E0F00F",
+    "description": "삼성 에어컨 팬 자동 모드",
+    "device_type": "aircon"
+  },
+  "에어컨_팬_강": {
+    "ir_signal": "0xE0E0F10E",
+    "description": "삼성 에어컨 팬 강 모드",
+    "device_type": "aircon"
+  },
+  "에어컨_팬_중": {
+    "ir_signal": "0xE0E0F20D",
+    "description": "삼성 에어컨 팬 중 모드",
+    "device_type": "aircon"
+  },
+  "에어컨_팬_약": {
+    "ir_signal": "0xE0E0F30C",
+    "description": "삼성 에어컨 팬 약 모드",
+    "device_type": "aircon"
+  },
+  "에어컨_스윙_켜기": {
+    "ir_signal": "0xE0E0F40B",
+    "description": "삼성 에어컨 스윙 켜기",
+    "device_type": "aircon"
+  },
+  "에어컨_스윙_끄기": {
+    "ir_signal": "0xE0E0F50A",
+    "description": "삼성 에어컨 스윙 끄기",
+    "device_type": "aircon"
+  },
+  "에어컨_쾌적모드": {
+    "ir_signal": "0xE0E0F60F",
+    "description": "삼성 에어컨 쾌적 모드",
+    "device_type": "aircon"
+  },
+  "에어컨_야간모드": {
+    "ir_signal": "0xE0E0F70E",
+    "description": "삼성 에어컨 야간 모드",
+    "device_type": "aircon"
+  },
+  "TV_전원": {
+    "ir_signal": "0xE0E040BF",
+    "description": "삼성 TV 전원 켜기/끄기",
+    "device_type": "tv"
+  },
+  "TV_소스_HDMI1": {
+    "ir_signal": "0xE0E0C03F",
+    "description": "삼성 TV HDMI1 소스 선택",
+    "device_type": "tv"
+  },
+  "TV_소스_HDMI2": {
+    "ir_signal": "0xE0E0D02F",
+    "description": "삼성 TV HDMI2 소스 선택",
+    "device_type": "tv"
+  },
+  "TV_소스_AV": {
+    "ir_signal": "0xE0E0E01F",
+    "description": "삼성 TV AV 소스 선택",
+    "device_type": "tv"
+  },
+  "TV_볼륨_올리기": {
+    "ir_signal": "0xE0E0F00F",
+    "description": "삼성 TV 볼륨 올리기",
+    "device_type": "tv"
+  },
+  "TV_볼륨_내리기": {
+    "ir_signal": "0xE0E0F10E",
+    "description": "삼성 TV 볼륨 내리기",
+    "device_type": "tv"
+  },
+  "TV_채널_올리기": {
+    "ir_signal": "0xE0E0F20D",
+    "description": "삼성 TV 채널 올리기",
+    "device_type": "tv"
+  },
+  "TV_채널_내리기": {
+    "ir_signal": "0xE0E0F30C",
+    "description": "삼성 TV 채널 내리기",
+    "device_type": "tv"
+  },
+  "TV_음소거": {
+    "ir_signal": "0xE0E0F40B",
+    "description": "삼성 TV 음소거",
+    "device_type": "tv"
+  },
+  "TV_메뉴": {
+    "ir_signal": "0xE0E0F50A",
+    "description": "삼성 TV 메뉴",
+    "device_type": "tv"
+  },
+  "TV_종료": {
+    "ir_signal": "0xE0E0F60F",
+    "description": "삼성 TV 메뉴 종료",
+    "device_type": "tv"
+  },
+  "TV_확인": {
+    "ir_signal": "0xE0E0F70E",
+    "description": "삼성 TV 메뉴 확인",
+    "device_type": "tv"
+  },
+  "공기청정기_전원": {
+    "ir_signal": "0xE0E040BF",
+    "description": "삼성 공기청정기 전원 켜기/끄기",
+    "device_type": "airpurifier"
+  },
+  "공기청정기_자동모드": {
+    "ir_signal": "0xE0E0C03F",
+    "description": "삼성 공기청정기 자동 모드",
+    "device_type": "airpurifier"
+  },
+  "공기청정기_터보모드": {
+    "ir_signal": "0xE0E0D02F",
+    "description": "삼성 공기청정기 터보 모드",
+    "device_type": "airpurifier"
+  },
+  "공기청정기_야간모드": {
+    "ir_signal": "0xE0E0E01F",
+    "description": "삼성 공기청정기 야간 모드",
+    "device_type": "airpurifier"
+  },
+  "프로젝터_전원": {
+    "ir_signal": "0x20DF10EF",
+    "description": "일반 프로젝터 전원 켜기/끄기",
+    "device_type": "projector"
+  },
+  "프로젝터_소스_HDMI": {
+    "ir_signal": "0x20DF14EB",
+    "description": "일반 프로젝터 HDMI 소스 선택",
+    "device_type": "projector"
+  },
+  "프로젝터_소스_VGA": {
+    "ir_signal": "0x20DF02FD",
+    "description": "일반 프로젝터 VGA 소스 선택",
+    "device_type": "projector"
+  },
+  "프로젝터_소스_AV": {
+    "ir_signal": "0x20DF827D",
+    "description": "일반 프로젝터 AV 소스 선택",
+    "device_type": "projector"
+  }
+}

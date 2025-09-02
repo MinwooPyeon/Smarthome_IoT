@@ -1,0 +1,40 @@
+{
+  "app": {
+    "name": "RPI IR Remote Control",
+    "version": "2.0.0",
+    "description": "제어신호-IR신호 매핑 기반 IR 원격 제어 시스템"
+  },
+  "mqtt": {
+    "broker": "localhost",
+    "port": 1883,
+    "client_id": "hub-rpi-01",
+    "username": "",
+    "password": "",
+    "topics": {
+      "order": "hub/{deviceId}/order",
+      "response": "hub/{deviceId}/order/ack",
+      "ir_signal": "hub/{deviceId}/irsignal",
+      "status": "hub/{deviceId}/status"
+    },
+    "qos": 1,
+    "keepalive": 60
+  },
+  "ir": {
+    "device": "/dev/lirc0",
+    "timeout_ms": 5000,
+    "retry_count": 3,
+    "default_delay_ms": 100,
+    "debug_mode": false
+  },
+  "storage": {
+    "control_mappings_file": "config/control_mappings.json",
+    "auto_save": true,
+    "backup_count": 5
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/ir_remote.log",
+    "max_size_mb": 10,
+    "max_files": 5
+  }
+}

@@ -1,14 +1,14 @@
 # /lib/systemd/system/irremote.service
 # sudo systemctl enable irremote.service
 [Unit]
-Description=IR Remote Control Server for Raspberry Pi 4
+Description=IR Remote Sender Service for Raspberry Pi
 After=network.target
 
 [Service]
 Type=simple
 User=pi
 WorkingDirectory=/home/pi
-ExecStart=/usr/local/bin/irremote_server -c /home/pi/.config/irremote/irremote.conf.json /home/pi/remotes/cambridge_cxa.json
+ExecStart=/usr/local/bin/irremote_sender -m 192.168.1.100 -t home/ir/commands /home/pi/remotes/cambridge_cxa.json
 Restart=always
 RestartSec=10
 StandardOutput=journal
