@@ -2,7 +2,6 @@
 #include <vector>
 #include <cstdint>
 #include <string>
-#include <functional>
 #include <optional>
 #include <chrono>
 

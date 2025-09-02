@@ -1,52 +1,82 @@
-// File: header/mqtt/mqttPublisher.hpp
 #pragma once
-
-#include <string>
+#include "mqttUtil.hpp"
+#include "tsQueue.hpp"
 #include <atomic>
-#include <nlohmann/json.hpp>
-#include <mosquittopp.h>   // C++ wrapper
+#include <chrono>
+#include <functional>
+#include <map>
+#include <mutex>
+#include <thread>
 
-using json = nlohmann::json;
+struct mosquitto; // 전방선언
 
-/**
- * Mosquitto(libmosquittopp) 기반 간단 퍼블리셔
- * - LWT(offline/online)
- * - loop_start() 내부스레드 사용
- * - 자동 재연결 딜레이 설정
- */
-class MqttPublisher : public mosqpp::mosquittopp {
+namespace mqtt {
+
+class MqttPublisher {
 public:
-    MqttPublisher(const std::string& host,
-                  int                port,
-                  const std::string& clientId,
-                  const std::string& topicBase,
-                  int qos = 1,
-                  bool retained = false,
-                  int keepalive = 60);
+    using Clock = std::chrono::steady_clock;
+
+    explicit MqttPublisher(MqttConfig cfg);
     ~MqttPublisher();
 
-    // 브로커 연결 시작(비동기). 내부적으로 loop_start() 실행
-    void connect();
+    void start();                   // 내부 워커 시작
+    void stop();                    // 정지/해제
+    void publish(PubMsg msg);       // 송신큐 적재
+    ConnState state() const { return state_.load(); }
 
-    // JSON payload 발행
-    void publish(const json& j);
-
-    // 정상 종료
-    void disconnect();
-
-protected:
-    // mosquittopp 콜백
-    void on_connect(int rc) override;
-    void on_disconnect(int rc) override;
-    void on_publish(int mid) override;
+    // (선택) 이벤트 콜백
+    void set_on_connect(std::function<void()> cb) { on_connect_ = std::move(cb); }
+    void set_on_disconnect(std::function<void(int)> cb) { on_disconnect_ = std::move(cb); }
+    void set_on_puback(std::function<void(int)> cb) { on_puback_ = std::move(cb); }
+    void set_on_error(std::function<void(const std::string&)> cb) { on_error_ = std::move(cb); }
 
 private:
-    std::string host_;
-    int         port_;
-    std::string topicBase_;
-    int         qos_;
-    bool        retained_;
-    int         keepalive_;
+    // mosquitto 콜백 → 정적 함수
+    static void handle_connect(struct mosquitto*, void* obj, int rc);
+    static void handle_disconnect(struct mosquitto*, void* obj, int rc);
+    static void handle_publish(struct mosquitto*, void* obj, int mid);
 
-    std::atomic<bool> connected_{false};
+    // 내부 동작
+    void run_loop();
+    bool try_connect();
+    void do_disconnect();
+
+    // QoS 보류/완료/재전송
+    struct Pending {
+        PubMsg msg;
+        int mid = 0;
+        Clock::time_point t0;
+        int attempts = 0;
+    };
+    void track_pending(int mid, const PubMsg& msg);
+    void complete_pending(int mid);
+    void retry_timeouts();
+
+private:
+    MqttConfig cfg_;
+    std::atomic<ConnState> state_{ConnState::DISCONNECTED};
+
+    mosquitto* mosq_{nullptr};
+
+    TSQueue<PubMsg> outbox_;
+
+    std::thread th_;
+    std::atomic<bool> run_{false};
+
+    // 타이밍
+    Clock::time_point last_ping_{};
+    Clock::time_point last_conn_attempt_{};
+    std::chrono::milliseconds backoff_current_{};
+
+    // 대기중 mid -> Pending
+    std::mutex pend_m_;
+    std::map<int, Pending> pending_;
+
+    // 콜백
+    std::function<void()> on_connect_;
+    std::function<void(int)> on_disconnect_;
+    std::function<void(int)> on_puback_;
+    std::function<void(const std::string&)> on_error_;
 };
+
+} // namespace mqttpub
