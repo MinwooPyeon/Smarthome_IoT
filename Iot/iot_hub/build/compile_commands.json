@@ -1,0 +1,22 @@
+[
+{
+  "directory": "/home/yeochi1201/IoTHub_ws/build",
+  "command": "/usr/bin/c++ -DJSON_DIAGNOSTICS=0 -DJSON_USE_IMPLICIT_CONVERSIONS=1 -I/home/yeochi1201/IoTHub_ws/header -Wall -Wextra -Wpedantic -std=gnu++17 -o CMakeFiles/demo_pub.dir/src/mqtt/pub_main.cpp.o -c /home/yeochi1201/IoTHub_ws/src/mqtt/pub_main.cpp",
+  "file": "/home/yeochi1201/IoTHub_ws/src/mqtt/pub_main.cpp"
+},
+{
+  "directory": "/home/yeochi1201/IoTHub_ws/build",
+  "command": "/usr/bin/c++ -DJSON_DIAGNOSTICS=0 -DJSON_USE_IMPLICIT_CONVERSIONS=1 -I/home/yeochi1201/IoTHub_ws/header -Wall -Wextra -Wpedantic -std=gnu++17 -o CMakeFiles/demo_pub.dir/src/mqtt/mqttPublisher.cpp.o -c /home/yeochi1201/IoTHub_ws/src/mqtt/mqttPublisher.cpp",
+  "file": "/home/yeochi1201/IoTHub_ws/src/mqtt/mqttPublisher.cpp"
+},
+{
+  "directory": "/home/yeochi1201/IoTHub_ws/build",
+  "command": "/usr/bin/c++ -DJSON_DIAGNOSTICS=0 -DJSON_USE_IMPLICIT_CONVERSIONS=1 -I/home/yeochi1201/IoTHub_ws/header -std=gnu++17 -o CMakeFiles/demo_sub.dir/src/mqtt/sub_main.cpp.o -c /home/yeochi1201/IoTHub_ws/src/mqtt/sub_main.cpp",
+  "file": "/home/yeochi1201/IoTHub_ws/src/mqtt/sub_main.cpp"
+},
+{
+  "directory": "/home/yeochi1201/IoTHub_ws/build",
+  "command": "/usr/bin/c++ -DJSON_DIAGNOSTICS=0 -DJSON_USE_IMPLICIT_CONVERSIONS=1 -I/home/yeochi1201/IoTHub_ws/header -std=gnu++17 -o CMakeFiles/demo_sub.dir/src/mqtt/mqttSubscriber.cpp.o -c /home/yeochi1201/IoTHub_ws/src/mqtt/mqttSubscriber.cpp",
+  "file": "/home/yeochi1201/IoTHub_ws/src/mqtt/mqttSubscriber.cpp"
+}
+]

@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/test_sub.dir/src/mqtt/test_sub.cpp.o -o test_sub  libmqtt_sub.a /usr/lib/x86_64-linux-gnu/libmosquitto.so 

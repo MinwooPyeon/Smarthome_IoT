@@ -1,68 +1,30 @@
 cmake_minimum_required(VERSION 3.16)
-project(IoTHub LANGUAGES CXX)
+project(rpi_mqtt_sub LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# nlohmann/json (header-only)
-find_package(nlohmann_json CONFIG REQUIRED)
-
-# Mosquitto (C & C++). 보통 pkg-config 이름은 libmosquitto / libmosquittopp
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(MOSQ   REQUIRED libmosquitto)
-pkg_check_modules(MOSQPP REQUIRED libmosquittopp)
-
-# --- publisher executable ---
-add_executable(demo_pub
-    src/mqtt/pub_main.cpp
-    src/mqtt/mqttPublisher.cpp
-)
-
-target_include_directories(demo_pub
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/header
-        ${MOSQ_INCLUDE_DIRS}
-        ${MOSQPP_INCLUDE_DIRS}
-)
-target_link_directories(demo_pub
-    PRIVATE
-        ${MOSQ_LIBRARY_DIRS}
-        ${MOSQPP_LIBRARY_DIRS}
-)
-
-target_link_libraries(demo_pub
-    PRIVATE
-        ${MOSQPP_LIBRARIES}   # mosquittopp
-        ${MOSQ_LIBRARIES}     # mosquitto
-        nlohmann_json::nlohmann_json
-)
-
-# --- subscriber executable ---
-add_executable(demo_sub
-    src/mqtt/sub_main.cpp
-    src/mqtt/mqttSubscriber.cpp
-)
-
-target_include_directories(demo_sub
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/header
-        ${MOSQ_INCLUDE_DIRS}
-        ${MOSQPP_INCLUDE_DIRS}
-)
-target_link_directories(demo_sub
-    PRIVATE
-        ${MOSQ_LIBRARY_DIRS}
-        ${MOSQPP_LIBRARY_DIRS}
-)
-
-target_link_libraries(demo_sub
-    PRIVATE
-        ${MOSQPP_LIBRARIES}
-        ${MOSQ_LIBRARIES}
-        nlohmann_json::nlohmann_json
-)
-
-if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(demo_pub PRIVATE -Wall -Wextra -Wpedantic)
+# libmosquitto (라즈베리파이: sudo apt install -y libmosquitto-dev)
+find_path(MOSQ_INCLUDE_DIR mosquitto.h)
+find_library(MOSQ_LIB mosquitto)
+if (NOT MOSQ_INCLUDE_DIR OR NOT MOSQ_LIB)
+  message(FATAL_ERROR "libmosquitto not found. Install libmosqutto-dev")
 endif()
+
+add_library(mqtt_sub
+  src/mqtt/mqttSubscriber.cpp
+)
+target_include_directories(mqtt_sub PUBLIC header ${MOSQ_INCLUDE_DIR})
+target_link_libraries(mqtt_sub PRIVATE ${MOSQ_LIB})
+
+add_executable(test_sub src/mqtt/test_sub.cpp)
+target_link_libraries(test_sub PRIVATE mqtt_sub)
+
+add_library(mqtt_pub
+  src/mqtt/mqttPublisher.cpp
+)
+target_include_directories(mqtt_pub PUBLIC header ${MOSQ_INCLUDE_DIR})
+target_link_libraries(mqtt_pub PRIVATE ${MOSQ_LIB})
+
+add_executable(test_pub src/mqtt/test_pub.cpp)
+target_link_libraries(test_pub PRIVATE mqtt_pub)

@@ -1,51 +1,90 @@
-// File: header/mqtt/mqttSubscriber.hpp
 #pragma once
-
-#include <string>
-#include <vector>
+#include "util/mqttUtil.hpp"
+#include "util/tsQueue.hpp"
 #include <atomic>
-#include <nlohmann/json.hpp>
-#include <mosquittopp.h>
+#include <chrono>
+#include <functional>
+#include <map>
+#include <mutex>
+#include <thread>
+#include <vector>
 
-using json = nlohmann::json;
+struct mosquitto; // forward
+struct mosquitto_message;
 
-/**
- * Mosquitto(libmosquittopp) 기반 Subscriber
- * - loop_start() 내부 스레드 사용
- * - 자동 재연결 (지수 백오프)
- * - on_connect()에서 재구독
- * - 메시지(JSON) 파싱 예시 포함
- */
-class MqttSubscriber : public mosqpp::mosquittopp {
+namespace mqtt {
+
+class mqttSubscriber {
 public:
-    MqttSubscriber(const std::string& host,
-                   int                port,
-                   const std::string& clientId,
-                   const std::vector<std::string>& topics,
-                   int qos = 1,
-                   int keepalive = 60);
+    using Clock = std::chrono::steady_clock;
 
-    ~MqttSubscriber();
+    explicit mqttSubscriber(mqttConfig cfg);
+    ~mqttSubscriber();
 
-    // 비동기 연결 시작(내부 스레드 run)
-    void connect();
-    // 정상 종료
-    void disconnect();
+    // 수명주기
+    void start();
+    void stop();
 
-protected:
-    // 콜백
-    void on_connect(int rc) override;
-    void on_disconnect(int rc) override;
-    void on_subscribe(int mid, int qos_count, const int* granted_qos) override;
-    void on_message(const mosquitto_message* message) override;
+    // 구독 목록 설정 (연결 시/재연결 시 자동 구독)
+    void set_topics(const std::vector<subSpec>& topics);
+
+    // 수신 메시지 큐를 외부에서 소비
+    bool try_pop(inMsg& out, std::chrono::milliseconds wait = std::chrono::milliseconds(5));
+
+    connState state() const { return state_.load(); }
+
+    // (선택) 이벤트 콜백
+    void set_on_connect(std::function<void()> cb) { on_connect_ = std::move(cb); }
+    void set_on_disconnect(std::function<void(int)> cb) { on_disconnect_ = std::move(cb); }
+    void set_on_error(std::function<void(const std::string&)> cb) { on_error_ = std::move(cb); }
+
+    // 라우팅: MQTT 와일드카드(+/#) 패턴과 핸들러 등록
+    using RouteHandler = std::function<void(const inMsg&)>;
+    void add_route(const std::string& filter, RouteHandler h);
 
 private:
-    std::string host_;
-    int         port_;
-    int         keepalive_;
-    int         qos_;
-    std::vector<std::string> topics_;
-    std::atomic<bool> connected_{false};
+    // mosquitto 콜백
+    static void handle_connect(struct mosquitto*, void* obj, int rc);
+    static void handle_disconnect(struct mosquitto*, void* obj, int rc);
+    static void handle_message(struct mosquitto*, void* obj, const struct mosquitto_message* msg);
 
-    void subscribe_all();
+    // 내부 동작
+    void run_loop();
+    bool try_connect();
+    void do_disconnect();
+    void resubscribe_all();
+
+    // 와일드카드 매칭
+    static bool topic_match(const std::string& filter, const std::string& topic);
+
+private:
+    mqttConfig cfg_;
+    std::atomic<connState> state_{connState::DISCONNECTED};
+
+    mosquitto* mosq_{nullptr};
+
+    // 구독 목록
+    std::mutex topics_m_;
+    std::vector<subSpec> topics_;
+
+    // 수신 큐(비즈니스 로직 처리용)
+    tsQueue<inMsg> inbox_;
+
+    // 루프/재연결
+    std::thread th_;
+    std::atomic<bool> run_{false};
+    Clock::time_point last_ping_{};
+    Clock::time_point last_conn_attempt_{};
+    std::chrono::milliseconds backoff_current_{};
+
+    // 라우팅
+    std::mutex routes_m_;
+    std::vector<std::pair<std::string, RouteHandler>> routes_;
+
+    // 콜백
+    std::function<void()> on_connect_;
+    std::function<void(int)> on_disconnect_;
+    std::function<void(const std::string&)> on_error_;
 };
+
+} // namespace mqtt

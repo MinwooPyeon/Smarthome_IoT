@@ -21,10 +21,22 @@ namespace mqtt{
         std::string error;
     };
 
-    struct MqttCOonfig{
+    struct subSpec {
+        std::string topic;
+        int qos = 1;
+    };
+
+    struct inMsg {
+        std::string topic;
+        std::vector<uint8_t> payload; // raw bytes
+        int  qos    = 0;
+        bool retain = false;
+    };
+
+    struct mqttConfig{
         std::string brokerAddr = "127.0.0.1";
         int port = 1883;
-        std::string clientId = "rpi-pub-001"
+        std::string clientId = "rpi-pub-001";
 
         std::optional<std::string> username;
         std::optional<std::string> password;
@@ -38,6 +50,7 @@ namespace mqtt{
         int lwtRetain = true;
 
         std::chrono::milliseconds backoffInit{1000};
+        int maxRetries{3};
         std::chrono::milliseconds backoffMax{32000};
 
         double pingFactor = 0.5;

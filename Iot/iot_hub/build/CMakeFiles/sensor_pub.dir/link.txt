@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/sensor_pub.dir/src/mqtt/pub_main.cpp.o CMakeFiles/sensor_pub.dir/src/mqtt/mqttPublisher.cpp.o -o sensor_pub  -lmosquittopp -lmosquitto 

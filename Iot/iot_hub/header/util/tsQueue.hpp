@@ -3,10 +3,11 @@
 #include <queue>
 #include <condition_variable>
 #include <chrono>
-#include "mqttUtil.hpp"
+#include "util/mqttUtil.hpp"
 
 namespace mqtt{
-    class TSQueue {
+    template <typename T>
+    class tsQueue {
 public:
     void push(T&& v) {
         {

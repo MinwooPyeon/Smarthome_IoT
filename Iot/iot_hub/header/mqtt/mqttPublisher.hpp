@@ -1,6 +1,6 @@
 #pragma once
-#include "mqttUtil.hpp"
-#include "tsQueue.hpp"
+#include "util/mqttUtil.hpp"
+#include "util/tsQueue.hpp"
 #include <atomic>
 #include <chrono>
 #include <functional>
@@ -12,17 +12,17 @@ struct mosquitto; // 전방선언
 
 namespace mqtt {
 
-class MqttPublisher {
+class mqttPublisher {
 public:
     using Clock = std::chrono::steady_clock;
 
-    explicit MqttPublisher(MqttConfig cfg);
-    ~MqttPublisher();
+    explicit mqttPublisher(mqttConfig cfg);
+    ~mqttPublisher();
 
     void start();                   // 내부 워커 시작
     void stop();                    // 정지/해제
-    void publish(PubMsg msg);       // 송신큐 적재
-    ConnState state() const { return state_.load(); }
+    void publish(pubMsg msg);       // 송신큐 적재
+    connState state() const { return state_.load(); }
 
     // (선택) 이벤트 콜백
     void set_on_connect(std::function<void()> cb) { on_connect_ = std::move(cb); }
@@ -43,22 +43,22 @@ private:
 
     // QoS 보류/완료/재전송
     struct Pending {
-        PubMsg msg;
+        pubMsg msg;
         int mid = 0;
         Clock::time_point t0;
         int attempts = 0;
     };
-    void track_pending(int mid, const PubMsg& msg);
+    void track_pending(int mid, const pubMsg& msg);
     void complete_pending(int mid);
     void retry_timeouts();
 
 private:
-    MqttConfig cfg_;
-    std::atomic<ConnState> state_{ConnState::DISCONNECTED};
+    mqttConfig cfg_;
+    std::atomic<connState> state_{connState::DISCONNECTED};
 
     mosquitto* mosq_{nullptr};
 
-    TSQueue<PubMsg> outbox_;
+    tsQueue<pubMsg> outbox_;
 
     std::thread th_;
     std::atomic<bool> run_{false};

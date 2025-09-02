@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/demo_sub.dir/src/mqtt/sub_main.cpp.o CMakeFiles/demo_sub.dir/src/mqtt/mqttSubscriber.cpp.o -o demo_sub  -lmosquittopp -lmosquitto 
