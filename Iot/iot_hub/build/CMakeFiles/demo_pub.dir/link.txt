@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/demo_pub.dir/src/mqtt/pub_main.cpp.o CMakeFiles/demo_pub.dir/src/mqtt/mqttPublisher.cpp.o -o demo_pub  -lmosquittopp -lmosquitto 

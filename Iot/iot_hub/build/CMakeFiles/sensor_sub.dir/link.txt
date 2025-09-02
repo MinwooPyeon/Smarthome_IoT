@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/sensor_sub.dir/src/mqtt/sub_main.cpp.o CMakeFiles/sensor_sub.dir/src/mqtt/mqttSubscriber.cpp.o -o sensor_sub  -lmosquittopp -lmosquitto 
