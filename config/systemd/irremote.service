@@ -1,0 +1,28 @@
+# /lib/systemd/system/irremote.service
+# sudo systemctl enable irremote.service
+[Unit]
+Description=IR Remote Control Server for Raspberry Pi 4
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi
+ExecStart=/usr/local/bin/irremote_server -c /home/pi/.config/irremote/irremote.conf.json /home/pi/remotes/cambridge_cxa.json
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables
+Environment=HOME=/home/pi
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/pi
+
+[Install]
+WantedBy=multi-user.target
