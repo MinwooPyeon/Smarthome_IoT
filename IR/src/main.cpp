@@ -7,7 +7,6 @@
 #include "hardware/ir_receiver.h"
 #include "hardware/appliance_controller.h"
 #include "network/matter_client.h"
-// MQTT 클라이언트는 비활성화됨
 #include "../external/nlohmann/json.hpp"
 
 using json = nlohmann::json;
@@ -16,7 +15,7 @@ using json = nlohmann::json;
 Config* config = nullptr;
 IRReceiver* ir_receiver = nullptr;
 ApplianceController* appliance_controller = nullptr;
-::MatterClient* matter_client = nullptr;
+MatterClient* matter_client = nullptr;
 
 // 시그널 핸들러
 void signalHandler(int signum) {
@@ -83,7 +82,7 @@ int main() {
         // MQTT 클라이언트는 비활성화됨
         
         // Matter 클라이언트 초기화
-        matter_client = new ::MatterClient(); // 동적 할당
+        matter_client = new MatterClient(); // 동적 할당
         matter_client->setDebugMode(true);
         
         if (matter_client->initialize("fabric_001", "node_001")) {
@@ -133,7 +132,7 @@ int main() {
             auto now = std::chrono::steady_clock::now();
             if (std::chrono::duration_cast<std::chrono::seconds>(now - last_matter_check).count() >= 30) {
                 if (matter_client && matter_client->isConnected()) {
-                    std::vector<::MatterDevice> devices = matter_client->discoverDevices(5000);
+                    std::vector<MatterDevice> devices = matter_client->discoverDevices(5000);
                     std::cout << "Matter 디바이스 검색 완료: " << devices.size() << "개 발견" << std::endl;
                     
                     // 디바이스 상태 업데이트
