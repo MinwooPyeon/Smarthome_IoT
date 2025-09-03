@@ -34,7 +34,6 @@ MatterClient::MatterClient(MatterClient&& other) noexcept
 
 MatterClient::~MatterClient()
 {
-    // Matter 네트워크 정리
     cleanupMatterNetwork();
 }
 
@@ -81,7 +80,6 @@ bool MatterClient::connect()
         std::cout << "Matter 네트워크에 연결 중..." << std::endl;
     }
     
-    // Windows에서는 시뮬레이션
     #ifdef _WIN32
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     network_connected_ = true;
@@ -91,8 +89,6 @@ bool MatterClient::connect()
     }
     return true;
     #else
-    // Linux에서는 실제 Matter 연결
-    // TODO: 실제 Matter 연결 구현
     network_connected_ = false;
     last_error_ = "Linux에서 Matter 연결 미구현";
     return false;
@@ -123,12 +119,10 @@ std::vector<MatterDevice> MatterClient::discoverDevices(int timeout_ms)
     std::vector<MatterDevice> devices;
     
     #ifdef _WIN32
-    // Windows 시뮬레이션: 가상 디바이스 생성
     if (debug_mode_) {
         std::cout << "Windows 시뮬레이션: 가상 Matter 디바이스 생성" << std::endl;
     }
     
-    // 에어컨 시뮬레이션
     MatterDevice ac_device;
     ac_device.device_id = "ac_001";
     ac_device.name = "Samsung Air Conditioner";
@@ -143,7 +137,6 @@ std::vector<MatterDevice> MatterClient::discoverDevices(int timeout_ms)
     ac_device.supported_commands = {"power_toggle", "mode_change", "temp_set", "fan_speed"};
     devices.push_back(ac_device);
     
-    // 공기청정기 시뮬레이션
     MatterDevice purifier_device;
     purifier_device.device_id = "purifier_001";
     purifier_device.name = "Samsung Air Purifier";
@@ -158,7 +151,6 @@ std::vector<MatterDevice> MatterClient::discoverDevices(int timeout_ms)
     purifier_device.supported_commands = {"power_toggle", "mode_change", "fan_speed"};
     devices.push_back(purifier_device);
     
-    // 선풍기 시뮬레이션
     MatterDevice fan_device;
     fan_device.device_id = "fan_001";
     fan_device.name = "Samsung Fan";
@@ -173,7 +165,6 @@ std::vector<MatterDevice> MatterClient::discoverDevices(int timeout_ms)
     fan_device.supported_commands = {"power_toggle", "speed_set", "oscillation_toggle"};
     devices.push_back(fan_device);
     
-    // 빔프로젝터 시뮬레이션
     MatterDevice projector_device;
     projector_device.device_id = "projector_001";
     projector_device.name = "Panasonic Projector";
@@ -189,8 +180,6 @@ std::vector<MatterDevice> MatterClient::discoverDevices(int timeout_ms)
     devices.push_back(projector_device);
     
     #else
-    // Linux: 실제 Matter 디바이스 검색
-    // TODO: 실제 Matter 디바이스 검색 구현
     if (debug_mode_) {
         std::cout << "Linux: 실제 Matter 디바이스 검색 (미구현)" << std::endl;
     }
@@ -209,7 +198,6 @@ bool MatterClient::addDevice(const MatterDevice& device)
         std::cout << "Matter 디바이스 추가: " << device.device_id << std::endl;
     }
     
-    // 디바이스 상태 초기화
     DeviceStatus status;
     status.device_id = device.device_id;
     status.online = device.online;
@@ -251,12 +239,10 @@ std::vector<MatterDevice> MatterClient::getDevices() const
     std::vector<MatterDevice> devices;
     
     for (const auto& pair : device_statuses_) {
-        // DeviceStatus에서 MatterDevice로 변환
         MatterDevice device;
         device.device_id = pair.first;
         device.online = pair.second.online;
         device.attributes = pair.second.attributes;
-        // 다른 필드들은 기본값으로 설정
         device.name = "Unknown";
         device.type = MatterDeviceType::UNKNOWN;
         device.manufacturer = "Unknown";
@@ -280,7 +266,6 @@ MatterCommandResult MatterClient::sendCommand(const MatterCommand& command)
     result.device_id = command.device_id;
     result.correlation_id = command.correlation_id;
     
-    // 디바이스가 존재하는지 확인
     auto it = device_statuses_.find(command.device_id);
     if (it == device_statuses_.end()) {
         result.success = false;
@@ -289,16 +274,13 @@ MatterCommandResult MatterClient::sendCommand(const MatterCommand& command)
         return result;
     }
     
-    // Windows 시뮬레이션: 명령 처리
     #ifdef _WIN32
     if (debug_mode_) {
         std::cout << "Windows 시뮬레이션: 명령 처리 중..." << std::endl;
     }
     
-    // 시뮬레이션 지연
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     
-    // 명령 타입에 따른 처리
     switch (command.type) {
         case MatterCommandType::POWER_TOGGLE:
             result.success = true;
@@ -328,8 +310,6 @@ MatterCommandResult MatterClient::sendCommand(const MatterCommand& command)
     }
     
     #else
-    // Linux: 실제 Matter 명령 처리
-    // TODO: 실제 Matter 명령 처리 구현
     result.success = false;
     result.status = "not_implemented";
     result.error_message = "Linux에서 Matter 명령 처리 미구현";
@@ -409,15 +389,12 @@ bool MatterClient::initializeMatterNetwork()
         std::cout << "Matter 네트워크 초기화 중..." << std::endl;
     }
     
-    // Windows 시뮬레이션
     #ifdef _WIN32
     if (debug_mode_) {
         std::cout << "Windows 시뮬레이션: Matter 네트워크 초기화됨" << std::endl;
     }
     return true;
     #else
-    // Linux: 실제 Matter 네트워크 초기화
-    // TODO: 실제 Matter 네트워크 초기화 구현
     if (debug_mode_) {
         std::cout << "Linux: Matter 네트워크 초기화 (미구현)" << std::endl;
     }
