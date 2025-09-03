@@ -1,8 +1,17 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+val localProperties = Properties().apply {
+    load(FileInputStream(rootProject.file("local.properties")))
+}
+val PICOVOICE_ACCESS_KEY = localProperties.getProperty("PICOVOICE_ACCESS_KEY")
+    ?: error("PICOVOICE_ACCESS_KEY not found in local.properties")
 
 android {
     namespace = "com.example.eeum"
@@ -14,8 +23,8 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["PICOVOICE_ACCESS_KEY"] = PICOVOICE_ACCESS_KEY
     }
 
     buildTypes {
@@ -36,6 +45,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     dataBinding {

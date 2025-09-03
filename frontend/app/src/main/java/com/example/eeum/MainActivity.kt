@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
     private fun requestStartupPermissions() {
         val toRequest = buildList {
             add(android.Manifest.permission.RECORD_AUDIO)
-            // Android 13+에서 알림 권한을 함께 받고 싶다면
+
             if (Build.VERSION.SDK_INT >= 33) {
                 add(android.Manifest.permission.POST_NOTIFICATIONS)
             }

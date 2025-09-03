@@ -17,6 +17,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Eeum">
+
+        <meta-data
+            android:name="PICOVOICE_ACCESS_KEY"
+            android:value="${PICOVOICE_ACCESS_KEY}" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
