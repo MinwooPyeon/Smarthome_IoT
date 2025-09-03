@@ -18,7 +18,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 find_package(Threads REQUIRED)
 
 # Include directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/header)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # JSON 라이브러리 설정 (nlohmann/json.hpp 사용)
@@ -41,7 +41,7 @@ add_library(irremote_lib STATIC ${LIB_SOURCES})
 set_target_properties(irremote_lib PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
-    PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/core/config.h;${CMAKE_CURRENT_SOURCE_DIR}/include/network/mqtt_client.h;${CMAKE_CURRENT_SOURCE_DIR}/include/network/matter_client.h;${CMAKE_CURRENT_SOURCE_DIR}/include/hardware/ir_receiver.h;${CMAKE_CURRENT_SOURCE_DIR}/include/hardware/appliance_controller.h"
+    PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/header/core/config.h;${CMAKE_CURRENT_SOURCE_DIR}/header/network/mqtt_client.h;${CMAKE_CURRENT_SOURCE_DIR}/header/network/matter_client.h;${CMAKE_CURRENT_SOURCE_DIR}/header/hardware/ir_receiver.h;${CMAKE_CURRENT_SOURCE_DIR}/header/hardware/appliance_controller.h"
 )
 
 # Link libraries for library
@@ -66,7 +66,7 @@ install(TARGETS irremote_lib irremote_sender
 )
 
 # Install headers
-install(DIRECTORY include/
+install(DIRECTORY header/
     DESTINATION include/irremote
     FILES_MATCHING PATTERN "*.h"
 )
