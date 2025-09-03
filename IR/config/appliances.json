@@ -29,7 +29,9 @@
                 "mode": "0xE0E014EB",
                 "temp_18": "0xE0E018E7",
                 "temp_up": "0xE0E01CE3",
-                "temp_down": "0xE0E05CA3"
+                "temp_down": "0xE0E05CA3",
+                "fan_speed": "0xE0E0F50A",
+                "swing": "0xE0E0F40B"
             }
         },
         {
@@ -43,7 +45,8 @@
             "ir_codes": {
                 "power": "0xE0E040BF",
                 "mode": "0xE0E014EB",
-                "fan_speed": "0xE0E0F50A"
+                "fan_speed": "0xE0E0F50A",
+                "timer": "0xE0E0F60A"
             }
         },
         {
@@ -57,6 +60,49 @@
             "ir_codes": {
                 "power": "0x20DF10EF",
                 "mode": "0x20DF50AF"
+            }
+        },
+        {
+            "id": "panasonic_projector",
+            "name": "Panasonic Projector",
+            "type": "PROJECTOR",
+            "brand": "Panasonic",
+            "model": "PT-BZ470",
+            "gpio_pin": 28,
+            "enabled": true,
+            "ir_codes": {
+                "power": "0x4004",
+                "power_on": "0x4005",
+                "power_off": "0x4006",
+                "input": "0x4007",
+                "menu": "0x4008",
+                "enter": "0x4009",
+                "up": "0x400A",
+                "down": "0x400B",
+                "left": "0x400C",
+                "right": "0x400D",
+                "volume_up": "0x400E",
+                "volume_down": "0x400F",
+                "mute": "0x4010",
+                "freeze": "0x4011",
+                "eco": "0x4012"
+            }
+        },
+        {
+            "id": "samsung_fan",
+            "name": "Samsung Fan",
+            "type": "FAN",
+            "brand": "Samsung",
+            "model": "Smart Fan",
+            "gpio_pin": 29,
+            "enabled": true,
+            "ir_codes": {
+                "power": "0xE0E040BF",
+                "fan_speed_1": "0xE0E0F10E",
+                "fan_speed_2": "0xE0E0F20D",
+                "fan_speed_3": "0xE0E0F30C",
+                "oscillation": "0xE0E0F40B",
+                "timer": "0xE0E0F50A"
             }
         }
     ]
