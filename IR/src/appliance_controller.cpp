@@ -1,7 +1,7 @@
 #include "hardware/appliance_controller.h"
 #include <iostream>
 #include <fstream>
-#include <nlohmann/json.hpp>
+#include "../external/nlohmann/json.hpp"
 
 #ifdef _WIN32
 // Windows 환경에서는 시뮬레이션
@@ -246,11 +246,11 @@ bool ApplianceController::executeControl(const std::string& appliance_id, Contro
 #endif
 }
 
-bool ApplianceController::controlGPIO(int gpio_pin, bool state) {
+bool ApplianceController::controlGPIO([[maybe_unused]] int _gpio_pin, [[maybe_unused]] bool _state) {
 #ifndef _WIN32
     // Linux에서만 GPIO 제어
-    digitalWrite(gpio_pin, state ? HIGH : LOW);
-    std::cout << "GPIO " << gpio_pin << " 제어: " << (state ? "HIGH" : "LOW") << std::endl;
+    digitalWrite(_gpio_pin, _state ? HIGH : LOW);
+    std::cout << "GPIO " << _gpio_pin << " 제어: " << (_state ? "HIGH" : "LOW") << std::endl;
     return true;
 #else
     return false;

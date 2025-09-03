@@ -98,12 +98,7 @@ std::string IRReceiver::readIRCode() {
     static std::uniform_int_distribution<> dis(0, 100);
     
     if (dis(gen) < 5) { // 5% 확률로 IR 코드 수신
-        std::uniform_int_distribution<> hex_dis(0, 15);
-        std::string code = "0x";
-        for (int i = 0; i < 8; i++) {
-            code += "0123456789ABCDEF"[hex_dis(gen)];
-        }
-        return code;
+        return decodeNECProtocol();
     }
     return "";
 #else
@@ -116,6 +111,19 @@ std::string IRReceiver::readIRCode() {
 }
 
 std::string IRReceiver::decodeNECProtocol() {
+#ifdef _WIN32
+    // Windows 시뮬레이션: 랜덤 IR 코드 생성
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<> dis(0, 15);
+    
+    std::string code = "0x";
+    for (int i = 0; i < 8; i++) {
+        code += "0123456789ABCDEF"[dis(gen)];
+    }
+    return code;
+#else
+    // Linux: 실제 IR 센서에서 신호 읽기
     // NEC 프로토콜 디코딩 (대부분 가전기기 리모컨)
     std::string ir_code;
     
@@ -151,6 +159,7 @@ std::string IRReceiver::decodeNECProtocol() {
     char hex_code[16];
     snprintf(hex_code, sizeof(hex_code), "0x%08X", data);
     return std::string(hex_code);
+#endif
 }
 
 std::string IRReceiver::decodeRC5Protocol() {
