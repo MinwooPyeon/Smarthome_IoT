@@ -150,7 +150,7 @@ endif()
 # Export targets
 install(EXPORT irremoteTargets
     FILE irremoteTargets.cmake
-    NAMESPACE irremote::
+    NAMESPACE ::
     DESTINATION lib/cmake/irremote
 )
 
