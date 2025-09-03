@@ -5,8 +5,6 @@
 #include <map>
 #include <vector>
 
-namespace irremote {
-
 /**
  * @brief 애플리케이션 설정 클래스
  * 
@@ -165,5 +163,3 @@ private:
     // 사용자 정의 설정
     std::map<std::string, std::string> custom_values_;
 };
-
-} // namespace irremote
