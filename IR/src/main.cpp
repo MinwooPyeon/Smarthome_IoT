@@ -118,6 +118,7 @@ int main() {
             mqtt_client->subscribe("irremote/status");
         } else {
             std::cerr << "MQTT 브로커 연결 실패" << std::endl;
+
         }
         
         // IR 수신 시작
@@ -147,6 +148,7 @@ int main() {
                 last_status_time = now;
             }
             
+
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         
