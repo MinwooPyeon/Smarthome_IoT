@@ -4,16 +4,13 @@
 #include "../external/nlohmann/json.hpp"
 
 #ifdef _WIN32
-// Windows 환경에서는 시뮬레이션
 #else
-// Linux 환경에서는 실제 GPIO 사용
 #include <wiringPi.h>
 #endif
 
 ApplianceController::ApplianceController() {
     initializeIRCodeMapping();
     
-    // 기본 가전기기 등록
     registerAppliance("samsung_tv", ApplianceType::TV);
     registerAppliance("samsung_ac", ApplianceType::AIR_CONDITIONER);
     registerAppliance("samsung_purifier", ApplianceType::AIR_PURIFIER);
@@ -21,13 +18,11 @@ ApplianceController::ApplianceController() {
 }
 
 ApplianceController::~ApplianceController() {
-    // 정리 작업
 }
 
 ControlResult ApplianceController::controlAppliance(const std::string& ir_code) {
     std::cout << "IR 코드로 가전기기 제어: " << ir_code << std::endl;
     
-    // IR 코드를 제어 명령으로 변환
     ControlCommand command = convertIRToCommand(ir_code);
     std::string appliance_id = getApplianceId(ir_code);
     
@@ -35,17 +30,14 @@ ControlResult ApplianceController::controlAppliance(const std::string& ir_code) 
         return ControlResult(false, "알 수 없는 IR 코드: " + ir_code);
     }
     
-    // 실제 제어 실행
     bool success = executeControl(appliance_id, command);
     
     ControlResult result(success, 
                         success ? "제어 성공" : "제어 실패",
                         appliance_id, command);
     
-    // 로그 기록
     logControl(appliance_id, command, success);
     
-    // 콜백 호출
     if (control_callback_) {
         control_callback_(result);
     }
