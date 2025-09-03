@@ -10,33 +10,60 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# 컴파일러 플래그
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -Wextra -DDEBUG")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
-
-# Find required packages
-find_package(PkgConfig REQUIRED)
-find_package(Threads REQUIRED)
-
-# Find system libraries
-pkg_check_modules(MOSQUITTO REQUIRED libmosquitto)
+# 플랫폼 감지
+if(WIN32)
+    message(STATUS "Building for Windows platform")
+    
+    # Windows 전용 설정
+    set(PLATFORM_SPECIFIC_SOURCES "")
+    
+    # MATLAB Engine 찾기
+    find_package(Matlab QUIET)
+    if(Matlab_FOUND)
+        message(STATUS "MATLAB found: ${Matlab_VERSION}")
+    else()
+        message(STATUS "MATLAB not found, building without MATLAB support")
+        add_definitions(-DMATLAB_DISABLED)
+    endif()
+    
+    # Windows용 JSON 라이브러리
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/nlohmann/json.hpp")
+        include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/nlohmann)
+        message(STATUS "Using local nlohmann-json header")
+    endif()
+    
+    # MQTT 기능 비활성화
+    add_definitions(-DMQTT_DISABLED)
+    set(MQTT_DISABLED TRUE)
+    
+else()
+    message(STATUS "Building for Linux/Unix platform")
+    
+    # Linux 전용 설정
+    set(PLATFORM_SPECIFIC_SOURCES
+        src/ui/linux_gui.cpp
+    )
+    
+    # PkgConfig 사용
+    find_package(PkgConfig REQUIRED)
+    find_package(Threads REQUIRED)
+    
+    # Find system libraries
+    pkg_check_modules(MOSQUITTO REQUIRED libmosquitto)
+    pkg_check_modules(NLOHMANN_JSON REQUIRED nlohmann_json)
+endif()
 
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# JSON 라이브러리 설정
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(NLOHMANN_JSON REQUIRED nlohmann_json)
-
 # Library sources
 set(LIB_SOURCES
     src/config.cpp
-    src/mqtt_client.cpp
-    src/mqtt_message.cpp
     src/matter_client.cpp
     src/ir_receiver.cpp
     src/appliance_controller.cpp
+    ${PLATFORM_SPECIFIC_SOURCES}
 )
 
 # Create library
@@ -46,23 +73,50 @@ add_library(irremote_lib STATIC ${LIB_SOURCES})
 set_target_properties(irremote_lib PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
-    PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/core/config.h;${CMAKE_CURRENT_SOURCE_DIR}/include/network/mqtt_client.h;${CMAKE_CURRENT_SOURCE_DIR}/include/network/matter_client.h;${CMAKE_CURRENT_SOURCE_DIR}/include/hardware/ir_receiver.h;${CMAKE_CURRENT_SOURCE_DIR}/include/hardware/appliance_controller.h"
 )
 
 # Link libraries for library
-target_link_libraries(irremote_lib
-    ${NLOHMANN_JSON_LIBRARIES}
-    ${MOSQUITTO_LIBRARIES}
-    Threads::Threads
-    ssl
-    crypto
-)
-
-# Compiler flags for library
-target_compile_options(irremote_lib PRIVATE
-    ${NLOHMANN_JSON_CFLAGS_OTHER}
-    ${MOSQUITTO_CFLAGS_OTHER}
-)
+if(WIN32)
+    target_link_libraries(irremote_lib
+        ws2_32
+        iphlpapi
+    )
+    
+    # Windows 전용 컴파일 옵션
+    if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+        target_compile_options(irremote_lib PRIVATE
+            /MP  # 멀티 프로세서 컴파일
+            /EHsc # 예외 처리 모델
+        )
+    else()
+        # MinGW용 컴파일 옵션
+        target_compile_options(irremote_lib PRIVATE
+            -Wall
+            -Wextra
+            -std=c++17
+        )
+    endif()
+    
+    # Windows 전용 정의
+    target_compile_definitions(irremote_lib PRIVATE
+        _WIN32_WINNT=0x0601  # Windows 7 이상
+        WIN32_LEAN_AND_MEAN
+    )
+else()
+    target_link_libraries(irremote_lib
+        ${NLOHMANN_JSON_LIBRARIES}
+        ${MOSQUITTO_LIBRARIES}
+        Threads::Threads
+        ssl
+        crypto
+    )
+    
+    # Linux 전용 컴파일 옵션
+    target_compile_options(irremote_lib PRIVATE
+        ${NLOHMANN_JSON_CFLAGS_OTHER}
+        ${MOSQUITTO_CFLAGS_OTHER}
+    )
+endif()
 
 # Main executable
 set(MAIN_SOURCES src/main.cpp)
@@ -77,7 +131,6 @@ install(TARGETS irremote_lib irremote_sender
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin
-    PUBLIC_HEADER DESTINATION include/irremote
 )
 
 # Install headers
@@ -87,16 +140,12 @@ install(DIRECTORY include/
 )
 
 # Install configuration files
-install(FILES 
-    config/systemd/irremote.service 
-    DESTINATION /etc/systemd/system
-)
-
-# Install scripts
-install(DIRECTORY scripts/
-    DESTINATION bin/irremote
-    USE_SOURCE_PERMISSIONS
-)
+if(NOT WIN32)
+    install(FILES 
+        config/systemd/irremote.service 
+        DESTINATION /etc/systemd/system
+    )
+endif()
 
 # Export targets
 install(EXPORT irremoteTargets
@@ -105,13 +154,22 @@ install(EXPORT irremoteTargets
     DESTINATION lib/cmake/irremote
 )
 
-# Add tests
-add_subdirectory(tests)
-
 # Print configuration summary
 message(STATUS "")
-message(STATUS "Configuration Summary:")
+message(STATUS "=== Configuration Summary ===")
 message(STATUS "  Project: ${PROJECT_NAME} ${PROJECT_VERSION}")
 message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "  C++ standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "  Platform: ${CMAKE_SYSTEM_NAME}")
+if(WIN32)
+    message(STATUS "  MATLAB support: ${Matlab_FOUND}")
+    if(MSVC)
+        message(STATUS "  Compiler: MSVC")
+    else()
+        message(STATUS "  Compiler: MinGW")
+    endif()
+else()
+    message(STATUS "  MQTT support: ${MOSQUITTO_FOUND}")
+    message(STATUS "  JSON support: ${NLOHMANN_JSON_FOUND}")
+endif()
+message(STATUS "=============================")
 message(STATUS "")
