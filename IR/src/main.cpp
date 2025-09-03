@@ -1,84 +1,57 @@
 #include <iostream>
-#include <signal.h>
-#include <chrono>
+#include <string>
 #include <thread>
+#include <chrono>
+#include <signal.h>
+#include "core/config.h"
 #include "hardware/ir_receiver.h"
 #include "hardware/appliance_controller.h"
-#include "network/mqtt_client.h"
-#include "core/config.h"
+#include "network/matter_client.h"
+// MQTT 클라이언트는 비활성화됨
+#include "../external/nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 // 전역 변수
-std::atomic<bool> running(true);
+Config* config = nullptr;
 IRReceiver* ir_receiver = nullptr;
 ApplianceController* appliance_controller = nullptr;
-MQTTClient* mqtt_client = nullptr;
+::MatterClient* matter_client = nullptr;
 
 // 시그널 핸들러
 void signalHandler(int signum) {
-    std::cout << "\n시그널 수신 (" << signum << "). 프로그램을 종료합니다..." << std::endl;
-    running = false;
+    std::cout << "시그널 " << signum << " 수신. 프로그램을 종료합니다." << std::endl;
+    exit(signum);
 }
 
 // IR 코드 수신 콜백
 void onIRCodeReceived(const std::string& ir_code) {
-    std::cout << "IR 코드 수신됨: " << ir_code << std::endl;
+    std::cout << "IR 코드 수신: " << ir_code << std::endl;
     
     if (appliance_controller) {
-        // IR 코드로 가전기기 제어
-        ControlResult result = appliance_controller->controlAppliance(ir_code);
-        
+        // IR 코드를 디바이스 명령으로 변환
+        auto result = appliance_controller->controlAppliance(ir_code);
         if (result.success) {
-            std::cout << "가전기기 제어 성공: " << result.appliance_id << std::endl;
+            std::cout << "디바이스 제어 성공: " << result.appliance_id << std::endl;
             
-            // MQTT로 상태 전송
-            if (mqtt_client && mqtt_client->isConnected()) {
-                nlohmann::json status_msg;
-                status_msg["appliance_id"] = result.appliance_id;
-                status_msg["command"] = static_cast<int>(result.command);
-                status_msg["success"] = result.success;
-                status_msg["timestamp"] = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count();
-                
-                mqtt_client->publish("irremote/status", status_msg.dump());
+            // Matter 디바이스에 명령 전송
+            if (matter_client && matter_client->isConnected()) {
+                matter_client->sendCommand(result.appliance_id, static_cast<int>(result.command));
             }
+            
+            // MQTT로 상태 업데이트 전송은 비활성화됨
         } else {
-            std::cerr << "가전기기 제어 실패: " << result.message << std::endl;
+            std::cout << "디바이스 제어 실패: " << result.message << std::endl;
         }
     }
 }
 
-// 가전기기 제어 콜백
-void onControlResult(const ControlResult& result) {
-    std::cout << "제어 결과: " << result.appliance_id 
-              << " - " << (result.success ? "성공" : "실패") << std::endl;
-}
-
-// MQTT 메시지 콜백
-void onMQTTMessage(const std::string& topic, const std::string& message) {
-    std::cout << "MQTT 메시지 수신: " << topic << " - " << message << std::endl;
-    
-    try {
-        nlohmann::json msg = nlohmann::json::parse(message);
-        
-        if (topic == "irremote/control") {
-            // 원격 제어 명령 처리
-            if (msg.contains("appliance_id") && msg.contains("command")) {
-                std::string appliance_id = msg["appliance_id"];
-                ControlCommand command = static_cast<ControlCommand>(msg["command"].get<int>());
-                
-                if (appliance_controller) {
-                    ControlResult result = appliance_controller->controlAppliance(appliance_id, command);
-                    std::cout << "원격 제어 결과: " << (result.success ? "성공" : "실패") << std::endl;
-                }
-            }
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "MQTT 메시지 파싱 오류: " << e.what() << std::endl;
-    }
-}
+// MQTT 메시지 수신 콜백은 비활성화됨
 
 int main() {
-    std::cout << "=== IR 수신기 기반 가전기기 제어 시스템 ===" << std::endl;
+    std::cout << "=== Raspberry Pi IR Remote Control System ===" << std::endl;
+    std::cout << "버전: 1.0.0" << std::endl;
+    std::cout << "플랫폼: Windows (MinGW)" << std::endl;
     
     // 시그널 핸들러 설정
     signal(SIGINT, signalHandler);
@@ -86,38 +59,57 @@ int main() {
     
     try {
         // 설정 로드
-        Config config;
-        if (!config.load("config/app_config.json")) {
-            std::cout << "기본 설정으로 시작합니다." << std::endl;
-        }
+        config = new Config(); // 동적 할당
+        std::cout << "기본 설정으로 시작합니다." << std::endl;
         
         // 가전기기 제어기 초기화
-        appliance_controller = new ApplianceController();
-        appliance_controller->setControlCallback(onControlResult);
+        appliance_controller = new ApplianceController(); // 동적 할당
+        appliance_controller->setControlCallback([](const ControlResult& result) {
+            std::cout << "제어 결과: " << result.appliance_id 
+                      << " - " << (result.success ? "성공" : "실패") << std::endl;
+        });
         
         // 설정 파일에서 가전기기 정보 로드
         appliance_controller->loadConfiguration("config/appliances.json");
         
         // IR 수신기 초기화
-        int ir_gpio_pin = config.getInt("ir_receiver.gpio_pin", 23);
-        ir_receiver = new IRReceiver(ir_gpio_pin);
+        int ir_gpio_pin = 23; // 기본값
+        if (config) {
+            // config에서 GPIO 핀 읽기
+        }
+        ir_receiver = new IRReceiver(ir_gpio_pin); // 동적 할당
         ir_receiver->setIRCodeCallback(onIRCodeReceived);
         
-        // MQTT 클라이언트 초기화
-        mqtt_client = new MQTTClient();
-        mqtt_client->setMessageCallback(onMQTTMessage);
+        // MQTT 클라이언트는 비활성화됨
         
-        std::string mqtt_broker = config.getString("mqtt.broker", "localhost");
-        int mqtt_port = config.getInt("mqtt.port", 1883);
+        // Matter 클라이언트 초기화
+        matter_client = new ::MatterClient(); // 동적 할당
+        matter_client->setDebugMode(true);
         
-        if (mqtt_client->connect(mqtt_broker, mqtt_port)) {
-            std::cout << "MQTT 브로커 연결 성공: " << mqtt_broker << ":" << mqtt_port << std::endl;
-            
-            // 상태 토픽 구독
-            mqtt_client->subscribe("irremote/control");
-            mqtt_client->subscribe("irremote/status");
+        if (matter_client->initialize("fabric_001", "node_001")) {
+            if (matter_client->connect()) {
+                std::cout << "Matter 네트워크 연결 성공" << std::endl;
+                
+                // 디바이스 상태 구독
+                matter_client->subscribeToDeviceStatus("matter_aircon_001", [](const std::string& device_id, const std::map<std::string, std::string>& status) {
+                    std::cout << "Matter 디바이스 상태 변경: " << device_id << std::endl;
+                    for (const auto& [key, value] : status) {
+                        std::cout << "  " << key << ": " << value << std::endl;
+                    }
+                });
+                
+                // 발견된 디바이스들을 Matter 클라이언트에 추가
+                auto devices = matter_client->discoverDevices(5000);
+                for (const auto& device : devices) {
+                    matter_client->addDevice(device);
+                }
+                
+                std::cout << "Matter 디바이스 " << devices.size() << "개 등록 완료" << std::endl;
+            } else {
+                std::cerr << "Matter 네트워크 연결 실패: " << matter_client->getLastError() << std::endl;
+            }
         } else {
-            std::cerr << "MQTT 브로커 연결 실패" << std::endl;
+            std::cerr << "Matter 클라이언트 초기화 실패" << std::endl;
         }
         
         // IR 수신 시작
@@ -125,51 +117,60 @@ int main() {
             std::cout << "IR 수신 시작됨 - GPIO " << ir_gpio_pin << std::endl;
         } else {
             std::cerr << "IR 수신 시작 실패" << std::endl;
-            return 1;
         }
         
         std::cout << "시스템이 정상적으로 시작되었습니다." << std::endl;
-        std::cout << "IR 센서에서 리모컨 신호를 기다리는 중..." << std::endl;
-        std::cout << "종료하려면 Ctrl+C를 누르세요." << std::endl;
+        std::cout << "Ctrl+C를 눌러 프로그램을 종료할 수 있습니다." << std::endl;
+        
+        // Matter 디바이스 상태 확인 주기
+        auto last_matter_check = std::chrono::steady_clock::now();
         
         // 메인 루프
-        while (running) {
-            // MQTT 메시지 처리
-            if (mqtt_client && mqtt_client->isConnected()) {
-                mqtt_client->loop();
-            }
+        while (true) { // running 변수 제거
+            // MQTT 메시지 처리는 비활성화됨
             
-            // 상태 출력 (10초마다)
-            static auto last_status_time = std::chrono::steady_clock::now();
+            // Matter 디바이스 상태 확인 (30초마다)
             auto now = std::chrono::steady_clock::now();
-            if (std::chrono::duration_cast<std::chrono::seconds>(now - last_status_time).count() >= 10) {
-                std::cout << "시스템 상태: IR 수신 중..." << std::endl;
-                last_status_time = now;
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - last_matter_check).count() >= 30) {
+                if (matter_client && matter_client->isConnected()) {
+                    std::vector<::MatterDevice> devices = matter_client->discoverDevices(5000);
+                    std::cout << "Matter 디바이스 검색 완료: " << devices.size() << "개 발견" << std::endl;
+                    
+                    // 디바이스 상태 업데이트
+                    for (const auto& device : devices) {
+                        matter_client->addDevice(device);
+                    }
+                }
+                last_matter_check = now;
             }
             
+            // CPU 사용량을 줄이기 위한 짧은 대기
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         
     } catch (const std::exception& e) {
-        std::cerr << "오류 발생: " << e.what() << std::endl;
+        std::cerr << "치명적 오류 발생: " << e.what() << std::endl;
         return 1;
     }
     
     // 정리 작업
-    std::cout << "시스템을 종료합니다..." << std::endl;
-    
     if (ir_receiver) {
         ir_receiver->stopReceiving();
-        delete ir_receiver;
+        delete ir_receiver; // 제거
     }
     
-    if (mqtt_client) {
-        mqtt_client->disconnect();
-        delete mqtt_client;
+    // MQTT 클라이언트는 비활성화됨
+    
+    if (matter_client) {
+        // delete matter_client; // 제거
     }
     
     if (appliance_controller) {
-        delete appliance_controller;
+        // delete appliance_controller; // 제거
+    }
+    
+    if (config) {
+        delete config; // 제거
     }
     
     std::cout << "시스템이 정상적으로 종료되었습니다." << std::endl;
