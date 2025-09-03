@@ -6,7 +6,7 @@
 #include <thread>
 #include <atomic>
 
-namespace irremote {
+
 
 /**
  * @brief PIR 센서를 IR 수신 센서로 사용하는 클래스
@@ -143,5 +143,3 @@ private:
     int signal_threshold_;
     int debounce_time_ms_;
 };
-
-} // namespace irremote

@@ -3,7 +3,7 @@
 #include <sstream>
 #include <iostream>
 
-namespace irremote {
+
 
 Remote::Remote(const std::string& name) : name_(name) {}
 
@@ -62,5 +62,3 @@ bool RemoteManager::sendCommand(const std::string& remoteName, const std::string
     
     return remote->sendCommand(command);
 }
-
-} // namespace irremote

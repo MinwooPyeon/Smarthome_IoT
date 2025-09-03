@@ -6,7 +6,7 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 
-namespace irremote {
+
 
 /**
  * @brief 제어신호-IR신호 매핑 정보
@@ -182,5 +182,3 @@ private:
     bool parseJsonObject(const nlohmann::json& json_obj);
     void addJsonMapping(const std::string& control_signal, const nlohmann::json& mapping);
 };
-
-} // namespace irremote

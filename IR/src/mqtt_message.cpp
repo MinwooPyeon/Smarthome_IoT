@@ -4,7 +4,7 @@
 #include <sstream>
 #include <iomanip>
 
-namespace irremote {
+
 
 // MessageHeader 구현
 MessageHeader::MessageHeader(const std::string& device, const std::string& schema) 
@@ -222,5 +222,3 @@ void StateMessage::fromJson(const nlohmann::json& json) {
     if (json.contains("status")) status = json["status"];
     if (json.contains("info")) info = json["info"];
 }
-
-} // namespace irremote

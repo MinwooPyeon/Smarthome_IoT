@@ -9,11 +9,7 @@
 #include <mutex>
 
 // 전방 선언
-namespace irremote {
-    class IRCodeStore;
-}
-
-namespace irremote {
+class IRCodeStore;
 
 /**
  * @brief IR 전송 결과 열거형
@@ -145,5 +141,3 @@ private:
      */
     IRSendStatus sendIRCode(const std::string& ir_signal);
 };
-
-} // namespace irremote

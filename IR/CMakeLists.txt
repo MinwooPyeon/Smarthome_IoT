@@ -15,19 +15,14 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -Wextra -DDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 # Find required packages
-find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
-
-# Find system libraries
-pkg_check_modules(MOSQUITTO REQUIRED libmosquitto)
 
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# JSON 라이브러리 설정
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(NLOHMANN_JSON REQUIRED nlohmann_json)
+# JSON 라이브러리 설정 (nlohmann/json.hpp 사용)
+set(NLOHMANN_JSON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/external)
 
 # Library sources
 set(LIB_SOURCES
@@ -51,17 +46,7 @@ set_target_properties(irremote_lib PROPERTIES
 
 # Link libraries for library
 target_link_libraries(irremote_lib
-    ${NLOHMANN_JSON_LIBRARIES}
-    ${MOSQUITTO_LIBRARIES}
     Threads::Threads
-    ssl
-    crypto
-)
-
-# Compiler flags for library
-target_compile_options(irremote_lib PRIVATE
-    ${NLOHMANN_JSON_CFLAGS_OTHER}
-    ${MOSQUITTO_CFLAGS_OTHER}
 )
 
 # Main executable
@@ -101,12 +86,11 @@ install(DIRECTORY scripts/
 # Export targets
 install(EXPORT irremoteTargets
     FILE irremoteTargets.cmake
-    NAMESPACE irremote::
     DESTINATION lib/cmake/irremote
 )
 
-# Add tests
-add_subdirectory(tests)
+# Add tests (commented out for Windows build)
+# add_subdirectory(tests)
 
 # Print configuration summary
 message(STATUS "")

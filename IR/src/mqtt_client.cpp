@@ -3,7 +3,7 @@
 #include <cstring>
 #include <chrono>
 
-namespace irremote {
+
 
 MqttClient::MqttClient() 
     : mosq_(nullptr), port_(1883), connected_(false) {
@@ -313,5 +313,3 @@ void MqttClient::onPublish(struct mosquitto* mosq, void* userdata, int mid) {
         client->publish_callbacks_.erase(it);
     }
 }
-
-} // namespace irremote

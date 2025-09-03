@@ -5,8 +5,6 @@
 #include <cstdlib>
 #include <nlohmann/json.hpp>
 
-namespace irremote {
-
 std::shared_ptr<Config> Config::loadFromFile(const std::string& path) {
     auto config = std::make_shared<Config>();
     
@@ -61,8 +59,6 @@ std::shared_ptr<Config> Config::loadDefault() {
     std::cout << "Using default config (no config file found)" << std::endl;
     return std::make_shared<Config>();
 }
-
-} // namespace irremote
 
 void Config::setCustomValue(const std::string& key, const std::string& value) {
     custom_values_[key] = value;
@@ -137,4 +133,3 @@ bool Config::fromJson(const std::string& json) {
         return false;
     }
 }
->>>>>>> feature/ir_matter

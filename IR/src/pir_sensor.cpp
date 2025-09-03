@@ -32,7 +32,7 @@ inline void delay(int ms) {
 }
 #endif
 
-namespace irremote {
+
 
 PIRSensor::PIRSensor() 
     : gpio_pin_(-1), sensitivity_(0.5), enabled_(false), running_(false),
@@ -284,5 +284,3 @@ std::vector<int> PIRSensor::filterNoise(const std::vector<int>& signal_data) {
     
     return filtered;
 }
-
-} // namespace irremote

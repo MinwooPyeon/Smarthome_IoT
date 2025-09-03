@@ -5,7 +5,7 @@
 #include <memory>
 #include "hardware/irsend.h"
 
-namespace irremote {
+
 
 /**
  * @brief 리모컨 클래스
@@ -137,5 +137,3 @@ private:
     std::vector<std::shared_ptr<Remote>> remotes_;
     mutable std::mutex mutex_;
 };
-
-} // namespace irremote
