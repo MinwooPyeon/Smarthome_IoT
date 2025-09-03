@@ -17,7 +17,7 @@ namespace sensors{
         virtual bool read(bool* level, int* err = nullptr) = 0;
         virtual bool write(bool* level, int* err = nullptr) = 0;
 
-        virtual bool wtach(Edge edge, EdgeCallback cb, int* err = nullptr) = 0;
+        virtual bool watch(Edge edge, EdgeCallback cb, int* err = nullptr) = 0;
         virtual void unwatch() = 0;
     }
 }

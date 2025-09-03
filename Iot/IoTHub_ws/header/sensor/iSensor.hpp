@@ -2,6 +2,7 @@
 #include "sensorTypes.hpp"
 #include <atomic>
 #include <functional>
+#include <optional>
 #include <memory>
 #include <mutex>
 
@@ -21,7 +22,7 @@ namespace sensors{
         // 생명 주기
         virtual bool initialize(Error* err  = nullptr) = 0;
         virtual bool start(Error* err = nullptr) = 0;
-        virtual vodi stop() = 0;
+        virtual void stop() = 0;
 
         // synchronous read
         virtual std::optional<SensorReading> readOnce(Error* err = nullptr) = 0;
