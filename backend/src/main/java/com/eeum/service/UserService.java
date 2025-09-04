@@ -51,8 +51,6 @@ public class UserService {
 
     // 비밀번호 변경
     public void updatePassword(Integer userId, String newPassword) {
- 
-        validateNewPassword(newPassword);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
