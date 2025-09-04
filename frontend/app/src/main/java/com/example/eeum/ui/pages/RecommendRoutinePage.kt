@@ -57,7 +57,8 @@ private val BadgeFg = Color(0xFFF59E0B)
 fun RecommendRoutinePage() {
     LazyColumn(
         modifier = Modifier
-            .fillMaxSize(), // transparent background
+            .fillMaxSize()
+            .padding(horizontal = 12.dp),
         contentPadding = PaddingValues(bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
