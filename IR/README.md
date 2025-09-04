@@ -1,1 +1,1 @@
-# Raspberry Pi IR Remote Control
+# ESP-32 IR Remote Control
