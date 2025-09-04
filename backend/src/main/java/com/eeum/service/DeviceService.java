@@ -5,11 +5,12 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import com.eeum.dto.request.DeviceRequest;
 import com.eeum.dto.request.RegisterDeviceRequest;
+import com.eeum.dto.response.DeviceItemResponse;
 import com.eeum.dto.response.DeviceResponse;
 import com.eeum.entity.Device;
 import com.eeum.repository.DeviceRepository;
+import com.eeum.repository.DeviceRepository.DeviceRow;
 
 import lombok.RequiredArgsConstructor;
 
@@ -47,26 +48,46 @@ public class DeviceService {
     }
 
     
-    // 디바이스 목록 조회
+    // device 전체/조건 목록 조회
     public DeviceResponse findDevices(Integer userId, Boolean active, String type, String roomName, String deviceName) {
-
-        String typeFilter  = (type == null || type.isBlank()) ? null : type.trim();
-        String roomFilter  = (roomName == null || roomName.isBlank()) ? null : roomName.trim();
-        String deviceFilter = (deviceName == null || deviceName.isBlank()) ? null : deviceName.trim();
-
-        List<DeviceRepository.DeviceList> rows = deviceRepository.searchList(userId, active, typeFilter, roomFilter, deviceFilter);
+        if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
         
-        List<DeviceRequest> items = rows.stream()
-                .map(r -> new DeviceRequest(
-                        r.getDeviceId(),
-                        r.getDeviceName(),
-                        r.getRoomName(),
-                        r.getDeviceType(),
-                        r.getActive()
-                ))
-                .toList();
+        String typeF  = norm(type);
+        String roomF  = norm(roomName);
+        String devF   = norm(deviceName);
 
+        List<DeviceRow> list = deviceRepository.findDeviceList(userId, active, typeF, roomF, devF);
+        List<DeviceItemResponse> items = list.stream().map(this::toItem).toList();
 
-        return new DeviceResponse(items.size(), items);
+        return DeviceResponse.builder()
+                .totalCount(items.size())
+                .items(items)
+                .build();
     }
+
+    // device 단건 조회
+    public DeviceItemResponse getDevice(Integer userId, Integer deviceId) {
+        if (userId == null)   throw new IllegalArgumentException("userId는 필수입니다.");
+        if (deviceId == null) throw new IllegalArgumentException("deviceId는 필수입니다.");
+        return deviceRepository.findDevice(userId, deviceId)
+                .map(this::toItem)
+                .orElse(null);
+    }
+
+    private DeviceItemResponse toItem(DeviceRow r) {
+        return new DeviceItemResponse(
+                r.getDeviceId(),
+                r.getRoomId(),
+                r.getRemoteId(),
+                r.getIrDeviceId(),
+                r.getBrand(),
+                r.getModel(),
+                r.getDeviceName(),
+                r.getType(),
+                r.getRegisteredAt(),
+                r.getDeviceDetail()
+        );
+    }
+
+    private static String norm(String s) { return (s == null || s.isBlank()) ? null : s.trim(); }
 }
