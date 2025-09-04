@@ -3,7 +3,19 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include "hardware/irsend.h"
+#include <mutex>
+
+// IRSend 관련 타입 정의
+enum class IRSendStatus {
+    SUCCESS,
+    FAILED,
+    INVALID_CODE,
+    TRANSMISSION_ERROR,
+    TIMEOUT
+};
+
+// IRSend 클래스 전방 선언
+class IRSend;
 
 
 

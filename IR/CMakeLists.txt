@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(rpi-ir-remote-cpp VERSION 1.0.0 LANGUAGES CXX)
+project(esp32-ir-remote VERSION 1.0.0 LANGUAGES CXX)
 
 # C++ 표준 설정
 set(CMAKE_CXX_STANDARD 17)
@@ -26,9 +26,10 @@ endif()
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/header)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external)
 
 # JSON 라이브러리 설정 (nlohmann/json.hpp 사용)
-set(NLOHMANN_JSON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/external)
+set(NLOHMANN_JSON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/external/nlohmann)
 
 # Library sources
 set(LIB_SOURCES
@@ -36,9 +37,18 @@ set(LIB_SOURCES
     src/mqtt_client.cpp
     src/mqtt_message.cpp
     src/matter_client.cpp
-    src/ir_receiver.cpp
     src/appliance_controller.cpp
+    src/remote.cpp
 )
+
+# ESP32 specific sources (only for ESP32 builds)
+if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
+    list(APPEND LIB_SOURCES
+        src/esp32_ir_receiver.cpp
+        src/esp32_ir_store.cpp
+        src/pir_sensor.cpp
+    )
+endif()
 
 # Create library
 add_library(irremote_lib STATIC ${LIB_SOURCES})
@@ -47,7 +57,7 @@ add_library(irremote_lib STATIC ${LIB_SOURCES})
 set_target_properties(irremote_lib PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
-    PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/header/core/config.h;${CMAKE_CURRENT_SOURCE_DIR}/header/network/mqtt_client.h;${CMAKE_CURRENT_SOURCE_DIR}/header/network/matter_client.h;${CMAKE_CURRENT_SOURCE_DIR}/header/hardware/ir_receiver.h;${CMAKE_CURRENT_SOURCE_DIR}/header/hardware/appliance_controller.h"
+    PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/header/core/config.h;${CMAKE_CURRENT_SOURCE_DIR}/header/network/mqtt_client.h;${CMAKE_CURRENT_SOURCE_DIR}/header/network/matter_client.h;${CMAKE_CURRENT_SOURCE_DIR}/header/hardware/esp32_ir_receiver.h;${CMAKE_CURRENT_SOURCE_DIR}/header/hardware/esp32_ir_store.h;${CMAKE_CURRENT_SOURCE_DIR}/header/hardware/appliance_controller.h"
 )
 
 # Link libraries for library
@@ -84,16 +94,16 @@ install(DIRECTORY header/
 )
 
 # Install configuration files
-install(FILES 
-    config/linux/systemd/irremote.service 
-    DESTINATION /etc/systemd/system
-)
+# install(FILES 
+#     config/linux/systemd/irremote.service 
+#     DESTINATION /etc/systemd/system
+# )
 
 # Install scripts
-install(DIRECTORY scripts/
-    DESTINATION bin/irremote
-    USE_SOURCE_PERMISSIONS
-)
+# install(DIRECTORY scripts/
+#     DESTINATION bin/irremote
+#     USE_SOURCE_PERMISSIONS
+# )
 
 # Export targets
 install(EXPORT irremoteTargets
@@ -101,8 +111,10 @@ install(EXPORT irremoteTargets
     DESTINATION lib/cmake/irremote
 )
 
-# Add tests (commented out for Windows build)
-# add_subdirectory(tests)
+# Add tests
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests")
+    add_subdirectory(tests)
+endif()
 
 # Print configuration summary
 message(STATUS "")
@@ -111,3 +123,13 @@ message(STATUS "  Project: ${PROJECT_NAME} ${PROJECT_VERSION}")
 message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C++ standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "")
+
+# ESP32 specific build configuration
+if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
+    # ESP-IDF build
+    message(STATUS "Building for ESP32 with ESP-IDF")
+    # ESP-IDF specific configurations can be added here
+else()
+    # Standard CMake build
+    message(STATUS "Building with standard CMake")
+endif()
