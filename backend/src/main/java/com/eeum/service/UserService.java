@@ -33,7 +33,6 @@ public class UserService {
         user.setNickname(newNickname);
 
         return UpdateNicknameResponse.builder()
-                .userId(user.getUserId())
                 .nickname(user.getNickname())
                 .build();
     }
