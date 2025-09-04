@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmqtt_pub.a CMakeFiles/mqtt_pub.dir/src/mqtt/mqttPublisher.cpp.o
-/usr/bin/ranlib libmqtt_pub.a
