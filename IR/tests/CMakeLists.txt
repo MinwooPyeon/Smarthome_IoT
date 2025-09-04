@@ -1,8 +1,12 @@
 # Test configuration
 enable_testing()
 
-# Find GoogleTest
-find_package(GTest REQUIRED)
+# Find GoogleTest (optional)
+find_package(GTest QUIET)
+if(NOT GTest_FOUND)
+    message(WARNING "GoogleTest not found. Tests will be disabled.")
+    return()
+endif()
 find_package(Threads REQUIRED)
 
 # Test source files
