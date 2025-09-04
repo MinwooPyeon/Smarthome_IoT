@@ -26,12 +26,16 @@ class VoiceService : Service() {
     private var soundPool: SoundPool? = null
     private var earconId: Int = 0
 
+    private val CHANNEL_ID = "voice_hotword"
+    private val NOTIF_ID   = 1001
+
     @Volatile private var earconReady = false
     private var lastPlayAt = 0L
 
     override fun onCreate() {
         super.onCreate()
         startAsForeground()
+
         initEarcon()
 
         tts = TtsHelper(this)
@@ -43,22 +47,30 @@ class VoiceService : Service() {
         )
         val pvKey = appInfo.metaData?.getString("PICOVOICE_ACCESS_KEY").orEmpty()
 
-        // Picovoice 시작: 핫워드 상시 듣기 + 핫워드 이후 Rhino NLU
-        pv = PicovoiceManagerEngine(
-            context = this,
-            accessKey = pvKey,
-            wakeRes   = R.raw.jenny,
-            rhinoRes  = R.raw.eeum,
-            wakeResModel   = R.raw.porcupine_params_ko,
-            rhinoResModel  = R.raw.rhino_params_ko,
-            onInference = { r ->
-                // 여기서 "핫워드 후" 발화가 파싱됨
-                // 오늘은 API 없이 결과만 확인
-                Log.i("VoiceService", "Intent=${r.name}, slots=${r.slots}")
-                tts?.say("${r.name} 인식했어요.")
-            },
-            onWake = { playEarcon() }
-        ).also { it.start() }
+        try {
+
+            // Picovoice 시작: 핫워드 상시 듣기 + 핫워드 이후 Rhino NLU
+            pv = PicovoiceManagerEngine(
+                context = this,
+                accessKey = pvKey,
+                wakeRes = R.raw.jenny,
+                rhinoRes = R.raw.eeum,
+                wakeResModel = R.raw.porcupine_params_ko,
+                rhinoResModel = R.raw.rhino_params_ko,
+                onInference = { r ->
+                    // 여기서 "핫워드 후" 발화가 파싱됨
+                    // 오늘은 API 없이 결과만 확인
+                    Log.i("VoiceService", "Intent=${r.name}, slots=${r.slots}")
+                    tts?.say("${r.name} 인식했어요.")
+                },
+                onWake = { playEarcon() }
+            ).also { it.start() }
+        } catch (e: ai.picovoice.picovoice.PicovoiceActivationLimitException) {
+            Log.e("VoiceService", "PV 비활성(라이선스 한도): ${e.message}")
+            updateNotification("핫워드 비활성화됨 (라이선스 한도)")
+            return
+        }
+
 
         Handler(Looper.getMainLooper()).postDelayed({
             tts?.say("호출어를 말해 주세요.")
@@ -130,5 +142,20 @@ class VoiceService : Service() {
         soundPool?.release()
         soundPool = null
         earconReady = false
+    }
+
+    private fun updateNotification(
+        text: String,
+        title: String = "항상 듣는 중"
+    ) {
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val notif = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true) // 갱신 시 소리/진동 다시 울리지 않게
+            .build()
+        nm.notify(NOTIF_ID, notif) // 같은 ID로 notify → 기존 포그라운드 알림이 업데이트됨
     }
 }
