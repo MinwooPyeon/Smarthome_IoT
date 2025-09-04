@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/yeochi1201/IoTHub_ws/header
+CXX_INCLUDES = -I/home/yeochi1201/IoTHub_ws/include -I/home/yeochi1201/IoTHub_ws/header
 
-CXX_FLAGS = -std=gnu++17
+CXX_FLAGS = -Wall -Wextra -Wpedantic -std=gnu++17
 

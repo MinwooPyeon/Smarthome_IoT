@@ -117,6 +117,19 @@ depend:
 .PHONY : depend
 
 #=============================================================================
+# Target rules for targets named sensors
+
+# Build rule for target.
+sensors: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 sensors
+.PHONY : sensors
+
+# fast build rule for target.
+sensors/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/build
+.PHONY : sensors/fast
+
+#=============================================================================
 # Target rules for targets named mqtt_sub
 
 # Build rule for target.
@@ -167,6 +180,43 @@ test_pub: cmake_check_build_system
 test_pub/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_pub.dir/build.make CMakeFiles/test_pub.dir/build
 .PHONY : test_pub/fast
+
+#=============================================================================
+# Target rules for targets named test_sensors
+
+# Build rule for target.
+test_sensors: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_sensors
+.PHONY : test_sensors
+
+# fast build rule for target.
+test_sensors/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_sensors.dir/build.make CMakeFiles/test_sensors.dir/build
+.PHONY : test_sensors/fast
+
+src/interface/gpioPigpio.o: src/interface/gpioPigpio.cpp.o
+.PHONY : src/interface/gpioPigpio.o
+
+# target to build an object file
+src/interface/gpioPigpio.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/interface/gpioPigpio.cpp.o
+.PHONY : src/interface/gpioPigpio.cpp.o
+
+src/interface/gpioPigpio.i: src/interface/gpioPigpio.cpp.i
+.PHONY : src/interface/gpioPigpio.i
+
+# target to preprocess a source file
+src/interface/gpioPigpio.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/interface/gpioPigpio.cpp.i
+.PHONY : src/interface/gpioPigpio.cpp.i
+
+src/interface/gpioPigpio.s: src/interface/gpioPigpio.cpp.s
+.PHONY : src/interface/gpioPigpio.s
+
+# target to generate assembly for a file
+src/interface/gpioPigpio.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/interface/gpioPigpio.cpp.s
+.PHONY : src/interface/gpioPigpio.cpp.s
 
 src/mqtt/mqttPublisher.o: src/mqtt/mqttPublisher.cpp.o
 .PHONY : src/mqtt/mqttPublisher.o
@@ -264,6 +314,102 @@ src/mqtt/test_sub.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_sub.dir/build.make CMakeFiles/test_sub.dir/src/mqtt/test_sub.cpp.s
 .PHONY : src/mqtt/test_sub.cpp.s
 
+src/sensors/Dht11Sensor.o: src/sensors/Dht11Sensor.cpp.o
+.PHONY : src/sensors/Dht11Sensor.o
+
+# target to build an object file
+src/sensors/Dht11Sensor.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/sensors/Dht11Sensor.cpp.o
+.PHONY : src/sensors/Dht11Sensor.cpp.o
+
+src/sensors/Dht11Sensor.i: src/sensors/Dht11Sensor.cpp.i
+.PHONY : src/sensors/Dht11Sensor.i
+
+# target to preprocess a source file
+src/sensors/Dht11Sensor.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/sensors/Dht11Sensor.cpp.i
+.PHONY : src/sensors/Dht11Sensor.cpp.i
+
+src/sensors/Dht11Sensor.s: src/sensors/Dht11Sensor.cpp.s
+.PHONY : src/sensors/Dht11Sensor.s
+
+# target to generate assembly for a file
+src/sensors/Dht11Sensor.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/sensors/Dht11Sensor.cpp.s
+.PHONY : src/sensors/Dht11Sensor.cpp.s
+
+src/sensors/IrReceiverSensor.o: src/sensors/IrReceiverSensor.cpp.o
+.PHONY : src/sensors/IrReceiverSensor.o
+
+# target to build an object file
+src/sensors/IrReceiverSensor.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/sensors/IrReceiverSensor.cpp.o
+.PHONY : src/sensors/IrReceiverSensor.cpp.o
+
+src/sensors/IrReceiverSensor.i: src/sensors/IrReceiverSensor.cpp.i
+.PHONY : src/sensors/IrReceiverSensor.i
+
+# target to preprocess a source file
+src/sensors/IrReceiverSensor.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/sensors/IrReceiverSensor.cpp.i
+.PHONY : src/sensors/IrReceiverSensor.cpp.i
+
+src/sensors/IrReceiverSensor.s: src/sensors/IrReceiverSensor.cpp.s
+.PHONY : src/sensors/IrReceiverSensor.s
+
+# target to generate assembly for a file
+src/sensors/IrReceiverSensor.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/sensors/IrReceiverSensor.cpp.s
+.PHONY : src/sensors/IrReceiverSensor.cpp.s
+
+src/sensors/sensorManager.o: src/sensors/sensorManager.cpp.o
+.PHONY : src/sensors/sensorManager.o
+
+# target to build an object file
+src/sensors/sensorManager.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/sensors/sensorManager.cpp.o
+.PHONY : src/sensors/sensorManager.cpp.o
+
+src/sensors/sensorManager.i: src/sensors/sensorManager.cpp.i
+.PHONY : src/sensors/sensorManager.i
+
+# target to preprocess a source file
+src/sensors/sensorManager.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/sensors/sensorManager.cpp.i
+.PHONY : src/sensors/sensorManager.cpp.i
+
+src/sensors/sensorManager.s: src/sensors/sensorManager.cpp.s
+.PHONY : src/sensors/sensorManager.s
+
+# target to generate assembly for a file
+src/sensors/sensorManager.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sensors.dir/build.make CMakeFiles/sensors.dir/src/sensors/sensorManager.cpp.s
+.PHONY : src/sensors/sensorManager.cpp.s
+
+src/sensors/test_sensors.o: src/sensors/test_sensors.cpp.o
+.PHONY : src/sensors/test_sensors.o
+
+# target to build an object file
+src/sensors/test_sensors.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_sensors.dir/build.make CMakeFiles/test_sensors.dir/src/sensors/test_sensors.cpp.o
+.PHONY : src/sensors/test_sensors.cpp.o
+
+src/sensors/test_sensors.i: src/sensors/test_sensors.cpp.i
+.PHONY : src/sensors/test_sensors.i
+
+# target to preprocess a source file
+src/sensors/test_sensors.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_sensors.dir/build.make CMakeFiles/test_sensors.dir/src/sensors/test_sensors.cpp.i
+.PHONY : src/sensors/test_sensors.cpp.i
+
+src/sensors/test_sensors.s: src/sensors/test_sensors.cpp.s
+.PHONY : src/sensors/test_sensors.s
+
+# target to generate assembly for a file
+src/sensors/test_sensors.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_sensors.dir/build.make CMakeFiles/test_sensors.dir/src/sensors/test_sensors.cpp.s
+.PHONY : src/sensors/test_sensors.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -274,8 +420,13 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... mqtt_pub"
 	@echo "... mqtt_sub"
+	@echo "... sensors"
 	@echo "... test_pub"
+	@echo "... test_sensors"
 	@echo "... test_sub"
+	@echo "... src/interface/gpioPigpio.o"
+	@echo "... src/interface/gpioPigpio.i"
+	@echo "... src/interface/gpioPigpio.s"
 	@echo "... src/mqtt/mqttPublisher.o"
 	@echo "... src/mqtt/mqttPublisher.i"
 	@echo "... src/mqtt/mqttPublisher.s"
@@ -288,6 +439,18 @@ help:
 	@echo "... src/mqtt/test_sub.o"
 	@echo "... src/mqtt/test_sub.i"
 	@echo "... src/mqtt/test_sub.s"
+	@echo "... src/sensors/Dht11Sensor.o"
+	@echo "... src/sensors/Dht11Sensor.i"
+	@echo "... src/sensors/Dht11Sensor.s"
+	@echo "... src/sensors/IrReceiverSensor.o"
+	@echo "... src/sensors/IrReceiverSensor.i"
+	@echo "... src/sensors/IrReceiverSensor.s"
+	@echo "... src/sensors/sensorManager.o"
+	@echo "... src/sensors/sensorManager.i"
+	@echo "... src/sensors/sensorManager.s"
+	@echo "... src/sensors/test_sensors.o"
+	@echo "... src/sensors/test_sensors.i"
+	@echo "... src/sensors/test_sensors.s"
 .PHONY : help
 
 
