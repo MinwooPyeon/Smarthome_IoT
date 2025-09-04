@@ -1,6 +1,7 @@
 package com.example.eeum.voice
 
 import android.content.Context
+import android.util.Log
 import androidx.annotation.RawRes
 import com.example.eeum.R
 
@@ -12,7 +13,8 @@ class PicovoiceManagerEngine(
     @RawRes private val rhinoRes: Int,
     @RawRes private val wakeResModel: Int,
     @RawRes private val rhinoResModel: Int,
-    private val onInference: (IntentResult)->Unit
+    private val onInference: (IntentResult)->Unit,
+    private val onWake: (() -> Unit)? = null
 ) {
     private var manager: ai.picovoice.picovoice.PicovoiceManager? = null
 
@@ -29,8 +31,14 @@ class PicovoiceManagerEngine(
             .setContextPath(rhinoPath)
             .setPorcupineModelPath(porcupineModelPath)
             .setRhinoModelPath(rhinoModelPath)
+            .setWakeWordCallback {onWake?.invoke()}
             .setInferenceCallback { inf ->
-                if (inf.isUnderstood) onInference(IntentResult(inf.intent, inf.slots))
+                if (inf.isUnderstood){
+                    Log.d("EEUM_PicovoiceManagerEngine", "Rhino OK: intent=${inf.intent}, slots=${inf.slots}")
+                    onInference(IntentResult(inf.intent, inf.slots))
+                } else {
+                    Log.d("EEUM_PicovoiceManagerEngine","Rhino not understood ❌")
+                }
             }
             .build(context)
         manager?.start()
