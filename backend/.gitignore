@@ -61,3 +61,5 @@ secret.*
 #application*.yml
 #application*.yaml
 #application*.properties
+
+.metadata/
