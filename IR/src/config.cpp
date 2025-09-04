@@ -1,4 +1,4 @@
-#include "config.h"
+#include "core/config.h"
 #include <fstream>
 #include <iostream>
 #include <filesystem>
@@ -22,10 +22,10 @@ std::shared_ptr<Config> Config::loadFromFile(const std::string& path) {
         auto json_config = nlohmann::json::parse(content);
         
         if (json_config.contains("token")) {
-            config->setToken(json_config["token"]);
+            config->setApiToken(json_config["token"]);
         }
         if (json_config.contains("port")) {
-            config->setPort(json_config["port"]);
+            config->setMqttPort(json_config["port"]);
         }
         if (json_config.contains("webui_port")) {
             config->setWebUIPort(json_config["webui_port"]);
