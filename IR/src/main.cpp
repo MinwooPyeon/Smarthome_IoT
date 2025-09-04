@@ -2,14 +2,14 @@
 #include <signal.h>
 #include <chrono>
 #include <thread>
-#include "hardware/ir_receiver.h"
+#include "hardware/esp32_ir_receiver.h"
 #include "hardware/appliance_controller.h"
 #include "network/mqtt_client.h"
 #include "core/config.h"
 
 // 전역 변수
 std::atomic<bool> running(true);
-IRReceiver* ir_receiver = nullptr;
+ESP32IRReceiver* ir_receiver = nullptr;
 ApplianceController* appliance_controller = nullptr;
 MqttClient* mqtt_client = nullptr;
 
@@ -106,10 +106,8 @@ int main() {
         // 설정 파일에서 가전기기 정보 로드
         appliance_controller->loadConfiguration("config/appliances.json");
         
-        // IR 수신기 초기화
-        int ir_gpio_pin = config->getInt("ir_receiver.gpio_pin", 23);
-        ir_receiver = new IRReceiver(ir_gpio_pin);
-        ir_receiver->setIRCodeCallback(onIRCodeReceived);
+        // IR 수신기 초기화 (일반 C++ 환경에서는 모의 구현)
+        std::cout << "일반 C++ 환경에서 실행 중입니다. IR 수신기는 모의 모드로 동작합니다." << std::endl;
         
         // MQTT 클라이언트 초기화
         mqtt_client = new MqttClient();
@@ -125,20 +123,11 @@ int main() {
             mqtt_client->subscribe("irremote/control");
             mqtt_client->subscribe("irremote/status");
         } else {
-            std::cerr << "MQTT 브로커 연결 실패" << std::endl;
-
-        }
-        
-        // IR 수신 시작
-        if (ir_receiver->startReceiving()) {
-            std::cout << "IR 수신 시작됨 - GPIO " << ir_gpio_pin << std::endl;
-        } else {
-            std::cerr << "IR 수신 시작 실패" << std::endl;
-            return 1;
+            std::cout << "MQTT 브로커 연결 실패 (모의 모드로 계속 실행)" << std::endl;
         }
         
         std::cout << "시스템이 정상적으로 시작되었습니다." << std::endl;
-        std::cout << "IR 센서에서 리모컨 신호를 기다리는 중..." << std::endl;
+        std::cout << "일반 C++ 환경에서 실행 중입니다. IR 센서는 모의 모드입니다." << std::endl;
         std::cout << "종료하려면 Ctrl+C를 누르세요." << std::endl;
         
         // 메인 루프
@@ -152,11 +141,10 @@ int main() {
             static auto last_status_time = std::chrono::steady_clock::now();
             auto now = std::chrono::steady_clock::now();
             if (std::chrono::duration_cast<std::chrono::seconds>(now - last_status_time).count() >= 10) {
-                std::cout << "시스템 상태: IR 수신 중..." << std::endl;
+                std::cout << "시스템 상태: 모의 모드로 실행 중..." << std::endl;
                 last_status_time = now;
             }
             
-
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         
@@ -167,11 +155,6 @@ int main() {
     
     // 정리 작업
     std::cout << "시스템을 종료합니다..." << std::endl;
-    
-    if (ir_receiver) {
-        ir_receiver->stopReceiving();
-        delete ir_receiver;
-    }
     
     if (mqtt_client) {
         mqtt_client->disconnect();
