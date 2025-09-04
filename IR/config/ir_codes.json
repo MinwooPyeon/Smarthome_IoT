@@ -1,0 +1,22 @@
+{
+    "ir_codes": {
+        "samsung_tv": {
+            "power": "0xE0E040BF",
+            "volume_up": "0xE0E0E01F",
+            "volume_down": "0xE0E0D02F",
+            "channel_up": "0xE0E048B7",
+            "channel_down": "0xE0E008F7"
+        },
+        "samsung_ac": {
+            "power": "0xE0E040BF",
+            "mode": "0xE0E014EB",
+            "temp_18": "0xE0E018E7",
+            "temp_up": "0xE0E01CE3",
+            "temp_down": "0xE0E05CA3"
+        },
+        "general": {
+            "power": "0x20DF10EF",
+            "mode": "0x20DF50AF"
+        }
+    }
+}
