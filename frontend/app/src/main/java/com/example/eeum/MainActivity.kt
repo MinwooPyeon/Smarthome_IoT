@@ -1,15 +1,20 @@
 
 package com.example.eeum
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import com.example.eeum.ui.navigation.EeumApp
 import com.example.eeum.ui.theme.EeumTheme
 import com.example.eeum.util.PermissionRequester
+import com.example.eeum.voice.PicovoiceManagerEngine
+import com.example.eeum.voice.VoiceService
 
 class MainActivity : ComponentActivity() {
 
@@ -29,7 +34,7 @@ class MainActivity : ComponentActivity() {
     private fun requestStartupPermissions() {
         val toRequest = buildList {
             add(android.Manifest.permission.RECORD_AUDIO)
-            // Android 13+에서 알림 권한을 함께 받고 싶다면
+
             if (Build.VERSION.SDK_INT >= 33) {
                 add(android.Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -39,17 +44,16 @@ class MainActivity : ComponentActivity() {
             context = this,
             *toRequest,
             onGranted = {
-                // 모든 권한 OK → 이후 작업(예: 핫워드 서비스 시작)
-                // startForegroundService(Intent(this, VoiceService::class.java))
+                // 권한 허용 후 서비스 시작
+                ContextCompat.startForegroundService(
+                    this, Intent(this, VoiceService::class.java)
+                )
             },
             onDenied = { denied, permanentlyDenied ->
-                // 여기서 UI는 네 선택: 스낵바/토스트/다이얼로그 등
                 if (permanentlyDenied.isNotEmpty()) {
-                    // "다시 묻지 않음" → 설정으로 유도
                     showGoToSettingsDialog()
                 } else {
-                    // 단순 거부 → 필요 시 다시 시도 안내
-                    // Toast.makeText(this, "권한이 필요합니다.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "권한이 필요합니다.", Toast.LENGTH_SHORT).show()
                 }
             }
         )
