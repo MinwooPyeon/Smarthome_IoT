@@ -20,32 +20,30 @@ import com.example.eeum.ui.screens.HomeScreen
 import com.example.eeum.ui.screens.MenuScreen
 import com.example.eeum.ui.screens.UseScreen
 import com.example.eeum.ui.screens.VoiceScreen
+import com.example.eeum.ui.screens.RoutineScreen // ← 루틴 화면 import
 
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
 
-// Voice 화면을 위한 별도 라우트 상수
 private const val VOICE_ROUTE = "voice"
+private const val ROUTINE_ROUTE = "routine"
 
 @Composable
 fun EeumApp() {
     val navController = rememberNavController()
 
-    // 배경: drawable/background.xml 적용 (paint 사용)
     Box(
         modifier = Modifier
             .fillMaxSize()
             .paint(
-                painterResource(id = R.drawable.background), // ← drawable/background.xml
+                painterResource(id = R.drawable.background),
                 contentScale = ContentScale.Crop
             )
     ) {
         M2Scaffold(
-            // 도킹 FAB + 자동 컷아웃
             isFloatingActionButtonDocked = true,
             floatingActionButtonPosition = M2FabPosition.Center,
-            backgroundColor = Color.Transparent, // 배경 보이도록 투명
-
+            backgroundColor = Color.Transparent,
             floatingActionButton = {
                 EeumFloatingActionButton(
                     onClick = {
@@ -55,7 +53,6 @@ fun EeumApp() {
                     }
                 )
             },
-
             bottomBar = {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
@@ -82,8 +79,12 @@ fun EeumApp() {
                 composable(Tab.Home.route) { HomeScreen() }
                 composable(Tab.Device.route) { DeviceScreen() }
                 composable(Tab.Use.route) { UseScreen() }
-                composable(Tab.Menu.route) { MenuScreen() }
+                // MenuScreen에 navController 전달!
+                composable(Tab.Menu.route) { MenuScreen(navController) }
+
                 composable(VOICE_ROUTE) { VoiceScreen() }
+                // 루틴 라우트 등록
+                composable(ROUTINE_ROUTE) { RoutineScreen() }
             }
         }
     }
