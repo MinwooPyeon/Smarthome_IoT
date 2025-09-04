@@ -2,6 +2,7 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <atomic>
 
 #ifdef _WIN32
 // Windows 환경에서는 시뮬레이션

@@ -130,6 +130,11 @@ public:
      */
     bool fromJson(const std::string& json);
 
+    // 추가 메서드들
+    bool load(const std::string& filename);
+    int getInt(const std::string& key, int default_value) const;
+    std::string getString(const std::string& key, const std::string& default_value) const;
+
 private:
     // 웹 서버 설정
     int web_ui_port_ = 8080;

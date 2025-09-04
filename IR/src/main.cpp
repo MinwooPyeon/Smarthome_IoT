@@ -11,7 +11,7 @@
 std::atomic<bool> running(true);
 IRReceiver* ir_receiver = nullptr;
 ApplianceController* appliance_controller = nullptr;
-MQTTClient* mqtt_client = nullptr;
+MqttClient* mqtt_client = nullptr;
 
 // 시그널 핸들러
 void signalHandler(int signum) {
@@ -32,14 +32,13 @@ void onIRCodeReceived(const std::string& ir_code) {
             
             // MQTT로 상태 전송
             if (mqtt_client && mqtt_client->isConnected()) {
-                nlohmann::json status_msg;
-                status_msg["appliance_id"] = result.appliance_id;
-                status_msg["command"] = static_cast<int>(result.command);
-                status_msg["success"] = result.success;
-                status_msg["timestamp"] = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count();
+                std::string status_msg = "{\"appliance_id\":\"" + result.appliance_id + 
+                                       "\",\"command\":" + std::to_string(static_cast<int>(result.command)) +
+                                       ",\"success\":" + (result.success ? "true" : "false") + 
+                                       ",\"timestamp\":" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count()) + "}";
                 
-                mqtt_client->publish("irremote/status", status_msg.dump());
+                mqtt_client->publish("irremote/status", status_msg);
             }
         } else {
             std::cerr << "가전기기 제어 실패: " << result.message << std::endl;
@@ -58,13 +57,21 @@ void onMQTTMessage(const std::string& topic, const std::string& message) {
     std::cout << "MQTT 메시지 수신: " << topic << " - " << message << std::endl;
     
     try {
-        nlohmann::json msg = nlohmann::json::parse(message);
-        
+        // 간단한 JSON 파싱 (nlohmann/json 없이)
         if (topic == "irremote/control") {
             // 원격 제어 명령 처리
-            if (msg.contains("appliance_id") && msg.contains("command")) {
-                std::string appliance_id = msg["appliance_id"];
-                ControlCommand command = static_cast<ControlCommand>(msg["command"].get<int>());
+            if (message.find("\"appliance_id\"") != std::string::npos && 
+                message.find("\"command\"") != std::string::npos) {
+                
+                // 간단한 파싱 로직
+                size_t id_start = message.find("\"appliance_id\":\"") + 16;
+                size_t id_end = message.find("\"", id_start);
+                std::string appliance_id = message.substr(id_start, id_end - id_start);
+                
+                size_t cmd_start = message.find("\"command\":") + 10;
+                size_t cmd_end = message.find_first_of(",}", cmd_start);
+                int command_value = std::stoi(message.substr(cmd_start, cmd_end - cmd_start));
+                ControlCommand command = static_cast<ControlCommand>(command_value);
                 
                 if (appliance_controller) {
                     ControlResult result = appliance_controller->controlAppliance(appliance_id, command);
@@ -86,9 +93,10 @@ int main() {
     
     try {
         // 설정 로드
-        Config config;
-        if (!config.load("config/app_config.json")) {
+        auto config = Config::loadFromFile("config/app_config.json");
+        if (!config) {
             std::cout << "기본 설정으로 시작합니다." << std::endl;
+            config = std::make_shared<Config>();
         }
         
         // 가전기기 제어기 초기화
@@ -99,16 +107,16 @@ int main() {
         appliance_controller->loadConfiguration("config/appliances.json");
         
         // IR 수신기 초기화
-        int ir_gpio_pin = config.getInt("ir_receiver.gpio_pin", 23);
+        int ir_gpio_pin = config->getInt("ir_receiver.gpio_pin", 23);
         ir_receiver = new IRReceiver(ir_gpio_pin);
         ir_receiver->setIRCodeCallback(onIRCodeReceived);
         
         // MQTT 클라이언트 초기화
-        mqtt_client = new MQTTClient();
+        mqtt_client = new MqttClient();
         mqtt_client->setMessageCallback(onMQTTMessage);
         
-        std::string mqtt_broker = config.getString("mqtt.broker", "localhost");
-        int mqtt_port = config.getInt("mqtt.port", 1883);
+        std::string mqtt_broker = config->getString("mqtt.broker", "localhost");
+        int mqtt_port = config->getInt("mqtt.port", 1883);
         
         if (mqtt_client->connect(mqtt_broker, mqtt_port)) {
             std::cout << "MQTT 브로커 연결 성공: " << mqtt_broker << ":" << mqtt_port << std::endl;

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <map>
 
 #ifdef _WIN32
 // Windows 환경에서는 시뮬레이션

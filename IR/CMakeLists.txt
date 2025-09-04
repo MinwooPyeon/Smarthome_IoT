@@ -17,6 +17,12 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 # Find required packages
 find_package(Threads REQUIRED)
 
+# MQTT 라이브러리 찾기 (Windows에서는 찾지 않음)
+if(NOT WIN32)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(MOSQUITTO REQUIRED libmosquitto)
+endif()
+
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/header)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -49,6 +55,12 @@ target_link_libraries(irremote_lib
     Threads::Threads
 )
 
+# Windows가 아닌 경우 MQTT 라이브러리 링크
+if(NOT WIN32)
+    target_link_libraries(irremote_lib ${MOSQUITTO_LIBRARIES})
+    target_include_directories(irremote_lib PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
+endif()
+
 # Main executable
 set(MAIN_SOURCES src/main.cpp)
 add_executable(irremote_sender ${MAIN_SOURCES})
@@ -73,7 +85,7 @@ install(DIRECTORY header/
 
 # Install configuration files
 install(FILES 
-    config/systemd/irremote.service 
+    config/linux/systemd/irremote.service 
     DESTINATION /etc/systemd/system
 )
 

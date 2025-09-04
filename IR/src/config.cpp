@@ -19,10 +19,8 @@ std::shared_ptr<Config> Config::loadFromFile(const std::string& path) {
     file.close();
 
     try {
-        // Parse JSON directly using nlohmann/json
         auto json_config = nlohmann::json::parse(content);
         
-        // Copy values from JSON to our config
         if (json_config.contains("token")) {
             config->setToken(json_config["token"]);
         }
@@ -42,7 +40,6 @@ std::shared_ptr<Config> Config::loadFromFile(const std::string& path) {
 }
 
 std::shared_ptr<Config> Config::loadDefault() {
-    // Try to get home directory
     const char* home = std::getenv("HOME");
     if (!home) {
         std::cout << "Using default config (no HOME environment variable)" << std::endl;
@@ -132,4 +129,55 @@ bool Config::fromJson(const std::string& json) {
     } catch (const std::exception& e) {
         return false;
     }
+}
+
+// 추가 메서드들 구현
+bool Config::load(const std::string& filename) {
+    auto loaded_config = loadFromFile(filename);
+    if (loaded_config) {
+        // 현재 객체에 값들을 복사
+        *this = *loaded_config;
+        return true;
+    }
+    return false;
+}
+
+int Config::getInt(const std::string& key, int default_value) const {
+    if (key == "ir_receiver.gpio_pin") return 23;
+    if (key == "mqtt.port") return mqtt_port_;
+    if (key == "mqtt.enabled") return mqtt_enabled_ ? 1 : 0;
+    if (key == "web_ui.port") return web_ui_port_;
+    if (key == "web_ui.enabled") return web_ui_enabled_ ? 1 : 0;
+    
+    // custom_values에서 찾기
+    auto it = custom_values_.find(key);
+    if (it != custom_values_.end()) {
+        try {
+            return std::stoi(it->second);
+        } catch (...) {
+            return default_value;
+        }
+    }
+    
+    return default_value;
+}
+
+std::string Config::getString(const std::string& key, const std::string& default_value) const {
+    if (key == "mqtt.broker") return mqtt_broker_.empty() ? default_value : mqtt_broker_;
+    if (key == "mqtt.username") return mqtt_username_;
+    if (key == "mqtt.password") return mqtt_password_;
+    if (key == "mqtt.client_id") return mqtt_client_id_;
+    if (key == "web_ui.host") return web_ui_host_;
+    if (key == "api.token") return api_token_;
+    if (key == "log.level") return log_level_;
+    if (key == "log.file") return log_file_;
+    if (key == "ir.device") return ir_device_;
+    
+    // custom_values에서 찾기
+    auto it = custom_values_.find(key);
+    if (it != custom_values_.end()) {
+        return it->second;
+    }
+    
+    return default_value;
 }

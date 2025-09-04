@@ -93,6 +93,10 @@ private:
     
     // 로그 기록
     void logControl(const std::string& appliance_id, ControlCommand command, bool success);
+
+private:
+    // 헬퍼 함수
+    int getGPIOForAppliance(const std::string& appliance_id);
 };
 
 #endif // APPLIANCE_CONTROLLER_H
