@@ -1,4 +1,4 @@
-package com.eeum.dto;
+package com.eeum.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;

@@ -3,8 +3,8 @@ package com.eeum.service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.eeum.dto.User;
 import com.eeum.dto.response.UpdateNicknameResponse;
+import com.eeum.entity.User;
 import com.eeum.repository.UserRepository;
 
 import jakarta.transaction.Transactional;
