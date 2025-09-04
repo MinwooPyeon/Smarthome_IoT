@@ -1,5 +1,6 @@
 package com.example.eeum.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -12,8 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -25,15 +26,14 @@ import com.example.eeum.R
 @Preview
 @Composable
 fun HomeScreen() {
-    val gradient = Brush.verticalGradient(
-        listOf(Color(0xFFBFEAFE), Color(0xFFDFF7F9))
-    )
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(gradient)
-    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -67,6 +67,7 @@ fun HomeScreen() {
         }
     }
 }
+
 @Composable
 private fun TopRow() {
     Row(
@@ -136,7 +137,7 @@ private fun StatCard(
     Card(
         modifier = modifier
             .height(112.dp),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -186,7 +187,7 @@ private fun FloorplanHeader(title: String, onAddClick: () -> Unit) {
             fontWeight = FontWeight.Medium,
             color = Color(0xFF0F172A)
         )
-            Icon(Icons.Outlined.Add, contentDescription = "추가", tint = Color(0xFF0F172A))
+        Icon(Icons.Outlined.Add, contentDescription = "추가", tint = Color(0xFF0F172A))
     }
 }
 
@@ -196,25 +197,10 @@ private fun FloorplanCard() {
         modifier = Modifier
             .fillMaxWidth()
             .height(520.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF7FBFF)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .padding(16.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color.White)
-                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
-                .fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                "2D 평면도",
-                fontSize = 14.sp,
-                color = Color(0xFF94A3B8),
-                textAlign = TextAlign.Center
-            )
-        }
+        
     }
 }
