@@ -2,7 +2,6 @@
 
 Write-Host "Visual Studio 솔루션 생성을 시작합니다..." -ForegroundColor Green
 
-# 기존 build 디렉토리 정리
 if (Test-Path "build") {
     Remove-Item -Recurse -Force "build"
 }
