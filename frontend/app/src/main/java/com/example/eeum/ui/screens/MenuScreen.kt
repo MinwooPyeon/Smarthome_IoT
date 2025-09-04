@@ -1,5 +1,6 @@
 package com.example.eeum.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -9,9 +10,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 
 @Composable
-fun MenuScreen() {
+fun MenuScreen(navController: NavController) {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -23,7 +25,10 @@ fun MenuScreen() {
             Text(
                 "메뉴 화면",
                 fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable {
+                    navController.navigate("routine")
+                }
             )
             Spacer(Modifier.height(8.dp))
             Text(

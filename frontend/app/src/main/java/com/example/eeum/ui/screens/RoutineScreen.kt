@@ -28,6 +28,22 @@ import com.example.eeum.R
 import com.example.eeum.ui.pages.MyRoutinePage
 import com.example.eeum.ui.pages.RecommendRoutinePage
 import kotlinx.coroutines.launch
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.composed
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import kotlin.math.roundToInt
 
 private val TabBg = Color(0xFFF5F5F5)
 private val TextUnselected = Color(0xFF4B5563)
@@ -109,52 +125,99 @@ private fun SegmentedTabRow(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // 전체 컨테이너 가로(px)
+    var containerWidthPx by remember { mutableStateOf(0f) }
+    val density = LocalDensity.current
+
+    val height = 52.dp
+    val corner = 8.dp
+    val capsuleCorner = 6.dp
+    val capsuleOuterPad = 4.dp
+    val count = titles.size.coerceAtLeast(1)
+
+    // 현재 캡슐의 좌측 x(px). 0 ~ (count-1)*tabWidthPx
+    var dragOffsetPx by remember { mutableStateOf(0f) }
+    var isDragging by remember { mutableStateOf(false) }
+
+    // 탭 너비(px)
+    val tabWidthPx = remember(containerWidthPx, count) {
+        if (count == 0) 0f else containerWidthPx / count
+    }
+
+    // 외부 선택이 바뀌면(페이지 스와이프 등) 드래그 중이 아닐 때 위치 동기화
+    LaunchedEffect(selectedIndex, tabWidthPx, isDragging) {
+        if (!isDragging && tabWidthPx > 0f) {
+            dragOffsetPx = selectedIndex * tabWidthPx
+        }
+    }
+
+    // 애니메이션된 캡슐
+    val animatedStartDp: Dp by animateDpAsState(
+        targetValue = with(density) { (dragOffsetPx / density.density).dp } + capsuleOuterPad,
+        label = "capsuleStart"
+    )
+    val capsuleWidthDp: Dp by animateDpAsState(
+        targetValue = with(density) { (tabWidthPx / density.density).dp } - capsuleOuterPad * 2,
+        label = "capsuleWidth"
+    )
+
     Box(
         modifier = modifier
-            .height(52.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(TabBg),
-        contentAlignment = Alignment.Center
+            .height(height)
+            .clip(RoundedCornerShape(corner))
+            .background(TabBg)
+            .onGloballyPositioned { containerWidthPx = it.size.width.toFloat() }
     ) {
-        TabRow(
-            selectedTabIndex = selectedIndex,
+        // 하얀 캡슐
+        Surface(
+            color = Color.White,
+            shape = RoundedCornerShape(capsuleCorner),
+            shadowElevation = 2.dp,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            containerColor = Color.Transparent,
-            contentColor = Color.Unspecified,
-            divider = {}, // 밑줄 제거
-            indicator = { tabPositions ->
-                if (tabPositions.isNotEmpty()) {
-                    Surface(
-                        color = Color.White,
-                        shape = RoundedCornerShape(6.dp),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier
-                            .tabIndicatorOffset(tabPositions[selectedIndex])
-                            .padding(4.dp)   // 52dp - 8dp = 44dp 캡슐
-                            .fillMaxHeight()
-                            .zIndex(-1f)     // 텍스트 뒤로
-                    ) {}
-                }
-            }
+                .fillMaxHeight()
+                .padding(vertical = capsuleOuterPad)
+                .offset(x = animatedStartDp)
+                .width(capsuleWidthDp)
+                .draggable(
+                    orientation = Orientation.Horizontal,
+                    state = rememberDraggableState { delta ->
+                        if (tabWidthPx > 0f) {
+                            val max = (count - 1) * tabWidthPx
+                            dragOffsetPx = (dragOffsetPx + delta).coerceIn(0f, max)
+                        }
+                    },
+                    onDragStarted = { isDragging = true },
+                    onDragStopped = {
+                        isDragging = false
+                        if (tabWidthPx > 0f) {
+                            // 가장 가까운 탭으로 스냅
+                            val target = (dragOffsetPx / tabWidthPx).roundToInt()
+                                .coerceIn(0, count - 1)
+                            onSelect(target) // 상위에서 pagerState.animateScrollToPage 호출됨
+                        }
+                    }
+                )
+        ) {}
+
+        Row(
+            modifier = Modifier.matchParentSize(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             titles.forEachIndexed { index, title ->
                 val selected = index == selectedIndex
-                Tab(
-                    selected = selected,
-                    onClick = { onSelect(index) },
-                    selectedContentColor = TextSelected,
-                    unselectedContentColor = TextUnselected,
-                    text = {
-                        Text(
-                            text = title,
-                            fontSize = 16.sp,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
-                            color = if (selected) TextSelected else TextUnselected
-                        )
-                    }
-                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 16.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (selected) TextSelected else TextUnselected
+                    )
+                }
             }
         }
     }
