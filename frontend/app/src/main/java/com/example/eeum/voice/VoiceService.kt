@@ -6,7 +6,10 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.eeum.R
 import com.example.eeum.data.remote.DeviceApi
@@ -15,66 +18,42 @@ class VoiceService : Service() {
 
     private var tts: TtsHelper? = null
     private var pv: PicovoiceManagerEngine? = null
-    private lateinit var router: IntentRouter
-    val ai = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
 
     override fun onCreate() {
         super.onCreate()
         startAsForeground()
 
-        // 준비물
         tts = TtsHelper(this)
 
-        val deviceApi = object : DeviceApi {
-            override fun turnOn(device: String, room: String) { /* TODO */ }
-            override fun turnOff(device: String, room: String) { /* TODO */ }
-            override fun setLevel(device: String, room: String, level: Int) { /* TODO */ }
-        }
+        // meta-data에서 키 읽기 (onCreate 안에서)
+        val appInfo = packageManager.getApplicationInfo(
+            packageName,
+            PackageManager.GET_META_DATA
+        )
+        val pvKey = appInfo.metaData?.getString("PICOVOICE_ACCESS_KEY").orEmpty()
 
-//        val chat: ChatClient = HttpChatClient(
-//            url = BuildConfig.LLM_ENDPOINT,   // ★ API 키/엔드포인트는 BuildConfig 등으로 주입
-//            apiKey = BuildConfig.LLM_API_KEY
-//        )
-//
-//        val sttFactory = {
-//            SttHelper(
-//                ctx = this,
-//                onResult = { text ->
-//                    // Q/A 모드에서 답변 만들고 TTS
-//                    // (원한다면 로딩 사운드/토스트 추가)
-//                    // 코루틴 사용을 권하면, 여기선 간단히 서비스 스코프를 만들어도 됨
-//                    Thread {
-//                        try {
-//                            val answer = chat.ask(text)
-//                            tts?.say(answer)
-//                        } catch (e: Exception) {
-//                            tts?.say("죄송해요. 통신 오류가 발생했어요.")
-//                        }
-//                    }.start()
-//                },
-//                onError = { err ->
-//                    tts?.say("음성을 알아듣지 못했어요.")
-//                }
-//            )
-//        }
-//
-//        router = IntentRouter(deviceApi, tts!!, chat, sttFactory)
-
-        // Picovoice(핫워드+Rhino NLU) 시작
+        // Picovoice 시작: 핫워드 상시 듣기 + 핫워드 이후 Rhino NLU
         pv = PicovoiceManagerEngine(
             context = this,
-            accessKey = ai.metaData.getString("PICOVOICE_ACCESS_KEY") ?: "",
-            wakeRes   = R.raw.jenny,  // jarvis.ppn (raw 리소스)
-            rhinoRes  = R.raw.eeum, // home_ko.rhn (raw 리소스)
-            onInference = { intentResult ->
-                router.handle(intentResult)
+            accessKey = pvKey,
+            wakeRes   = R.raw.jenny,
+            rhinoRes  = R.raw.eeum,
+            wakeResModel   = R.raw.porcupine_params_ko,
+            rhinoResModel  = R.raw.rhino_params_ko,
+            onInference = { r ->
+                // 여기서 "핫워드 후" 발화가 파싱됨
+                // 오늘은 API 없이 결과만 확인
+                Log.i("VoiceService", "Intent=${r.name}, slots=${r.slots}")
+                tts?.say("인텐트 ${r.name} 인식했어요.")
             }
         ).also { it.start() }
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            tts?.say("호출어를 말해 주세요.")
+        }, 800)
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return START_STICKY
-    }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
         pv?.stop(); pv = null
