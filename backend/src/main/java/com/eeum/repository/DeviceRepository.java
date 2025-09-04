@@ -10,6 +10,20 @@ import java.util.List;
 import java.util.Optional;
 
 public interface DeviceRepository extends JpaRepository<Device, Integer> {
+
+	// roomName + deviceName로 deviceId 조회
+    @Query(value = """
+        select d.device_id
+        from device d
+        join room r on d.room_id = r.room_id
+        where d.user_id = :userId
+          and r.user_id = :userId
+          and lower(r.room_name) = lower(:roomName)
+          and lower(d.device_name) = lower(:deviceName)
+        limit 1
+        """, nativeQuery = true)
+    Optional<Integer> findDeviceId(@Param("userId") Integer userId, @Param("roomName") String roomName, @Param("deviceName") String deviceName);
+
     
     // 디바이스 목록/개수 조회
     // active: device_detail JSON -> 'onoff' 필드

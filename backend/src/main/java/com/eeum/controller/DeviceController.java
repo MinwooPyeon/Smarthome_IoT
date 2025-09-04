@@ -57,6 +57,31 @@ public class DeviceController implements ControllerHelper {
         
     }
     
+    // roomName + deviceName로 deviceId 조회
+    @GetMapping("/device-id")
+    public ResponseEntity<?> resolveDeviceId(
+            @RequestParam(name = "roomName") String roomName,
+            @RequestParam(name = "deviceName") String deviceName
+    ) {
+        try {
+            Integer userId = 1;
+            
+            if (isBlank(roomName) || isBlank(deviceName)) {
+                return handleFail(new IllegalArgumentException("roomName과 deviceName은 필수입니다."), HttpStatus.BAD_REQUEST);
+            }
+
+            Integer deviceId = deviceService.findDeviceId(userId, roomName.trim(), deviceName.trim());
+            if (deviceId == null) {
+                return handleFail(new RuntimeException("조건에 해당하는 디바이스가 없습니다."), HttpStatus.NOT_FOUND);
+            }
+
+            return handleSuccess(Map.of("deviceId", deviceId), HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
     
     private static boolean isBlank(String s) {
         return s == null || s.isBlank();

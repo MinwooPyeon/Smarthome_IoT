@@ -36,6 +36,16 @@ public class DeviceService {
         return true;
     }
     
+    // roomName + deviceName로 deviceId 조회
+    public Integer findDeviceId(Integer userId, String roomName, String deviceName) {
+        if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
+        if (roomName == null || roomName.isBlank()) throw new IllegalArgumentException("roomName은 필수입니다.");
+        if (deviceName == null || deviceName.isBlank()) throw new IllegalArgumentException("deviceName은 필수입니다.");
+
+        return deviceRepository.findDeviceId(userId, roomName.trim(), deviceName.trim())
+                .orElse(null);
+    }
+
     
     // 디바이스 목록 조회
     public DeviceResponse findDevices(Integer userId, Boolean active, String type, String roomName, String deviceName) {
