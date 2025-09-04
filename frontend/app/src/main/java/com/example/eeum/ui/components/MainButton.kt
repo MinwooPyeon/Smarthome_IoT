@@ -44,9 +44,8 @@ fun CustomButton(
         modifier = modifier
             .width(width)
             .height(height)
-            .shadow(elevation = 15.dp, spotColor = Color(0x1A000000), ambientColor = Color(0x1A000000))
-            .shadow(elevation = 6.dp, spotColor = Color(0x1A000000), ambientColor = Color(0x1A000000))
-            .border(width = 0.dp, color = Color(0xFFE5E7EB), shape = RoundedCornerShape(size = 12.dp))
+            .shadow(elevation = 2.dp, spotColor = Color(0x1A000000), ambientColor = Color(0x1A000000))
+            .border(width = 1.dp, color = Color(0xFFE5E7EB), shape = RoundedCornerShape(size = 12.dp))
             .background(color = backgroundColor, shape = RoundedCornerShape(size = 12.dp)),
         contentAlignment = Alignment.Center
     ) {
