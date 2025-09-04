@@ -1,2 +1,0 @@
-/usr/bin/ar qc libsensors.a CMakeFiles/sensors.dir/src/sensors/sensorManager.cpp.o CMakeFiles/sensors.dir/src/sensors/Dht11Sensor.cpp.o CMakeFiles/sensors.dir/src/sensors/IrReceiverSensor.cpp.o CMakeFiles/sensors.dir/src/interface/gpioPigpio.cpp.o
-/usr/bin/ranlib libsensors.a

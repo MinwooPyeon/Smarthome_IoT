@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/test_sensors.dir/src/sensors/test_sensors.cpp.o -o test_sensors  -Wl,-rpath,/usr/local/lib libsensors.a /usr/local/lib/libpigpio.so /usr/lib/x86_64-linux-gnu/librt.a 

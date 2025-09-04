@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmqtt_sub.a CMakeFiles/mqtt_sub.dir/src/mqtt/mqttSubscriber.cpp.o
-/usr/bin/ranlib libmqtt_sub.a
