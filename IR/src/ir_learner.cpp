@@ -218,7 +218,6 @@ bool IRLearner::loadLearnedCodes(const std::string& filename) {
                 command.repeat_count = cmd["repeat_count"].as<int>();
                 command.notes = cmd["notes"].as<std::string>();
                 
-                // 타임스탬프는 현재 시간으로 설정
                 command.ir_code.timestamp = std::chrono::steady_clock::now();
                 
                 learned_commands_[command.appliance_id].push_back(command);
@@ -290,7 +289,7 @@ IRReceiver* IRLearner::getIRReceiver() const {
     return ir_receiver_;
 }
 
-// IR 코드 수신 콜백    
+// IR 코드 수신 콜백 
 void IRLearner::onIRCodeReceived(const std::string& ir_code) {
     if (!learning_mode_ || current_appliance_id_.empty() || current_command_name_.empty()) {
         return; 

@@ -72,6 +72,12 @@ public:
     
     // IR 코드 검색
     std::string findIRCode(const std::string& appliance_id, const std::string& command) const;
+    
+    // MQTT 통합 메서드
+    void setMqttClient(class MqttClient* mqtt_client);
+    void handleMqttCommand(const std::string& topic, const std::string& message);
+    void publishStatus(const std::string& appliance_id, const std::string& status);
+    void publishIRCode(const std::string& appliance_id, const std::string& command, const std::string& ir_code);
 
 private:
     std::map<std::string, ApplianceType> appliances_;
@@ -82,6 +88,9 @@ private:
     std::unique_ptr<IRLearner> ir_learner_;
     std::unique_ptr<IRDatabase> ir_database_;
     std::unique_ptr<IRProtocolDetector> protocol_detector_;
+    
+    // MQTT 클라이언트
+    class MqttClient* mqtt_client_;
     
     void initializeIRCodeMapping();
     ControlCommand convertIRToCommand(const std::string& ir_code);

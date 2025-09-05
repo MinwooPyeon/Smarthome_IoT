@@ -20,6 +20,9 @@ ApplianceController::ApplianceController() {
     ir_database_ = std::make_unique<IRDatabase>();
     protocol_detector_ = std::make_unique<IRProtocolDetector>();
     
+    // MQTT 클라이언트 초기화
+    mqtt_client_ = nullptr;
+    
     // IR 데이터베이스 초기화
     ir_database_->initialize();
     
@@ -36,6 +39,9 @@ ApplianceController::ApplianceController(IRReceiver* ir_receiver) {
     ir_learner_ = std::make_unique<IRLearner>(ir_receiver);
     ir_database_ = std::make_unique<IRDatabase>();
     protocol_detector_ = std::make_unique<IRProtocolDetector>();
+    
+    // MQTT 클라이언트 초기화
+    mqtt_client_ = nullptr;
     
     // IR 데이터베이스 초기화
     ir_database_->initialize();
@@ -268,6 +274,110 @@ void ApplianceController::initializeIRCodeMapping() {
     
     LOG_INFO("동적 IR 매핑 완료: %d개 코드 로드됨", ir_code_map_.size());
     LOG_INFO("IR 학습 모드 활성화 - 실제 리모컨에서 코드 학습 가능");
+}
+
+// MQTT 통합 메서드들
+void ApplianceController::setMqttClient(MqttClient* mqtt_client) {
+    mqtt_client_ = mqtt_client;
+    LOG_INFO("MQTT 클라이언트 설정 완료");
+}
+
+void ApplianceController::handleMqttCommand(const std::string& topic, const std::string& message) {
+    LOG_INFO("MQTT 명령 처리: %s -> %s", topic.c_str(), message.c_str());
+    
+    try {
+        DynamicJsonDocument doc(1024);
+        DeserializationError error = deserializeJson(doc, message);
+        
+        if (error) {
+            LOG_ERROR("JSON 파싱 오류: %s", error.c_str());
+            return;
+        }
+        
+        if (topic == "irremote/command") {
+            // IR 제어 명령
+            if (doc.containsKey("device_id") && doc.containsKey("command")) {
+                std::string device_id = doc["device_id"];
+                std::string command = doc["command"];
+                
+                // IR 코드 찾기
+                std::string ir_code = findIRCode(device_id, command);
+                if (!ir_code.empty()) {
+                    ControlResult result = controlAppliance(ir_code);
+                    publishStatus(device_id, result.success ? "success" : "failed");
+                } else {
+                    LOG_ERROR("IR 코드를 찾을 수 없음: %s - %s", device_id.c_str(), command.c_str());
+                    publishStatus(device_id, "code_not_found");
+                }
+            }
+        } else if (topic == "irremote/learn") {
+            // IR 학습 명령
+            if (doc.containsKey("device_id") && doc.containsKey("command")) {
+                std::string device_id = doc["device_id"];
+                std::string command = doc["command"];
+                
+                bool success = startIRLearning(device_id, command);
+                publishStatus(device_id, success ? "learning_started" : "learning_failed");
+            }
+        } else if (topic == "irremote/status") {
+            // 상태 조회 명령
+            if (doc.containsKey("device_id")) {
+                std::string device_id = doc["device_id"];
+                auto commands = getLearnedCommands(device_id);
+                
+                DynamicJsonDocument response(1024);
+                response["device_id"] = device_id;
+                response["status"] = "online";
+                response["learned_commands"] = commands.size();
+                
+                JsonArray commands_array = response.createNestedArray("commands");
+                for (const auto& cmd : commands) {
+                    commands_array.add(cmd);
+                }
+                
+                std::string response_str;
+                serializeJson(response, response_str);
+                
+                if (mqtt_client_) {
+                    mqtt_client_->publish("irremote/response", response_str);
+                }
+            }
+        }
+        
+    } catch (const std::exception& e) {
+        LOG_ERROR("MQTT 명령 처리 오류: %s", e.what());
+    }
+}
+
+void ApplianceController::publishStatus(const std::string& appliance_id, const std::string& status) {
+    if (!mqtt_client_) return;
+    
+    DynamicJsonDocument doc(256);
+    doc["device_id"] = appliance_id;
+    doc["status"] = status;
+    doc["timestamp"] = esp_timer_get_time() / 1000;
+    
+    std::string message;
+    serializeJson(doc, message);
+    
+    mqtt_client_->publish("irremote/response", message);
+    LOG_INFO("상태 발행: %s -> %s", appliance_id.c_str(), status.c_str());
+}
+
+void ApplianceController::publishIRCode(const std::string& appliance_id, const std::string& command, const std::string& ir_code) {
+    if (!mqtt_client_) return;
+    
+    DynamicJsonDocument doc(256);
+    doc["device_id"] = appliance_id;
+    doc["command"] = command;
+    doc["ir_code"] = ir_code;
+    doc["timestamp"] = esp_timer_get_time() / 1000;
+    
+    std::string message;
+    serializeJson(doc, message);
+    
+    mqtt_client_->publish("irremote/learned_code", message);
+    LOG_INFO("IR 코드 발행: %s - %s -> %s", appliance_id.c_str(), command.c_str(), ir_code.c_str());
 }
 
 bool ApplianceController::executeControl(const std::string& appliance_id, ControlCommand command) {
