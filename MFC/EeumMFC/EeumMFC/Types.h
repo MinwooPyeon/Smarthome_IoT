@@ -14,6 +14,6 @@ struct IrEvent {
 struct Metrics {
 	double tAvg{}, hAvg{};
 	double tEwma{}, hEwma{};
-	double dewPoint{}, hexIndex{};
+	double dewPoint{}, heatIndex{};
 	bool spike{};
 };

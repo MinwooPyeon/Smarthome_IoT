@@ -51,6 +51,15 @@
     <ClInclude Include="Resource.h">
       <Filter>헤더 파일\App</Filter>
     </ClInclude>
+    <ClInclude Include="Types.h">
+      <Filter>헤더 파일\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="MqttClient.h">
+      <Filter>헤더 파일\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Analyzer.h">
+      <Filter>헤더 파일\Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="EeumMFC.cpp">
@@ -67,6 +76,12 @@
     </ClCompile>
     <ClCompile Include="pch.cpp">
       <Filter>소스 파일\App</Filter>
+    </ClCompile>
+    <ClCompile Include="MqttClient.cpp">
+      <Filter>소스 파일\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Analyzer.cpp">
+      <Filter>소스 파일\Core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

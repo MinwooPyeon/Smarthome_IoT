@@ -1,5 +1,4 @@
 #pragma once
-
 #include <mosquittopp.h>
 #include <functional>
 #include <string>

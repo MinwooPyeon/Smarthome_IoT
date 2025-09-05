@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "MqttClient.h"
 
 MqttClient::MqttClient(const std::string& id, const std::string& host, int port)
