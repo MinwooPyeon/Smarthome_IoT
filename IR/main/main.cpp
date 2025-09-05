@@ -9,11 +9,11 @@
 #include "ArduinoJson.h"
 
 // IR Remote 컴포넌트 포함
-#include "config.h"
-#include "mqtt_client.h"
-#include "ir_receiver.h"
-#include "appliance_controller.h"
-#include "irsend.h"
+#include "core/config.h"
+#include "network/mqtt_client.h"
+#include "hardware/ir_receiver.h"
+#include "hardware/appliance_controller.h"
+#include "hardware/irsend.h"
 
 static const char* TAG = "IR_REMOTE_MAIN";
 

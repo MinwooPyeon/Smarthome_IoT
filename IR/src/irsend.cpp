@@ -2,7 +2,7 @@
 #include "core/platform.h"
 #include <iostream>
 #include <fstream>
-#include <nlohmann/json.hpp>
+#include "ArduinoJson.h"
 
 #ifdef PLATFORM_ESP32
 // ESP32 환경에서는 IRremoteESP8266 사용

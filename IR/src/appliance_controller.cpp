@@ -2,7 +2,7 @@
 #include "core/platform.h"
 #include <iostream>
 #include <fstream>
-#include <nlohmann/json.hpp>
+#include "ArduinoJson.h"
 #include <map>
 
 #ifdef PLATFORM_ESP32
@@ -140,14 +140,20 @@ bool ApplianceController::loadConfiguration(const std::string& config_file) {
             return false;
         }
         
-        nlohmann::json config;
-        file >> config;
+        DynamicJsonDocument doc(2048);
+        DeserializationError error = deserializeJson(doc, file);
+        
+        if (error) {
+            std::cerr << "JSON 파싱 오류: " << error.c_str() << std::endl;
+            return false;
+        }
         
         // 가전기기 정보 로드
-        if (config.contains("appliances")) {
-            for (const auto& appliance : config["appliances"]) {
-                std::string id = appliance["id"];
-                std::string type_str = appliance["type"];
+        if (doc.containsKey("appliances")) {
+            JsonArray appliances = doc["appliances"];
+            for (JsonObject appliance : appliances) {
+                std::string id = appliance["id"].as<std::string>();
+                std::string type_str = appliance["type"].as<std::string>();
                 
                 ApplianceType type = ApplianceType::UNKNOWN;
                 if (type_str == "TV") type = ApplianceType::TV;
@@ -170,12 +176,12 @@ bool ApplianceController::loadConfiguration(const std::string& config_file) {
 
 bool ApplianceController::saveConfiguration(const std::string& config_file) {
     try {
-        nlohmann::json config;
+        DynamicJsonDocument doc(2048);
         
         // 가전기기 정보 저장
-        nlohmann::json appliances_array = nlohmann::json::array();
+        JsonArray appliances_array = doc.createNestedArray("appliances");
         for (const auto& pair : appliances_) {
-            nlohmann::json appliance;
+            JsonObject appliance = appliances_array.createNestedObject();
             appliance["id"] = pair.first;
             
             std::string type_str;
@@ -187,14 +193,11 @@ bool ApplianceController::saveConfiguration(const std::string& config_file) {
                 default: type_str = "UNKNOWN"; break;
             }
             appliance["type"] = type_str;
-            
-            appliances_array.push_back(appliance);
         }
-        config["appliances"] = appliances_array;
         
         // 파일에 저장
         std::ofstream file(config_file);
-        file << config.dump(4);
+        serializeJsonPretty(doc, file);
         
         std::cout << "설정 파일 저장 완료: " << config_file << std::endl;
         return true;
@@ -206,30 +209,16 @@ bool ApplianceController::saveConfiguration(const std::string& config_file) {
 }
 
 void ApplianceController::initializeIRCodeMapping() {
-    // Samsung TV IR 코드 매핑
-    ir_code_map_["0xE0E040BF"] = {"samsung_tv", ControlCommand::POWER_TOGGLE};
-    ir_code_map_["0xE0E0E01F"] = {"samsung_tv", ControlCommand::VOLUME_UP};
-    ir_code_map_["0xE0E0D02F"] = {"samsung_tv", ControlCommand::VOLUME_DOWN};
-    ir_code_map_["0xE0E048B7"] = {"samsung_tv", ControlCommand::CHANNEL_UP};
-    ir_code_map_["0xE0E008F7"] = {"samsung_tv", ControlCommand::CHANNEL_DOWN};
+    // 기본 IR 코드 매핑 (예시용 - 실제로는 학습된 코드 사용)
+    // 이 부분은 IR 학습 기능으로 대체될 예정
     
-    // Samsung Air Conditioner IR 코드 매핑
-    ir_code_map_["0xE0E040BF"] = {"samsung_ac", ControlCommand::POWER_TOGGLE};
-    ir_code_map_["0xE0E014EB"] = {"samsung_ac", ControlCommand::MODE_CHANGE};
-    ir_code_map_["0xE0E018E7"] = {"samsung_ac", ControlCommand::TEMP_SET};
-    ir_code_map_["0xE0E01CE3"] = {"samsung_ac", ControlCommand::TEMP_UP};
-    ir_code_map_["0xE0E05CA3"] = {"samsung_ac", ControlCommand::TEMP_DOWN};
+    LOG_INFO("IR 코드 매핑 초기화 - 학습 모드로 전환 권장");
+    LOG_INFO("기본 매핑: %d개 코드 (실제 기기와 다를 수 있음)", ir_code_map_.size());
     
-    // Samsung Air Purifier IR 코드 매핑
-    ir_code_map_["0xE0E040BF"] = {"samsung_purifier", ControlCommand::POWER_TOGGLE};
-    ir_code_map_["0xE0E014EB"] = {"samsung_purifier", ControlCommand::MODE_CHANGE};
-    ir_code_map_["0xE0E0F50A"] = {"samsung_purifier", ControlCommand::FAN_SPEED};
-    
-    // General Projector IR 코드 매핑
-    ir_code_map_["0x20DF10EF"] = {"general_projector", ControlCommand::POWER_TOGGLE};
-    ir_code_map_["0x20DF50AF"] = {"general_projector", ControlCommand::MODE_CHANGE};
-    
-    std::cout << "IR 코드 매핑 초기화 완료: " << ir_code_map_.size() << "개 코드" << std::endl;
+    // TODO: IR 학습 기능으로 대체
+    // 1. IRLearner를 사용하여 실제 리모컨에서 코드 학습
+    // 2. IRDatabase에서 기기별 코드 검색
+    // 3. IRProtocolDetector로 프로토콜 자동 감지
 }
 
 bool ApplianceController::executeControl(const std::string& appliance_id, ControlCommand command) {
