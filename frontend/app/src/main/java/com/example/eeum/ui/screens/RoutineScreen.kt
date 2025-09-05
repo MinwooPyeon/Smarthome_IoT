@@ -44,6 +44,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import kotlin.math.roundToInt
 
 private val TabBg = Color(0xFFF5F5F5)
@@ -51,7 +52,6 @@ private val TextUnselected = Color(0xFF4B5563)
 private val TextSelected = Color(0xFF007BFF)
 
 @OptIn(ExperimentalFoundationApi::class)
-@Preview
 @Composable
 fun RoutineScreen(navController: NavController) {
     val pagerState = rememberPagerState(pageCount = { 2 })
@@ -69,7 +69,7 @@ fun RoutineScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 24.dp)
+                .padding(horizontal = 16.dp, vertical = 40.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -225,5 +225,11 @@ private fun SegmentedTabRow(
             }
         }
     }
+}
+
+@Preview
+@Composable
+fun RoutineScreenPreview() {
+    RoutineScreen(navController = rememberNavController())
 }
 
