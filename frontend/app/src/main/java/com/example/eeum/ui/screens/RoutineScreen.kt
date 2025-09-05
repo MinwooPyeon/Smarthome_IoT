@@ -43,6 +43,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.navigation.NavController
 import kotlin.math.roundToInt
 
 private val TabBg = Color(0xFFF5F5F5)
@@ -52,7 +53,7 @@ private val TextSelected = Color(0xFF007BFF)
 @OptIn(ExperimentalFoundationApi::class)
 @Preview
 @Composable
-fun RoutineScreen() {
+fun RoutineScreen(navController: NavController) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
     val tabs = listOf("내 루틴", "추천 루틴")
@@ -88,6 +89,9 @@ fun RoutineScreen() {
                 )
                 Text(
                     text = "추가",
+                    modifier = Modifier.clickable {
+                        navController.navigate("createRoutineFirst") // ROUTE_CREATE_ROUTINE_FIRST
+                    },
                     color = TextSelected,
                     fontSize = 16.sp
                 )

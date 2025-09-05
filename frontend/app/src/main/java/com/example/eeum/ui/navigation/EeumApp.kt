@@ -20,13 +20,19 @@ import com.example.eeum.ui.screens.HomeScreen
 import com.example.eeum.ui.screens.MenuScreen
 import com.example.eeum.ui.screens.UseScreen
 import com.example.eeum.ui.screens.VoiceScreen
-import com.example.eeum.ui.screens.RoutineScreen // ← 루틴 화면 import
+import com.example.eeum.ui.screens.RoutineScreen // 기존 루틴 목록/메인
+import com.example.eeum.ui.screens.CreatetRoutineFirstScreen // 루틴 생성 1단계
+import com.example.eeum.ui.screens.CreateRoutineSecondScreen // 루틴 생성 2단계
 
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
 
 private const val VOICE_ROUTE = "voice"
 private const val ROUTINE_ROUTE = "routine"
+
+// 내부 전환 전용 라우트(바텀바 노출 X)
+private const val ROUTE_CREATE_ROUTINE_FIRST = "createRoutineFirst"
+private const val ROUTE_CREATE_ROUTINE_SECOND = "createRoutineSecond"
 
 @Composable
 fun EeumApp() {
@@ -76,15 +82,23 @@ fun EeumApp() {
                 startDestination = Tab.Home.route,
                 modifier = Modifier.padding(innerPadding)
             ) {
+                // 바텀탭
                 composable(Tab.Home.route) { HomeScreen() }
                 composable(Tab.Device.route) { DeviceScreen() }
                 composable(Tab.Use.route) { UseScreen() }
-                // MenuScreen에 navController 전달!
                 composable(Tab.Menu.route) { MenuScreen(navController) }
-
                 composable(VOICE_ROUTE) { VoiceScreen() }
-                // 루틴 라우트 등록
-                composable(ROUTINE_ROUTE) { RoutineScreen() }
+
+                // 루틴 메인 화면
+                composable(ROUTINE_ROUTE) { RoutineScreen(navController) }
+
+                //루틴 생성
+                composable(ROUTE_CREATE_ROUTINE_FIRST) {
+                    CreatetRoutineFirstScreen(navController)
+                }
+                composable(ROUTE_CREATE_ROUTINE_SECOND) {
+                    CreateRoutineSecondScreen()
+                }
             }
         }
     }
