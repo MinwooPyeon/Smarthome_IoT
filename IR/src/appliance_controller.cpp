@@ -470,7 +470,6 @@ void ApplianceController::updateIRCodeMapping() {
             else if (learned.command_name == "sleep") command = ControlCommand::SLEEP;
             
             if (command != ControlCommand::UNKNOWN) {
-                // 기존 맵핑이 없거나 다른 경우에만 추가/업데이트
                 auto it = ir_code_map_.find(key);
                 if (it == ir_code_map_.end() || it->second.first != appliance_id || it->second.second != command) {
                     ir_code_map_[key] = {appliance_id, command};
