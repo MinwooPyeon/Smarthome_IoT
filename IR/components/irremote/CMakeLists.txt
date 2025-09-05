@@ -2,16 +2,12 @@
 idf_component_register(
     SRCS 
         "src/config.cpp"
-        "src/mqtt_client.cpp"
-        "src/mqtt_message.cpp"
-        "src/matter_client.cpp"
         "src/ir_receiver.cpp"
+        "src/irsend.cpp"
         "src/appliance_controller.cpp"
-        "src/pir_sensor.cpp"
-        "src/remote.cpp"
+        "src/mqtt_client.cpp"
     INCLUDE_DIRS 
         "header"
-        "external"
     REQUIRES 
         driver
         esp_wifi
