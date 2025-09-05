@@ -1,0 +1,63 @@
+{
+    "appliances": [
+        {
+            "id": "samsung_tv",
+            "name": "Samsung TV",
+            "type": "TV",
+            "brand": "Samsung",
+            "model": "Smart TV",
+            "gpio_pin": 24,
+            "enabled": true,
+            "ir_codes": {
+                "power": "0xE0E040BF",
+                "volume_up": "0xE0E0E01F",
+                "volume_down": "0xE0E0D02F",
+                "channel_up": "0xE0E048B7",
+                "channel_down": "0xE0E008F7"
+            }
+        },
+        {
+            "id": "samsung_ac",
+            "name": "Samsung Air Conditioner",
+            "type": "AIR_CONDITIONER",
+            "brand": "Samsung",
+            "model": "WindFree",
+            "gpio_pin": 25,
+            "enabled": true,
+            "ir_codes": {
+                "power": "0xE0E040BF",
+                "mode": "0xE0E014EB",
+                "temp_18": "0xE0E018E7",
+                "temp_up": "0xE0E01CE3",
+                "temp_down": "0xE0E05CA3"
+            }
+        },
+        {
+            "id": "samsung_purifier",
+            "name": "Samsung Air Purifier",
+            "type": "AIR_PURIFIER",
+            "brand": "Samsung",
+            "model": "Air Purifier",
+            "gpio_pin": 26,
+            "enabled": true,
+            "ir_codes": {
+                "power": "0xE0E040BF",
+                "mode": "0xE0E014EB",
+                "fan_speed": "0xE0E0F50A"
+            }
+        },
+        {
+            "id": "general_projector",
+            "name": "General Projector",
+            "type": "PROJECTOR",
+            "brand": "Generic",
+            "model": "Beamer",
+            "gpio_pin": 27,
+            "enabled": true,
+            "ir_codes": {
+                "power": "0x20DF10EF",
+                "mode": "0x20DF50AF"
+            }
+        }
+    ]
+}

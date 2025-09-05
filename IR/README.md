@@ -1,1 +1,1 @@
-# ESP32 IR Remote Controller
+# ESP-32 IR Remote Control

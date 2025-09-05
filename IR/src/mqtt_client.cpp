@@ -1,41 +1,31 @@
 #include "network/mqtt_client.h"
-#include "core/platform.h"
 #include <iostream>
 #include <cstring>
 #include <chrono>
 #include <atomic>
 
-#ifdef PLATFORM_ESP32
-#include "WiFi.h"
-#include "PubSubClient.h"
-#include <WiFiClient.h>
-#elif defined(PLATFORM_WINDOWS)
+#ifdef _WIN32
+// Windows 환경에서는 시뮬레이션
 #include <thread>
 #include <atomic>
-#elif defined(PLATFORM_LINUX)
+#else
+// Linux 환경에서는 실제 mosquitto 사용
 #include <mosquitto.h>
 #endif
 
-// MqttClient 클래스 구현
+// 전역 인스턴스 초기화 (ESP32 PubSubClient용)
+MqttClient* MqttClient::global_instance_ = nullptr;
+
 MqttClient::MqttClient() {
-#ifdef PLATFORM_ESP32
-    wifi_client_ = new WiFiClient();
-    mqtt_client_ = new PubSubClient(*wifi_client_);
+#ifdef _WIN32
     connected = false;
     port = 1883;
-    client_id = "esp32_ir_controller";
-    
-    // ESP32 MQTT 콜백 설정
-    mqtt_client_->setCallback(staticOnMQTTMessage);
-    mqtt_client_->setBufferSize(1024);  // 버퍼 크기 설정
-    mqtt_client_->setKeepAlive(60);     // Keep-alive 설정
-#elif defined(PLATFORM_WINDOWS)
-    connected = false;
-    port = 1883;
-#elif defined(PLATFORM_LINUX)
+    client_id = "irremote_client";
+#else
     mosq = nullptr;
     connected = false;
     port = 1883;
+    client_id = "irremote_client";
     
     mosquitto_lib_init();
     mosq = mosquitto_new(nullptr, true, this);
@@ -62,63 +52,36 @@ MqttClient::~MqttClient() {
 }
 
 bool MqttClient::connect(const std::string& broker, int port) {
-#ifdef PLATFORM_ESP32
     this->broker = broker;
     this->port = port;
     
-    mqtt_client_->setServer(broker.c_str(), port);
-    
-    // ESP32 MQTT 연결 시도
-    int retry_count = 0;
-    while (!mqtt_client_->connected() && retry_count < 5) {
-        ESP_LOGI("MQTT", "MQTT 브로커 연결 시도 %d/5", retry_count + 1);
-        
-        if (mqtt_client_->connect(client_id.c_str())) {
-            connected = true;
-            ESP_LOGI("MQTT", "MQTT 브로커 연결 성공: %s:%d", broker.c_str(), port);
-            
-            // 기본 토픽 구독
-            subscribe("irremote/command");
-            subscribe("irremote/learn");
-            subscribe("irremote/status");
-            
-            return true;
-        } else {
-            ESP_LOGE("MQTT", "MQTT 연결 실패: %d", mqtt_client_->state());
-            retry_count++;
-            vTaskDelay(pdMS_TO_TICKS(2000));
-        }
-    }
-    
-    ESP_LOGE("MQTT", "MQTT 브로커 연결 최종 실패");
-    return false;
-#elif defined(_WIN32)
-    this->broker = broker;
-    this->port = port;
+#ifdef _WIN32
+    // Windows 시뮬레이션
     connected = true;
-    std::cout << "Windows 시뮬레이션: MQTT 브로커 연결됨 " << broker << ":" << port << std::endl;
+    std::cout << "MQTT 연결 시뮬레이션: " << broker << ":" << port << std::endl;
     return true;
 #else
-    if (!mosq) return false;
-    
-    this->broker = broker;
-    this->port = port;
-    
-    int result = mosquitto_connect(mosq, broker.c_str(), port, 60);
-    if (result != MOSQ_ERR_SUCCESS) {
-        std::cerr << "Failed to connect to MQTT broker: " << mosquitto_strerror(result) << std::endl;
+    // Linux mosquitto
+    if (!mosq) {
+        std::cerr << "MQTT 클라이언트가 초기화되지 않음" << std::endl;
         return false;
     }
     
-    std::cout << "Connecting to MQTT broker: " << broker << ":" << port << std::endl;
-    return true;
+    int result = mosquitto_connect(mosq, broker.c_str(), port, 60);
+    if (result == MOSQ_ERR_SUCCESS) {
+        std::cout << "MQTT 연결 시도: " << broker << ":" << port << std::endl;
+        return true;
+    } else {
+        std::cerr << "MQTT 연결 실패: " << mosquitto_strerror(result) << std::endl;
+        return false;
+    }
 #endif
 }
 
 void MqttClient::disconnect() {
 #ifdef _WIN32
     connected = false;
-    std::cout << "Windows 시뮬레이션: MQTT 브로커 연결 해제됨" << std::endl;
+    std::cout << "MQTT 연결 해제 시뮬레이션" << std::endl;
 #else
     if (mosq && connected) {
         mosquitto_disconnect(mosq);
@@ -132,25 +95,31 @@ bool MqttClient::isConnected() const {
 
 bool MqttClient::publish(const std::string& topic, const std::string& message) {
 #ifdef _WIN32
-    if (!connected) return false;
-    std::cout << "Windows 시뮬레이션: MQTT 발행 " << topic << " -> " << message << std::endl;
+    // Windows 시뮬레이션
+    std::cout << "MQTT 발행 시뮬레이션: " << topic << " -> " << message << std::endl;
     return true;
 #else
-    if (!mosq || !connected) return false;
+    // Linux mosquitto
+    if (!mosq || !connected) {
+        return false;
+    }
     
     int result = mosquitto_publish(mosq, nullptr, topic.c_str(), 
-                                 message.length(), message.c_str(), 0, false);
+                                  message.length(), message.c_str(), 0, false);
     return result == MOSQ_ERR_SUCCESS;
 #endif
 }
 
 bool MqttClient::subscribe(const std::string& topic) {
 #ifdef _WIN32
-    if (!connected) return false;
-    std::cout << "Windows 시뮬레이션: MQTT 구독 " << topic << std::endl;
+    // Windows 시뮬레이션
+    std::cout << "MQTT 구독 시뮬레이션: " << topic << std::endl;
     return true;
 #else
-    if (!mosq || !connected) return false;
+    // Linux mosquitto
+    if (!mosq || !connected) {
+        return false;
+    }
     
     int result = mosquitto_subscribe(mosq, nullptr, topic.c_str(), 0);
     return result == MOSQ_ERR_SUCCESS;
@@ -162,27 +131,7 @@ void MqttClient::setMessageCallback(std::function<void(const std::string&, const
 }
 
 void MqttClient::loop() {
-#ifdef PLATFORM_ESP32
-    if (mqtt_client_ && connected) {
-        if (!mqtt_client_->connected()) {
-            // 연결 끊김 감지 - 재연결 시도
-            connected = false;
-            ESP_LOGW("MQTT", "MQTT 연결 끊김 감지, 재연결 시도");
-            
-            if (mqtt_client_->connect(client_id.c_str())) {
-                connected = true;
-                ESP_LOGI("MQTT", "MQTT 재연결 성공");
-                
-                // 토픽 재구독
-                subscribe("irremote/command");
-                subscribe("irremote/learn");
-                subscribe("irremote/status");
-            }
-        } else {
-            mqtt_client_->loop();
-        }
-    }
-#elif defined(_WIN32)
+#ifdef _WIN32
     // Windows에서는 아무것도 하지 않음
 #else
     if (mosq) {
@@ -219,9 +168,9 @@ void MqttClient::onMessage(struct mosquitto* mosq, void* userdata,
         client->messageCallback(topic, payload);
     }
 }
+#endif
 
-#ifdef PLATFORM_ESP32
-// ESP32 MQTT 메시지 콜백 함수
+// ESP32 PubSubClient용 정적 콜백 함수들 (호환성 유지)
 void MqttClient::onMQTTMessage(char* topic, byte* payload, unsigned int length) {
     // 페이로드를 문자열로 변환
     std::string message;
@@ -229,11 +178,7 @@ void MqttClient::onMQTTMessage(char* topic, byte* payload, unsigned int length) 
     
     std::string topic_str(topic);
     
-#ifdef PLATFORM_ESP32
-    ESP_LOGI("MQTT", "메시지 수신: %s -> %s", topic_str.c_str(), message.c_str());
-#else
     std::cout << "MQTT 메시지 수신: " << topic_str << " -> " << message << std::endl;
-#endif
     
     // 콜백 함수 호출
     if (messageCallback) {
@@ -241,12 +186,9 @@ void MqttClient::onMQTTMessage(char* topic, byte* payload, unsigned int length) 
     }
 }
 
-// 전역 인스턴스 초기화
-MqttClient* MqttClient::global_instance_ = nullptr;
-
 void MqttClient::setGlobalInstance(MqttClient* instance) {
     global_instance_ = instance;
-    LOG_INFO("MQTT 전역 인스턴스 설정 완료");
+    std::cout << "MQTT 전역 인스턴스 설정 완료" << std::endl;
 }
 
 // 정적 콜백 함수 (ESP32 PubSubClient용)
@@ -255,11 +197,6 @@ void MqttClient::staticOnMQTTMessage(char* topic, byte* payload, unsigned int le
     if (global_instance_) {
         global_instance_->onMQTTMessage(topic, payload, length);
     } else {
-#ifdef PLATFORM_ESP32
-        ESP_LOGW("MQTT", "전역 인스턴스가 설정되지 않음");
-#else
         std::cout << "MQTT 전역 인스턴스가 설정되지 않음" << std::endl;
-#endif
     }
 }
-#endif

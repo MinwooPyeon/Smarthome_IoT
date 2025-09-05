@@ -1,0 +1,65 @@
+# -----------------------------
+# OS 공통
+# -----------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# IDE / Tool
+# -----------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.code-workspace
+out/
+.project
+.classpath
+.settings/
+
+# -----------------------------
+# Logs / Temp
+# -----------------------------
+logs/
+*.log
+*.out
+*.err
+*.tmp
+tmp/
+*.swp
+*.swo
+*.bak
+
+# -----------------------------
+# Java / Spring Boot / Gradle
+# -----------------------------
+target/
+build/
+.gradle/
+bin/
+
+# 패키징 산출물
+*.class
+*.jar
+*.war
+*.nar
+
+# Heap / Error dump
+*.hprof
+hs_err_pid*
+replay_pid*
+
+# Spring Boot 환경 파일
+.env
+.env.*
+*.env
+*.secret
+secret.*
+
+# profile별 설정 (운영/개발 비밀정보 보호)
+#application*.yml
+#application*.yaml
+#application*.properties
+
+.metadata/

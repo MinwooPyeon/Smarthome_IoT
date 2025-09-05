@@ -1,0 +1,14 @@
+IR/.vs/
+*.vs/
+backend/.project
+backend/.gradle/8.14.3/gc.properties
+backend/.gradle/8.14.3/checksums/checksums.lock
+backend/.gradle/8.14.3/checksums/md5-checksums.bin
+backend/.gradle/8.14.3/checksums/sha1-checksums.bin
+backend/.gradle/8.14.3/executionHistory/executionHistory.lock
+backend/.gradle/8.14.3/fileChanges/last-build.bin
+backend/.gradle/8.14.3/fileHashes/fileHashes.lock
+backend/.gradle/buildOutputCleanup/buildOutputCleanup.lock
+backend/.gradle/buildOutputCleanup/cache.properties
+backend/.gradle/vcs-1/gc.properties
+backend/.settings/org.eclipse.buildship.core.prefs
