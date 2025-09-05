@@ -1,6 +1,5 @@
 # ESP32 IR Remote Controller
 cmake_minimum_required(VERSION 3.16)
-project(esp32-ir-remote VERSION 1.0.0 LANGUAGES CXX)
 
 # ESP-IDF 프로젝트 설정
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

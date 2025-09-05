@@ -1,52 +1,87 @@
-# ESP32 IR Remote 빌드 스크립트 (PowerShell)
+# ESP32 IR Remote Controller Build Script
+# PowerShell script for building ESP32 project
 
-Write-Host "=== ESP32 IR Remote 빌드 시작 ===" -ForegroundColor Green
+param(
+    [string]$Target = "build",
+    [switch]$Clean = $false,
+    [switch]$Flash = $false,
+    [switch]$Monitor = $false,
+    [string]$Port = "COM3"
+)
+
+Write-Host "ESP32 IR Remote Controller Build Script" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
 
 # ESP-IDF 환경 확인
-if (-not $env:IDF_PATH) {
-    Write-Host "오류: ESP-IDF 환경이 설정되지 않았습니다." -ForegroundColor Red
-    Write-Host "다음 명령어로 ESP-IDF를 설정하세요:" -ForegroundColor Yellow
-    Write-Host "  . `$env:USERPROFILE\esp\esp-idf\export.ps1" -ForegroundColor Yellow
+$idfPath = $env:IDF_PATH
+if (-not $idfPath) {
+    Write-Host "Error: IDF_PATH environment variable is not set" -ForegroundColor Red
+    Write-Host "Please run the ESP-IDF setup script first:" -ForegroundColor Yellow
+    Write-Host "  . `$IDF_PATH/export.sh" -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "ESP-IDF 경로: $env:IDF_PATH" -ForegroundColor Cyan
+Write-Host "ESP-IDF Path: $idfPath" -ForegroundColor Cyan
 
 # 프로젝트 디렉토리로 이동
-$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$projectPath = Split-Path -Parent $scriptPath
-Set-Location $projectPath
+$projectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectDir = Split-Path -Parent $projectDir
+Set-Location $projectDir
 
-# ESP32 빌드 디렉토리 생성
-if (-not (Test-Path "build_esp32")) {
-    New-Item -ItemType Directory -Path "build_esp32" | Out-Null
+Write-Host "Project Directory: $projectDir" -ForegroundColor Cyan
+
+# Clean 빌드
+if ($Clean) {
+    Write-Host "Cleaning build directory..." -ForegroundColor Yellow
+    if (Test-Path "build") {
+        Remove-Item -Recurse -Force "build"
+    }
 }
 
-Set-Location "build_esp32"
+# 빌드 명령어 구성
+$buildCmd = "idf.py"
 
-# ESP32 CMakeLists.txt 복사
-Copy-Item "../CMakeLists_ESP32_main.txt" "./CMakeLists.txt" -Force
+if ($Target -eq "build") {
+    $buildCmd += " build"
+} elseif ($Target -eq "menuconfig") {
+    $buildCmd += " menuconfig"
+} elseif ($Target -eq "size") {
+    $buildCmd += " size"
+} elseif ($Target -eq "size-components") {
+    $buildCmd += " size-components"
+} elseif ($Target -eq "size-files") {
+    $buildCmd += " size-files"
+}
 
-# ESP32 빌드 실행
-Write-Host "ESP32 빌드 중..." -ForegroundColor Yellow
-idf.py build
+if ($Flash) {
+    $buildCmd += " flash"
+    if ($Port) {
+        $buildCmd += " -p $Port"
+    }
+}
 
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "=== ESP32 IR Remote 빌드 완료 ===" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "빌드된 파일:" -ForegroundColor Cyan
-    Write-Host "  - build_esp32/esp32-ir-remote.bin" -ForegroundColor White
-    Write-Host "  - build_esp32/esp32-ir-remote.elf" -ForegroundColor White
-    Write-Host ""
-    Write-Host "플래시 명령어:" -ForegroundColor Cyan
-    Write-Host "  idf.py -p COM3 flash" -ForegroundColor White
-    Write-Host ""
-    Write-Host "모니터 명령어:" -ForegroundColor Cyan
-    Write-Host "  idf.py -p COM3 monitor" -ForegroundColor White
-    Write-Host ""
-    Write-Host "플래시 + 모니터:" -ForegroundColor Cyan
-    Write-Host "  idf.py -p COM3 flash monitor" -ForegroundColor White
-} else {
-    Write-Host "빌드 실패!" -ForegroundColor Red
+if ($Monitor) {
+    $buildCmd += " monitor"
+    if ($Port) {
+        $buildCmd += " -p $Port"
+    }
+}
+
+Write-Host "Executing: $buildCmd" -ForegroundColor Cyan
+Write-Host ""
+
+# 명령어 실행
+try {
+    Invoke-Expression $buildCmd
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host ""
+        Write-Host "Build completed successfully!" -ForegroundColor Green
+    } else {
+        Write-Host ""
+        Write-Host "Build failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
+} catch {
+    Write-Host "Error executing build command: $_" -ForegroundColor Red
     exit 1
 }
