@@ -5,8 +5,12 @@
 #include "core/platform.h"
 #include <iostream>
 #include <fstream>
+#ifdef PLATFORM_ESP32
 #include "ArduinoJson.h"
+#else
+#include <sstream>
 #include <map>
+#endif
 
 #ifdef PLATFORM_ESP32
 #include "driver/gpio.h"
@@ -22,6 +26,9 @@ ApplianceController::ApplianceController() {
     
     // MQTT 클라이언트 초기화
     mqtt_client_ = nullptr;
+    
+    // 범용 기기 관리자 초기화
+    generic_device_manager_ = nullptr;
     
     // IR 데이터베이스 초기화
     ir_database_->initialize();
@@ -42,6 +49,9 @@ ApplianceController::ApplianceController(IRReceiver* ir_receiver) {
     
     // MQTT 클라이언트 초기화
     mqtt_client_ = nullptr;
+    
+    // 범용 기기 관리자 초기화
+    generic_device_manager_ = nullptr;
     
     // IR 데이터베이스 초기화
     ir_database_->initialize();
@@ -235,7 +245,21 @@ std::string ApplianceController::getApplianceId(const std::string& ir_code) {
     }
     
     // 4. 범용 기기에서 찾기 (GenericDeviceManager 사용)
-    // TODO: GenericDeviceManager와 연동
+    if (generic_device_manager_) {
+        // 모든 범용 기기에서 IR 코드 검색
+        auto devices = generic_device_manager_->getAllDevices();
+        for (const auto& device : devices) {
+            if (device) {
+                // 각 기기의 IR 코드에서 검색
+                for (const auto& ir_code_entry : device->ir_codes) {
+                    if (ir_code_entry.code == ir_code) {
+                        LOG_INFO("범용 기기에서 발견: %s -> %s", ir_code.c_str(), device->device_id.c_str());
+                        return device->device_id;
+                    }
+                }
+            }
+        }
+    }
     
     LOG_WARN("알 수 없는 IR 코드의 기기 ID: %s", ir_code.c_str());
     return "";
@@ -586,6 +610,48 @@ void ApplianceController::publishIRCode(const std::string& appliance_id, const s
     
     mqtt_client_->publish("irremote/learned_code", message);
     LOG_INFO("IR 코드 발행: %s - %s -> %s", appliance_id.c_str(), command.c_str(), ir_code.c_str());
+}
+
+// 범용 기기 관리자 연동 메서드들
+void ApplianceController::setGenericDeviceManager(GenericDeviceManager* generic_device_manager) {
+    generic_device_manager_ = generic_device_manager;
+    LOG_INFO("범용 기기 관리자 설정 완료");
+}
+
+bool ApplianceController::registerGenericDevice(const std::string& device_id, const std::string& device_name, const std::string& device_type) {
+    if (!generic_device_manager_) {
+        LOG_ERROR("범용 기기 관리자가 설정되지 않음");
+        return false;
+    }
+    
+    bool success = generic_device_manager_->registerGenericDevice(device_id, device_name, device_type);
+    if (success) {
+        LOG_INFO("범용 기기 등록 성공: %s (%s)", device_name.c_str(), device_type.c_str());
+        
+        // MQTT로 기기 등록 알림
+        if (mqtt_client_) {
+            publishStatus(device_id, "device_registered");
+        }
+    } else {
+        LOG_ERROR("범용 기기 등록 실패: %s", device_name.c_str());
+    }
+    
+    return success;
+}
+
+std::vector<std::string> ApplianceController::getGenericDevices() {
+    std::vector<std::string> device_list;
+    
+    if (generic_device_manager_) {
+        auto devices = generic_device_manager_->getAllDevices();
+        for (const auto& device : devices) {
+            if (device) {
+                device_list.push_back(device->device_id);
+            }
+        }
+    }
+    
+    return device_list;
 }
 
 bool ApplianceController::executeControl(const std::string& appliance_id, ControlCommand command) {
