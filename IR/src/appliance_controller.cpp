@@ -29,8 +29,26 @@ ApplianceController::ApplianceController() {
     registerAppliance("samsung_purifier", ApplianceType::AIR_PURIFIER);
     registerAppliance("general_projector", ApplianceType::PROJECTOR);
     
-    // IR 코드 매핑 초기화 (이제 동적으로 처리)
     initializeIRCodeMapping();
+}
+
+ApplianceController::ApplianceController(IRReceiver* ir_receiver) {
+    ir_learner_ = std::make_unique<IRLearner>(ir_receiver);
+    ir_database_ = std::make_unique<IRDatabase>();
+    protocol_detector_ = std::make_unique<IRProtocolDetector>();
+    
+    // IR 데이터베이스 초기화
+    ir_database_->initialize();
+    
+    // 기본 가전기기 등록
+    registerAppliance("samsung_tv", ApplianceType::TV);
+    registerAppliance("samsung_ac", ApplianceType::AIR_CONDITIONER);
+    registerAppliance("samsung_purifier", ApplianceType::AIR_PURIFIER);
+    registerAppliance("general_projector", ApplianceType::PROJECTOR);
+    
+    initializeIRCodeMapping();
+    
+    LOG_INFO("ApplianceController 초기화 완료 (IR 수신기 연동)");
 }
 
 ApplianceController::~ApplianceController() {
@@ -221,12 +239,9 @@ bool ApplianceController::saveConfiguration(const std::string& config_file) {
 void ApplianceController::initializeIRCodeMapping() {
     LOG_INFO("IR 코드 매핑 초기화 - 동적 학습 시스템 활성화");
     
-    // 기존 하드코딩된 매핑 제거
     ir_code_map_.clear();
     
-    // IR 데이터베이스에서 기본 코드 로드 시도
     if (ir_database_) {
-        // 기본 가전기기들의 일반적인 IR 코드 로드
         std::vector<std::string> brands = {"samsung", "lg", "sony", "panasonic"};
         std::vector<std::string> commands = {"power", "volume_up", "volume_down", "channel_up", "channel_down"};
         
@@ -259,7 +274,6 @@ bool ApplianceController::executeControl(const std::string& appliance_id, Contro
     LOG_INFO("제어 실행: %s - %d", appliance_id.c_str(), static_cast<int>(command));
     
 #ifdef PLATFORM_ESP32
-    // ESP32: 실제 GPIO 제어
     int gpio_pin = getGPIOForAppliance(appliance_id);
     if (gpio_pin >= 0) {
         return controlGPIO(gpio_pin, true);
@@ -279,7 +293,6 @@ bool ApplianceController::executeControl(const std::string& appliance_id, Contro
 
 bool ApplianceController::controlGPIO(int gpio_pin, bool state) {
 #ifdef PLATFORM_ESP32
-    // ESP32 GPIO 제어
     gpio_set_direction(static_cast<gpio_num_t>(gpio_pin), GPIO_OUTPUT);
     gpio_set_level(static_cast<gpio_num_t>(gpio_pin), state ? GPIO_HIGH : GPIO_LOW);
     LOG_INFO("ESP32 GPIO %d 제어: %s", gpio_pin, state ? "HIGH" : "LOW");

@@ -48,6 +48,7 @@ class IRProtocolDetector;
 class ApplianceController {
 public:
     ApplianceController();
+    ApplianceController(IRReceiver* ir_receiver); // IR 수신기와 연동
     ~ApplianceController();
     
     ControlResult controlAppliance(const std::string& ir_code);
