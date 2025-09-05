@@ -1,0 +1,23 @@
+{
+    "cmake.configureOnOpen": true,
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.generator": "Visual Studio 17 2022",
+    "cmake.preferredGenerators": [
+        "Visual Studio 17 2022",
+        "Visual Studio 16 2019",
+        "Visual Studio 15 2017"
+    ],
+    "cmake.debugConfig": {
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [
+            {
+                "name": "PATH",
+                "value": "${workspaceFolder}/config;${env:PATH}"
+            }
+        ]
+    },
+    "cmake.buildConfig": "Debug",
+    "cmake.parallelJobs": 4,
+    "cmake.ctest.parallelJobs": 4
+}

@@ -1,0 +1,20 @@
+# ESP32 메인 애플리케이션 CMakeLists.txt
+idf_component_register(
+    SRCS 
+        "main.cpp"
+    INCLUDE_DIRS 
+        "."
+    REQUIRES 
+        irremote
+        driver
+        esp_wifi
+        esp_netif
+        esp_event
+        nvs_flash
+        esp_http_client
+        json
+        fatfs
+        spiffs
+        esp_timer
+        freertos
+)

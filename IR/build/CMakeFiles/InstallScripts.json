@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/ssafy/S13P21D208/IR/build/cmake_install.cmake",
+		"C:/ssafy/S13P21D208/IR/build/tests/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

@@ -1,0 +1,12 @@
+# ninja log v6
+9	891	7786634438963758	CMakeFiles/irremote_lib.dir/src/mqtt_client.cpp.obj	e190494fe71b44f7
+30	1303	7786634439181319	CMakeFiles/irremote_lib.dir/src/pir_sensor.cpp.obj	29b3147bcfa84154
+16	2633	7786634439033601	CMakeFiles/irremote_lib.dir/src/matter_client.cpp.obj	8146910aed8efe3c
+37	1453	7786634439254379	CMakeFiles/irremote_sender.dir/src/main.cpp.obj	cd370c2ea510b1ed
+26	5343	7786634439151326	CMakeFiles/irremote_lib.dir/src/appliance_controller.cpp.obj	4bb273d8d49e3a1c
+16	1163	7786634949437639	CMakeFiles/irremote_lib.dir/src/mqtt_message.cpp.obj	a87a4dbe72a1c72f
+11	818	7786636121733723	CMakeFiles/irremote_lib.dir/src/remote.cpp.obj	e8620e03ad502ebd
+5	4981	7786636121693704	CMakeFiles/irremote_lib.dir/src/config.cpp.obj	3284434b1dcb8ca2
+4981	5137	7786636171428499	libirremote_lib.a	e7cdf820f5dbdec
+6	1061	7786636808381375	CMakeFiles/irremote_sender.dir/src/main.cpp.obj	cd370c2ea510b1ed
+1061	1235	7786636818928378	irremote_sender.exe	23bd07866fe35bca

@@ -1,0 +1,164 @@
+# ESP32용 CMakeLists.txt
+cmake_minimum_required(VERSION 3.16)
+project(esp32-ir-remote VERSION 1.0.0 LANGUAGES CXX)
+
+# ESP-IDF 설정
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ESP32 컴파일러 플래그
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+
+# ESP32 컴포넌트 찾기
+set(EXTRA_COMPONENT_DIRS "components")
+
+# ESP32 컴포넌트 포함
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+
+# 프로젝트 설정
+project(esp32-ir-remote)
+
+# ESP32 전용 설정
+set(COMPONENT_SRCS
+    "src/config.cpp"
+    "src/mqtt_client.cpp"
+    "src/mqtt_message.cpp"
+    "src/matter_client.cpp"
+    "src/ir_receiver.cpp"
+    "src/appliance_controller.cpp"
+    "src/pir_sensor.cpp"
+    "src/remote.cpp"
+    "src/main.cpp"
+)
+
+set(COMPONENT_ADD_INCLUDEDIRS
+    "header"
+    "external"
+)
+
+# ESP32 라이브러리 링크
+set(COMPONENT_REQUIRES
+    driver
+    esp_wifi
+    esp_netif
+    esp_event
+    nvs_flash
+    esp_http_client
+    json
+    fatfs
+    spiffs
+)
+
+# ESP32 전용 컴파일 정의
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    ESP32=1
+    CONFIG_IDF_TARGET_ESP32=1
+    PLATFORM_ESP32=1
+)
+
+# ESP32 메모리 설정
+set(CMAKE_EXECUTABLE_SUFFIX ".elf")
+
+# ESP32 파티션 테이블 설정
+set(PARTITION_TABLE_CSV_PATH "${CMAKE_CURRENT_SOURCE_DIR}/partitions.csv")
+
+# ESP32 부트로더 설정
+set(BOOTLOADER_BUILD_FLAGS "-DBOOTLOADER_BUILD=1")
+
+# ESP32 시리얼 모니터 설정
+set(MONITOR_BAUD 115200)
+
+# ESP32 플래시 설정
+set(FLASH_SIZE "4MB")
+set(PARTITION_TABLE_OFFSET 0x8000)
+
+# ESP32 WiFi 설정
+set(CONFIG_ESP32_WIFI_ENABLED y)
+set(CONFIG_ESP32_WIFI_STATIC_RX_BUFFER_NUM 10)
+set(CONFIG_ESP32_WIFI_DYNAMIC_RX_BUFFER_NUM 32)
+
+# ESP32 MQTT 설정
+set(CONFIG_MQTT_PROTOCOL_311 y)
+set(CONFIG_MQTT_TRANSPORT_SSL y)
+set(CONFIG_MQTT_TRANSPORT_WEBSOCKET y)
+
+# ESP32 GPIO 설정
+set(CONFIG_GPIO_ESP32_ENABLED y)
+
+# ESP32 IR 설정
+set(CONFIG_IR_ENABLED y)
+
+# ESP32 로깅 설정
+set(CONFIG_LOG_DEFAULT_LEVEL_INFO y)
+set(CONFIG_LOG_MAXIMUM_LEVEL_DEBUG y)
+
+# ESP32 FreeRTOS 설정
+set(CONFIG_FREERTOS_HZ 1000)
+set(CONFIG_FREERTOS_UNICORE n)
+
+# ESP32 메모리 설정
+set(CONFIG_ESP32_SPIRAM_SUPPORT y)
+set(CONFIG_SPIRAM_USE_MALLOC y)
+
+# ESP32 시리얼 설정
+set(CONFIG_ESP32_CONSOLE_UART_DEFAULT y)
+set(CONFIG_ESP32_CONSOLE_UART_NUM 0)
+
+# ESP32 OTA 설정
+set(CONFIG_OTA_ENABLED y)
+
+# ESP32 웹 서버 설정
+set(CONFIG_HTTPD_MAX_REQ_HDR_LEN 1024)
+set(CONFIG_HTTPD_MAX_URI_LEN 512)
+
+# ESP32 NVS 설정
+set(CONFIG_NVS_ENABLED y)
+
+# ESP32 파티션 테이블 생성
+file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/partitions.csv"
+    "# Name,   Type, SubType, Offset,  Size, Flags\n"
+    "nvs,      data, nvs,     0x9000,  0x6000,\n"
+    "phy_init, data, phy,     0xf000,  0x1000,\n"
+    "factory,  app,  factory, 0x10000, 1M,\n"
+    "storage,  data, spiffs,  0x110000, 0x2F0000,\n"
+)
+
+# ESP32 빌드 후 처리
+add_custom_target(flash
+    COMMAND ${CMAKE_COMMAND} -E echo "Flashing ESP32..."
+    COMMAND idf.py flash
+    DEPENDS ${CMAKE_PROJECT_NAME}.elf
+    COMMENT "Flashing ESP32 firmware"
+)
+
+add_custom_target(monitor
+    COMMAND ${CMAKE_COMMAND} -E echo "Starting serial monitor..."
+    COMMAND idf.py monitor
+    COMMENT "Starting ESP32 serial monitor"
+)
+
+add_custom_target(menuconfig
+    COMMAND ${CMAKE_COMMAND} -E echo "Starting menuconfig..."
+    COMMAND idf.py menuconfig
+    COMMENT "Starting ESP32 menuconfig"
+)
+
+# ESP32 정리 타겟
+add_custom_target(clean-all
+    COMMAND ${CMAKE_COMMAND} -E echo "Cleaning all ESP32 build files..."
+    COMMAND idf.py fullclean
+    COMMENT "Cleaning all ESP32 build files"
+)
+
+# ESP32 빌드 정보 출력
+message(STATUS "")
+message(STATUS "ESP32 IR Remote Configuration:")
+message(STATUS "  Project: ${PROJECT_NAME} ${PROJECT_VERSION}")
+message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "  C++ standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "  ESP-IDF Path: $ENV{IDF_PATH}")
+message(STATUS "  Flash size: ${FLASH_SIZE}")
+message(STATUS "  Monitor baud: ${MONITOR_BAUD}")
+message(STATUS "")

@@ -1,0 +1,14 @@
+C:/ssafy/S13P21D208/IR/build/CMakeFiles/irremote_lib.dir
+C:/ssafy/S13P21D208/IR/build/CMakeFiles/irremote_sender.dir
+C:/ssafy/S13P21D208/IR/build/CMakeFiles/edit_cache.dir
+C:/ssafy/S13P21D208/IR/build/CMakeFiles/rebuild_cache.dir
+C:/ssafy/S13P21D208/IR/build/CMakeFiles/list_install_components.dir
+C:/ssafy/S13P21D208/IR/build/CMakeFiles/install.dir
+C:/ssafy/S13P21D208/IR/build/CMakeFiles/install/local.dir
+C:/ssafy/S13P21D208/IR/build/CMakeFiles/install/strip.dir
+C:/ssafy/S13P21D208/IR/build/tests/CMakeFiles/edit_cache.dir
+C:/ssafy/S13P21D208/IR/build/tests/CMakeFiles/rebuild_cache.dir
+C:/ssafy/S13P21D208/IR/build/tests/CMakeFiles/list_install_components.dir
+C:/ssafy/S13P21D208/IR/build/tests/CMakeFiles/install.dir
+C:/ssafy/S13P21D208/IR/build/tests/CMakeFiles/install/local.dir
+C:/ssafy/S13P21D208/IR/build/tests/CMakeFiles/install/strip.dir
