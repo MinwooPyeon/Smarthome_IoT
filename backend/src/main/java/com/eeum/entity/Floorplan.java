@@ -9,7 +9,7 @@ import java.time.OffsetDateTime;
 @Table(name = "floorplans", schema = "eeum")
 @Getter
 @Setter
-public class Floorplans {
+public class Floorplan {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
