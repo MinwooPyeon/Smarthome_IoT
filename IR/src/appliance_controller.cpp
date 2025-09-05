@@ -1,4 +1,7 @@
 #include "hardware/appliance_controller.h"
+#include "hardware/ir_learner.h"
+#include "hardware/ir_database.h"
+#include "hardware/ir_protocol_detector.h"
 #include "core/platform.h"
 #include <iostream>
 #include <fstream>
@@ -6,21 +9,28 @@
 #include <map>
 
 #ifdef PLATFORM_ESP32
-// ESP32 환경에서는 GPIO 라이브러리 사용
 #include "driver/gpio.h"
 #elif defined(PLATFORM_LINUX)
-// Linux 환경에서는 실제 GPIO 사용
 #include <wiringPi.h>
 #endif
 
 ApplianceController::ApplianceController() {
-    initializeIRCodeMapping();
+    // IR 학습 시스템 초기화
+    ir_learner_ = std::make_unique<IRLearner>();
+    ir_database_ = std::make_unique<IRDatabase>();
+    protocol_detector_ = std::make_unique<IRProtocolDetector>();
+    
+    // IR 데이터베이스 초기화
+    ir_database_->initialize();
     
     // 기본 가전기기 등록
     registerAppliance("samsung_tv", ApplianceType::TV);
     registerAppliance("samsung_ac", ApplianceType::AIR_CONDITIONER);
     registerAppliance("samsung_purifier", ApplianceType::AIR_PURIFIER);
     registerAppliance("general_projector", ApplianceType::PROJECTOR);
+    
+    // IR 코드 매핑 초기화 (이제 동적으로 처리)
+    initializeIRCodeMapping();
 }
 
 ApplianceController::~ApplianceController() {
@@ -209,16 +219,40 @@ bool ApplianceController::saveConfiguration(const std::string& config_file) {
 }
 
 void ApplianceController::initializeIRCodeMapping() {
-    // 기본 IR 코드 매핑 (예시용 - 실제로는 학습된 코드 사용)
-    // 이 부분은 IR 학습 기능으로 대체될 예정
+    LOG_INFO("IR 코드 매핑 초기화 - 동적 학습 시스템 활성화");
     
-    LOG_INFO("IR 코드 매핑 초기화 - 학습 모드로 전환 권장");
-    LOG_INFO("기본 매핑: %d개 코드 (실제 기기와 다를 수 있음)", ir_code_map_.size());
+    // 기존 하드코딩된 매핑 제거
+    ir_code_map_.clear();
     
-    // TODO: IR 학습 기능으로 대체
-    // 1. IRLearner를 사용하여 실제 리모컨에서 코드 학습
-    // 2. IRDatabase에서 기기별 코드 검색
-    // 3. IRProtocolDetector로 프로토콜 자동 감지
+    // IR 데이터베이스에서 기본 코드 로드 시도
+    if (ir_database_) {
+        // 기본 가전기기들의 일반적인 IR 코드 로드
+        std::vector<std::string> brands = {"samsung", "lg", "sony", "panasonic"};
+        std::vector<std::string> commands = {"power", "volume_up", "volume_down", "channel_up", "channel_down"};
+        
+        for (const auto& brand : brands) {
+            auto entries = ir_database_->searchByBrand(brand);
+            for (const auto& entry : entries) {
+                std::string key = entry.ir_code;
+                std::string appliance_id = brand + "_" + entry.device_type;
+                ControlCommand command = ControlCommand::UNKNOWN;
+                
+                // 명령어 매핑
+                if (entry.command == "power") command = ControlCommand::POWER_TOGGLE;
+                else if (entry.command == "volume_up") command = ControlCommand::VOLUME_UP;
+                else if (entry.command == "volume_down") command = ControlCommand::VOLUME_DOWN;
+                else if (entry.command == "channel_up") command = ControlCommand::CHANNEL_UP;
+                else if (entry.command == "channel_down") command = ControlCommand::CHANNEL_DOWN;
+                
+                if (command != ControlCommand::UNKNOWN) {
+                    ir_code_map_[key] = {appliance_id, command};
+                }
+            }
+        }
+    }
+    
+    LOG_INFO("동적 IR 매핑 완료: %d개 코드 로드됨", ir_code_map_.size());
+    LOG_INFO("IR 학습 모드 활성화 - 실제 리모컨에서 코드 학습 가능");
 }
 
 bool ApplianceController::executeControl(const std::string& appliance_id, ControlCommand command) {
@@ -232,11 +266,9 @@ bool ApplianceController::executeControl(const std::string& appliance_id, Contro
     }
     return false;
 #elif defined(PLATFORM_WINDOWS)
-    // Windows 시뮬레이션
     LOG_INFO("[시뮬레이션] %s 제어: %d", appliance_id.c_str(), static_cast<int>(command));
     return true;
 #elif defined(PLATFORM_LINUX)
-    // Linux: 실제 GPIO 제어
     int gpio_pin = getGPIOForAppliance(appliance_id);
     if (gpio_pin >= 0) {
         return controlGPIO(gpio_pin, true);
@@ -253,12 +285,10 @@ bool ApplianceController::controlGPIO(int gpio_pin, bool state) {
     LOG_INFO("ESP32 GPIO %d 제어: %s", gpio_pin, state ? "HIGH" : "LOW");
     return true;
 #elif defined(PLATFORM_LINUX)
-    // Linux GPIO 제어
     digitalWrite(gpio_pin, state ? HIGH : LOW);
     LOG_INFO("Linux GPIO %d 제어: %s", gpio_pin, state ? "HIGH" : "LOW");
     return true;
 #elif defined(PLATFORM_WINDOWS)
-    // Windows 시뮬레이션
     LOG_INFO("Windows GPIO 시뮬레이션 %d 제어: %s", gpio_pin, state ? "HIGH" : "LOW");
     return true;
 #endif
@@ -270,7 +300,7 @@ void ApplianceController::logControl(const std::string& appliance_id, ControlCom
               << " - 명령: " << static_cast<int>(command) << std::endl;
 }
 
-// 헬퍼 함수: 가전기기별 GPIO 핀 반환
+// 가전기기별 GPIO 핀 반환
 int getGPIOForAppliance(const std::string& appliance_id) {
     static std::map<std::string, int> gpio_map = {
         {"samsung_tv", 24},
@@ -281,4 +311,114 @@ int getGPIOForAppliance(const std::string& appliance_id) {
     
     auto it = gpio_map.find(appliance_id);
     return (it != gpio_map.end()) ? it->second : -1;
+}
+
+// IR 학습 기능 구현
+bool ApplianceController::startIRLearning(const std::string& appliance_id, const std::string& command_name) {
+    if (!ir_learner_) {
+        LOG_ERROR("IR 학습기가 초기화되지 않음");
+        return false;
+    }
+    
+    LOG_INFO("IR 학습 시작: %s - %s", appliance_id.c_str(), command_name.c_str());
+    
+    // IR 학습 모드 시작
+    if (!ir_learner_->startLearningMode()) {
+        LOG_ERROR("IR 학습 모드 시작 실패");
+        return false;
+    }
+    
+    // IR 코드 학습
+    bool success = ir_learner_->learnIRCode(appliance_id, command_name);
+    
+    if (success) {
+        LOG_INFO("IR 코드 학습 성공: %s - %s", appliance_id.c_str(), command_name.c_str());
+        
+        // 학습된 코드를 매핑에 추가
+        auto learned_commands = ir_learner_->getLearnedCommands(appliance_id);
+        for (const auto& cmd : learned_commands) {
+            if (cmd.command_name == command_name) {
+                // IR 코드를 제어 명령으로 변환
+                ControlCommand control_cmd = ControlCommand::UNKNOWN;
+                if (command_name == "power") control_cmd = ControlCommand::POWER_TOGGLE;
+                else if (command_name == "volume_up") control_cmd = ControlCommand::VOLUME_UP;
+                else if (command_name == "volume_down") control_cmd = ControlCommand::VOLUME_DOWN;
+                else if (command_name == "channel_up") control_cmd = ControlCommand::CHANNEL_UP;
+                else if (command_name == "channel_down") control_cmd = ControlCommand::CHANNEL_DOWN;
+                
+                if (control_cmd != ControlCommand::UNKNOWN) {
+                    ir_code_map_[cmd.ir_code.code] = {appliance_id, control_cmd};
+                    LOG_INFO("IR 코드 매핑 추가: %s -> %s", cmd.ir_code.code.c_str(), command_name.c_str());
+                }
+                break;
+            }
+        }
+    }
+    
+    return success;
+}
+
+bool ApplianceController::stopIRLearning() {
+    if (!ir_learner_) {
+        return false;
+    }
+    
+    ir_learner_->stopLearningMode();
+    LOG_INFO("IR 학습 모드 중지");
+    return true;
+}
+
+bool ApplianceController::isIRLearning() const {
+    return ir_learner_ ? ir_learner_->isLearningMode() : false;
+}
+
+std::vector<std::string> ApplianceController::getLearnedCommands(const std::string& appliance_id) const {
+    if (!ir_learner_) {
+        return {};
+    }
+    
+    auto learned_commands = ir_learner_->getLearnedCommands(appliance_id);
+    std::vector<std::string> command_names;
+    
+    for (const auto& cmd : learned_commands) {
+        command_names.push_back(cmd.command_name);
+    }
+    
+    return command_names;
+}
+
+std::string ApplianceController::findIRCode(const std::string& appliance_id, const std::string& command) const {
+    // 먼저 로컬 매핑에서 검색
+    for (const auto& pair : ir_code_map_) {
+        if (pair.second.first == appliance_id) {
+            // 명령어 매칭 확인
+            ControlCommand control_cmd = pair.second.second;
+            std::string expected_command = "";
+            
+            switch (control_cmd) {
+                case ControlCommand::POWER_TOGGLE: expected_command = "power"; break;
+                case ControlCommand::VOLUME_UP: expected_command = "volume_up"; break;
+                case ControlCommand::VOLUME_DOWN: expected_command = "volume_down"; break;
+                case ControlCommand::CHANNEL_UP: expected_command = "channel_up"; break;
+                case ControlCommand::CHANNEL_DOWN: expected_command = "channel_down"; break;
+                default: break;
+            }
+            
+            if (expected_command == command) {
+                return pair.first;
+            }
+        }
+    }
+    
+    // IR 데이터베이스에서 검색
+    if (ir_database_) {
+        auto entries = ir_database_->searchByBrand(appliance_id.substr(0, appliance_id.find('_')));
+        for (const auto& entry : entries) {
+            if (entry.command == command) {
+                return entry.ir_code;
+            }
+        }
+    }
+    
+    return "";
 }

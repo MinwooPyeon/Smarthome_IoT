@@ -75,4 +75,4 @@ private:
     bool validateEntry(const IRDatabaseEntry& entry) const;
 };
 
-#endif // IR_DATABASE_H
+#endif 

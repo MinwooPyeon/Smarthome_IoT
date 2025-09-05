@@ -5,6 +5,7 @@
 #include <map>
 #include <vector>
 #include <functional>
+#include <memory>
 
 enum class ApplianceType {
     UNKNOWN,
@@ -39,6 +40,11 @@ struct ControlResult {
         : success(s), message(msg), appliance_id(id), command(cmd) {}
 };
 
+// 전방 선언
+class IRLearner;
+class IRDatabase;
+class IRProtocolDetector;
+
 class ApplianceController {
 public:
     ApplianceController();
@@ -56,11 +62,25 @@ public:
     
     bool loadConfiguration(const std::string& config_file);
     bool saveConfiguration(const std::string& config_file);
+    
+    // IR 학습 기능
+    bool startIRLearning(const std::string& appliance_id, const std::string& command_name);
+    bool stopIRLearning();
+    bool isIRLearning() const;
+    std::vector<std::string> getLearnedCommands(const std::string& appliance_id) const;
+    
+    // IR 코드 검색
+    std::string findIRCode(const std::string& appliance_id, const std::string& command) const;
 
 private:
     std::map<std::string, ApplianceType> appliances_;
     std::map<std::string, std::pair<std::string, ControlCommand>> ir_code_map_;
     std::function<void(const ControlResult&)> control_callback_;
+    
+    // IR 학습 시스템
+    std::unique_ptr<IRLearner> ir_learner_;
+    std::unique_ptr<IRDatabase> ir_database_;
+    std::unique_ptr<IRProtocolDetector> protocol_detector_;
     
     void initializeIRCodeMapping();
     ControlCommand convertIRToCommand(const std::string& ir_code);
@@ -70,4 +90,4 @@ private:
     void logControl(const std::string& appliance_id, ControlCommand command, bool success);
 };
 
-#endif // APPLIANCE_CONTROLLER_H
+#endif 

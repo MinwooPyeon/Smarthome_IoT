@@ -17,7 +17,7 @@
 
 static const char* TAG = "IR_REMOTE_MAIN";
 
-// 전역 변수 (ESP32에서는 포인터 사용)
+// 전역 변수
 Config* g_config = nullptr;
 MqttClient* g_mqtt_client = nullptr;
 IRReceiver* g_ir_receiver = nullptr;

@@ -1,5 +1,4 @@
 # ESP32 IR Remote Controller Build Script
-# PowerShell script for building ESP32 project
 
 param(
     [string]$Target = "build",

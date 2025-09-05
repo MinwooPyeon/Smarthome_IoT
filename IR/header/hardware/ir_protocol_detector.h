@@ -76,4 +76,4 @@ private:
     int calculateCarrierFrequency(const IRTiming& timing) const;
 };
 
-#endif // IR_PROTOCOL_DETECTOR_H
+#endif 

@@ -4,11 +4,9 @@
 #include <algorithm>
 
 Config::Config() {
-    // 기본 설정 초기화
 }
 
 Config::~Config() {
-    // 정리 작업
 }
 
 void Config::setString(const std::string& key, const std::string& value) {
@@ -123,7 +121,6 @@ void Config::clear() {
 }
 
 std::string Config::serializeValue(const std::string& value) const {
-    // 간단한 이스케이프 처리
     std::string result = value;
     std::replace(result.begin(), result.end(), '\n', '\\');
     std::replace(result.begin(), result.end(), '\r', '\\');
@@ -131,7 +128,6 @@ std::string Config::serializeValue(const std::string& value) const {
 }
 
 std::string Config::deserializeValue(const std::string& serialized) const {
-    // 간단한 언이스케이프 처리
     std::string result = serialized;
     std::replace(result.begin(), result.end(), '\\', '\n');
     return result;

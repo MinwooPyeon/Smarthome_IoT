@@ -57,4 +57,4 @@ private:
     std::string decodeSonyProtocol();
 };
 
-#endif // IR_RECEIVER_H
+#endif 

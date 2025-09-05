@@ -1,4 +1,5 @@
 #include "hardware/ir_learner.h"
+#include "hardware/ir_receiver.h"
 #include "core/platform.h"
 #include <fstream>
 #include <algorithm>
