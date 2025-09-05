@@ -284,9 +284,49 @@ bool GenericDeviceManager::saveDevices(const std::string& filename) {
 }
 
 bool GenericDeviceManager::loadDevices(const std::string& filename) {
-    // TODO: JSON 파싱으로 기기 정보 로드
-    LOG_INFO("범용 기기 로드: %s", filename.c_str());
-    return true;
+    try {
+        std::ifstream file(filename);
+        if (!file.is_open()) {
+            LOG_ERROR("파일 열기 실패: %s", filename.c_str());
+            return false;
+        }
+        
+        // 간단한 JSON 파싱 (실제로는 ArduinoJson 또는 다른 라이브러리 사용 권장)
+        std::string line;
+        std::string device_id, device_name, device_type;
+        bool in_device = false;
+        
+        while (std::getline(file, line)) {
+            // 간단한 파싱 로직 (실제 구현에서는 JSON 라이브러리 사용)
+            if (line.find("\"device_id\"") != std::string::npos) {
+                size_t start = line.find("\"") + 1;
+                size_t end = line.find("\"", start);
+                device_id = line.substr(start, end - start);
+            } else if (line.find("\"device_name\"") != std::string::npos) {
+                size_t start = line.find("\"") + 1;
+                size_t end = line.find("\"", start);
+                device_name = line.substr(start, end - start);
+            } else if (line.find("\"device_type\"") != std::string::npos) {
+                size_t start = line.find("\"") + 1;
+                size_t end = line.find("\"", start);
+                device_type = line.substr(start, end - start);
+                
+                if (!device_id.empty() && !device_name.empty() && !device_type.empty()) {
+                    registerGenericDevice(device_id, device_name, device_type);
+                    device_id.clear();
+                    device_name.clear();
+                    device_type.clear();
+                }
+            }
+        }
+        
+        LOG_INFO("범용 기기 로드 완료: %s", filename.c_str());
+        return true;
+        
+    } catch (const std::exception& e) {
+        LOG_ERROR("기기 로드 실패: %s", e.what());
+        return false;
+    }
 }
 
 std::string GenericDeviceManager::generateDeviceId(const std::string& device_name, const std::string& device_type) {

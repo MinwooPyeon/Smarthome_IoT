@@ -87,6 +87,7 @@ void IRReceiver::setGPIO(int gpio_pin) {
 #ifdef PLATFORM_ESP32
     if (irrecv_) {
         delete irrecv_;
+        irrecv_ = nullptr;
     }
     irrecv_ = new IRrecv(gpio_pin_);
     irrecv_->enableIRIn();

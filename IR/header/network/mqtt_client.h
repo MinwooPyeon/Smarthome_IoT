@@ -41,6 +41,10 @@ private:
     
     void onMQTTMessage(char* topic, byte* payload, unsigned int length);
     static void staticOnMQTTMessage(char* topic, byte* payload, unsigned int length);
+    
+    // 전역 인스턴스 관리 (ESP32 PubSubClient용)
+    static MqttClient* global_instance_;
+    static void setGlobalInstance(MqttClient* instance);
 #elif defined(_WIN32)
 
     bool connected;

@@ -78,6 +78,11 @@ public:
     void handleMqttCommand(const std::string& topic, const std::string& message);
     void publishStatus(const std::string& appliance_id, const std::string& status);
     void publishIRCode(const std::string& appliance_id, const std::string& command, const std::string& ir_code);
+    
+    // 범용 기기 관리자 연동
+    void setGenericDeviceManager(class GenericDeviceManager* generic_device_manager);
+    bool registerGenericDevice(const std::string& device_id, const std::string& device_name, const std::string& device_type);
+    std::vector<std::string> getGenericDevices();
 
 private:
     std::map<std::string, ApplianceType> appliances_;
@@ -91,6 +96,9 @@ private:
     
     // MQTT 클라이언트
     class MqttClient* mqtt_client_;
+    
+    // 범용 기기 관리자
+    class GenericDeviceManager* generic_device_manager_;
     
     void initializeIRCodeMapping();
     void updateIRCodeMapping();

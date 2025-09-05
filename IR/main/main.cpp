@@ -14,6 +14,7 @@
 #include "hardware/ir_receiver.h"
 #include "hardware/appliance_controller.h"
 #include "hardware/irsend.h"
+#include "hardware/generic_device.h"
 
 static const char* TAG = "IR_REMOTE_MAIN";
 
@@ -23,6 +24,7 @@ MqttClient* g_mqtt_client = nullptr;
 IRReceiver* g_ir_receiver = nullptr;
 ApplianceController* g_appliance_controller = nullptr;
 IRSend* g_ir_sender = nullptr;
+GenericDeviceManager* g_generic_device_manager = nullptr;
 
 // WiFi 설정
 const char* WIFI_SSID = "your_wifi_ssid";
@@ -63,7 +65,12 @@ void initWiFi() {
 void onMQTTMessage(const std::string& topic, const std::string& message) {
     ESP_LOGI(TAG, "MQTT 메시지 수신: %s -> %s", topic.c_str(), message.c_str());
     
-    // ArduinoJson 사용
+    // ApplianceController를 통해 메시지 처리
+    if (g_appliance_controller) {
+        g_appliance_controller->handleMqttCommand(topic, message);
+    }
+    
+    // ArduinoJson 사용 (기존 코드 유지)
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, message);
     
@@ -181,12 +188,22 @@ void initHardware() {
     g_ir_sender->initialize();
     g_ir_sender->setDebugMode(true);
     
-    // 가전기기 제어기 초기화
-    g_appliance_controller = new ApplianceController();
+    // 범용 기기 관리자 초기화
+    g_generic_device_manager = new GenericDeviceManager();
+    
+    // 가전기기 제어기 초기화 (IR 수신기와 연동)
+    g_appliance_controller = new ApplianceController(g_ir_receiver);
+    
+    // 완전한 통합 시스템 설정
+    g_appliance_controller->setMqttClient(g_mqtt_client);
+    g_appliance_controller->setGenericDeviceManager(g_generic_device_manager);
     
     // MQTT 클라이언트 초기화
     g_mqtt_client = new MqttClient();
     g_mqtt_client->setMessageCallback(onMQTTMessage);
+    
+    // ESP32 전용: 전역 인스턴스 설정
+    MqttClient::setGlobalInstance(g_mqtt_client);
     
     ESP_LOGI(TAG, "하드웨어 초기화 완료");
 }
