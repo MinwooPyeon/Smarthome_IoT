@@ -229,7 +229,11 @@ void MqttClient::onMQTTMessage(char* topic, byte* payload, unsigned int length) 
     
     std::string topic_str(topic);
     
+#ifdef PLATFORM_ESP32
     ESP_LOGI("MQTT", "메시지 수신: %s -> %s", topic_str.c_str(), message.c_str());
+#else
+    std::cout << "MQTT 메시지 수신: " << topic_str << " -> " << message << std::endl;
+#endif
     
     // 콜백 함수 호출
     if (messageCallback) {
@@ -237,10 +241,25 @@ void MqttClient::onMQTTMessage(char* topic, byte* payload, unsigned int length) 
     }
 }
 
+// 전역 인스턴스 초기화
+MqttClient* MqttClient::global_instance_ = nullptr;
+
+void MqttClient::setGlobalInstance(MqttClient* instance) {
+    global_instance_ = instance;
+    LOG_INFO("MQTT 전역 인스턴스 설정 완료");
+}
+
 // 정적 콜백 함수 (ESP32 PubSubClient용)
 void MqttClient::staticOnMQTTMessage(char* topic, byte* payload, unsigned int length) {
-    // 전역 인스턴스에 위임 (실제로는 인스턴스 포인터를 전달해야 함)
-    // TODO: 인스턴스 포인터를 전달하는 방법 구현 필요
-    ESP_LOGI("MQTT", "정적 콜백 호출됨");
+    // 전역 인스턴스를 통해 실제 콜백 호출
+    if (global_instance_) {
+        global_instance_->onMQTTMessage(topic, payload, length);
+    } else {
+#ifdef PLATFORM_ESP32
+        ESP_LOGW("MQTT", "전역 인스턴스가 설정되지 않음");
+#else
+        std::cout << "MQTT 전역 인스턴스가 설정되지 않음" << std::endl;
+#endif
+    }
 }
 #endif
