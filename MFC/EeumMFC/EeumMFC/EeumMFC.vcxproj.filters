@@ -13,48 +13,60 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="소스 파일\App">
+      <UniqueIdentifier>{a7f66aef-0c4f-4366-b47f-37e144119b7f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Core">
+      <UniqueIdentifier>{f7ff1ff5-62d2-4efb-b3b4-b019342786b4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\App">
+      <UniqueIdentifier>{54a0bd04-7902-462e-ac06-b5759be2afdc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\Core">
+      <UniqueIdentifier>{7668a487-0888-4cda-ba94-23999243875f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="EeumMFC.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="framework.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="targetver.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>헤더 파일\App</Filter>
     </ClInclude>
-    <ClInclude Include="MainFrm.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="EeumMFC.h">
+      <Filter>헤더 파일\App</Filter>
     </ClInclude>
     <ClInclude Include="EeumMFCDoc.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>헤더 파일\App</Filter>
     </ClInclude>
     <ClInclude Include="EeumMFCView.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>헤더 파일\App</Filter>
     </ClInclude>
-    <ClInclude Include="Resource.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="framework.h">
+      <Filter>헤더 파일\App</Filter>
+    </ClInclude>
+    <ClInclude Include="MainFrm.h">
+      <Filter>헤더 파일\App</Filter>
     </ClInclude>
     <ClInclude Include="pch.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>헤더 파일\App</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>헤더 파일\App</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="EeumMFC.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="MainFrm.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>소스 파일\App</Filter>
     </ClCompile>
     <ClCompile Include="EeumMFCDoc.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>소스 파일\App</Filter>
     </ClCompile>
     <ClCompile Include="EeumMFCView.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>소스 파일\App</Filter>
+    </ClCompile>
+    <ClCompile Include="MainFrm.cpp">
+      <Filter>소스 파일\App</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>소스 파일\App</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
