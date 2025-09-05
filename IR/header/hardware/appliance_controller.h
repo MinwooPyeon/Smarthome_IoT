@@ -1,10 +1,10 @@
-#ifndef APPLIANCE_CONTROLLER_H
-#define APPLIANCE_CONTROLLER_H
+#pragma once
 
 #include <string>
 #include <map>
 #include <vector>
 #include <functional>
+#include <memory>
 
 // 가전기기 타입
 enum class ApplianceType {
@@ -44,59 +44,83 @@ struct ControlResult {
         : success(s), message(msg), appliance_id(id), command(cmd) {}
 };
 
+// 전방 선언
+class IRLearner;
+class IRDatabase;
+class IRProtocolDetector;
+class GenericDeviceManager;
+class MqttClient;
+
+/**
+ * @brief 가전기기 제어 클래스
+ * 
+ * IR 신호를 통한 가전기기 제어를 담당합니다.
+ * ESP32, Linux, Windows 플랫폼을 지원합니다.
+ */
 class ApplianceController {
 public:
     ApplianceController();
+    ApplianceController(class IRReceiver* ir_receiver); // IR 수신기와 연동
     ~ApplianceController();
     
     // 가전기기 제어
     ControlResult controlAppliance(const std::string& ir_code);
     ControlResult controlAppliance(const std::string& appliance_id, ControlCommand command);
     
-    // IR 코드를 제어 명령으로 변환
-    ControlCommand convertIRToCommand(const std::string& ir_code);
-    std::string getApplianceId(const std::string& ir_code);
-    
     // 가전기기 등록/해제
     bool registerAppliance(const std::string& appliance_id, ApplianceType type);
     bool unregisterAppliance(const std::string& appliance_id);
-    
-    // 가전기기 목록 조회
     std::vector<std::string> getRegisteredAppliances() const;
     ApplianceType getApplianceType(const std::string& appliance_id) const;
     
     // 콜백 설정
     void setControlCallback(std::function<void(const ControlResult&)> callback);
     
-    // 설정 로드/저장
+    // 설정 관리
     bool loadConfiguration(const std::string& config_file);
     bool saveConfiguration(const std::string& config_file);
+    
+    // IR 학습 기능
+    bool startIRLearning(const std::string& appliance_id, const std::string& command_name);
+    bool stopIRLearning();
+    bool isIRLearning() const;
+    std::vector<std::string> getLearnedCommands(const std::string& appliance_id) const;
+    
+    // IR 코드 검색
+    std::string findIRCode(const std::string& appliance_id, const std::string& command) const;
+    
+    // MQTT 통합 메서드
+    void setMqttClient(class MqttClient* mqtt_client);
+    void handleMqttCommand(const std::string& topic, const std::string& message);
+    void publishStatus(const std::string& appliance_id, const std::string& status);
+    void publishIRCode(const std::string& appliance_id, const std::string& command, const std::string& ir_code);
+    
+    // 범용 기기 관리자 연동
+    void setGenericDeviceManager(class GenericDeviceManager* generic_device_manager);
+    bool registerGenericDevice(const std::string& device_id, const std::string& device_name, const std::string& device_type);
+    std::vector<std::string> getGenericDevices();
 
 private:
-    // IR 코드 매핑 테이블
-    std::map<std::string, std::pair<std::string, ControlCommand>> ir_code_map_;
-    
-    // 가전기기 정보
     std::map<std::string, ApplianceType> appliances_;
-    
-    // 제어 콜백
+    std::map<std::string, std::pair<std::string, ControlCommand>> ir_code_map_;
     std::function<void(const ControlResult&)> control_callback_;
     
-    // IR 코드 매핑 초기화
+    // IR 학습 시스템
+    std::unique_ptr<IRLearner> ir_learner_;
+    std::unique_ptr<IRDatabase> ir_database_;
+    std::unique_ptr<IRProtocolDetector> protocol_detector_;
+    
+    // MQTT 클라이언트
+    class MqttClient* mqtt_client_;
+    
+    // 범용 기기 관리자
+    class GenericDeviceManager* generic_device_manager_;
+    
     void initializeIRCodeMapping();
-    
-    // 실제 하드웨어 제어
+    void updateIRCodeMapping();
+    ControlCommand convertIRToCommand(const std::string& ir_code);
+    std::string getApplianceId(const std::string& ir_code);
     bool executeControl(const std::string& appliance_id, ControlCommand command);
-    
-    // GPIO 제어 (릴레이 등)
-    bool controlGPIO(int gpio_pin, bool state);
-    
-    // 로그 기록
-    void logControl(const std::string& appliance_id, ControlCommand command, bool success);
-
-private:
-    // 헬퍼 함수
-    int getGPIOForAppliance(const std::string& appliance_id);
 };
 
 #endif // APPLIANCE_CONTROLLER_H

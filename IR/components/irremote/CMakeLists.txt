@@ -1,0 +1,23 @@
+# ESP32 IR Remote 컴포넌트 CMakeLists.txt
+idf_component_register(
+    SRCS 
+        "src/config.cpp"
+        "src/ir_receiver.cpp"
+        "src/irsend.cpp"
+        "src/appliance_controller.cpp"
+        "src/mqtt_client.cpp"
+    INCLUDE_DIRS 
+        "header"
+    REQUIRES 
+        driver
+        esp_wifi
+        esp_netif
+        esp_event
+        nvs_flash
+        esp_http_client
+        json
+        fatfs
+        spiffs
+        esp_timer
+        freertos
+)

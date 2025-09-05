@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
 project(esp32-ir-remote VERSION 1.0.0 LANGUAGES CXX)
 
+# ESP-IDF 프로젝트 설정 (ESP32 빌드 시)
+if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
+    include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+    return()
+endif()
+
 # C++ 표준 설정
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

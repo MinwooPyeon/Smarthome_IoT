@@ -130,10 +130,21 @@ public:
      */
     bool fromJson(const std::string& json);
 
-    // 추가 메서드들
+    // 추가 메서드들 (기존 기능과 호환성 유지)
     bool load(const std::string& filename);
     int getInt(const std::string& key, int default_value) const;
     std::string getString(const std::string& key, const std::string& default_value) const;
+    
+    // 기존 인터페이스 호환성
+    void setString(const std::string& key, const std::string& value);
+    void setInt(const std::string& key, int value);
+    void setFloat(const std::string& key, float value);
+    void setBool(const std::string& key, bool value);
+    float getFloat(const std::string& key, float defaultValue = 0.0f) const;
+    bool getBool(const std::string& key, bool defaultValue = false) const;
+    bool hasKey(const std::string& key) const;
+    std::vector<std::string> getAllKeys() const;
+    void clear();
 
 private:
     // 웹 서버 설정

@@ -1,0 +1,69 @@
+{
+    "wifi": {
+        "ssid": "your_wifi_ssid",
+        "password": "your_wifi_password",
+        "timeout_ms": 10000,
+        "retry_count": 3
+    },
+    "mqtt": {
+        "broker": "192.168.1.100",
+        "port": 1883,
+        "client_id": "esp32_ir_controller",
+        "username": "",
+        "password": "",
+        "keepalive": 60,
+        "clean_session": true,
+        "will_topic": "esp32/status",
+        "will_message": "offline"
+    },
+    "gpio": {
+        "ir_tx_pin": 4,
+        "ir_rx_pin": 5,
+        "led_status_pin": 2,
+        "button_pin": 0
+    },
+    "ir": {
+        "protocol": "NEC",
+        "carrier_frequency": 38000,
+        "tx_pin": 4,
+        "rx_pin": 5,
+        "debug_mode": true
+    },
+    "system": {
+        "device_id": "esp32_ir_01",
+        "location": "living_room",
+        "auto_start": true,
+        "watchdog_enabled": true,
+        "watchdog_timeout_sec": 30,
+        "deep_sleep_enabled": false,
+        "deep_sleep_timeout_min": 30
+    },
+    "logging": {
+        "level": "INFO",
+        "serial_enabled": true,
+        "mqtt_enabled": true,
+        "max_log_size": 1024
+    },
+    "appliances": {
+        "samsung_tv": {
+            "gpio_pin": 4,
+            "ir_codes": {
+                "power": "0xE0E040BF",
+                "volume_up": "0xE0E0E01F",
+                "volume_down": "0xE0E0D02F",
+                "channel_up": "0xE0E048B7",
+                "channel_down": "0xE0E008F7"
+            }
+        },
+        "samsung_ac": {
+            "gpio_pin": 4,
+            "ir_codes": {
+                "power": "0xE0E040BF",
+                "mode": "0xE0E014EB",
+                "temp_18": "0xE0E018E7",
+                "temp_up": "0xE0E01CE3",
+                "temp_down": "0xE0E05CA3"
+            }
+        }
+    }
+}
