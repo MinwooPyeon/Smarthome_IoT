@@ -60,6 +60,12 @@
     <ClInclude Include="Analyzer.h">
       <Filter>헤더 파일\Core</Filter>
     </ClInclude>
+    <ClInclude Include="MsgBuffer.h">
+      <Filter>헤더 파일\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Timer.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="EeumMFC.cpp">
@@ -81,6 +87,12 @@
       <Filter>소스 파일\Core</Filter>
     </ClCompile>
     <ClCompile Include="Analyzer.cpp">
+      <Filter>소스 파일\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="MsgBuffer.cpp">
+      <Filter>소스 파일\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Timer.cpp">
       <Filter>소스 파일\Core</Filter>
     </ClCompile>
   </ItemGroup>
