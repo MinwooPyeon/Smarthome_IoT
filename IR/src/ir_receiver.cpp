@@ -6,15 +6,13 @@
 #include <atomic>
 
 #ifdef PLATFORM_ESP32
-// ESP32 환경에서는 IRremoteESP8266 사용
+
 #include "IRremoteESP8266.h"
 #include "IRrecv.h"
 #include "IRutils.h"
 #elif defined(PLATFORM_LINUX)
-// Linux 환경에서는 실제 GPIO 사용
 #include <wiringPi.h>
 #elif defined(PLATFORM_WINDOWS)
-// Windows 환경에서는 시뮬레이션
 #include <random>
 #endif
 
@@ -22,12 +20,10 @@ IRReceiver::IRReceiver(int gpio_pin)
     : gpio_pin_(gpio_pin), is_receiving_(false) {
     
 #ifdef PLATFORM_ESP32
-    // ESP32에서 IR 수신기 초기화
     irrecv_ = new IRrecv(gpio_pin_);
     irrecv_->enableIRIn();
     LOG_INFO("ESP32 IR 수신기 초기화 완료 - GPIO %d", gpio_pin_);
 #elif defined(PLATFORM_LINUX)
-    // Linux에서만 wiringPi 초기화
     if (wiringPiSetupGpio() == -1) {
         LOG_ERROR("WiringPi 초기화 실패");
         return;
@@ -120,38 +116,36 @@ void IRReceiver::receiveLoop() {
 }
 
 std::string IRReceiver::readIRCode() {
-#ifdef PLATFORM_ESP32
-    // ESP32: IRremoteESP8266 사용
+#ifdef PLATFORM_ESP32   
     if (irrecv_ && irrecv_->decode()) {
         std::string result = uint64ToString(irrecv_->decodedIRData.decodedRawData, HEX);
-        irrecv_->resume(); // 다음 신호를 받을 수 있도록 준비
+        irrecv_->resume(); 
         
-        // 0x 접두사 추가
         if (!result.empty() && result.substr(0, 2) != "0x") {
             result = "0x" + result;
         }
         
-        LOG_DEBUG("ESP32 IR 코드 수신: %s", result.c_str());
+        // 프로토콜 정보 추가
+        std::string protocol = getProtocolName(irrecv_->decodedIRData.protocol);
+        LOG_DEBUG("ESP32 IR 코드 수신: %s (프로토콜: %s)", result.c_str(), protocol.c_str());
         return result;
     }
     return "";
 #elif defined(PLATFORM_WINDOWS)
-    // Windows 시뮬레이션: 랜덤 IR 코드 생성
     static std::random_device rd;
     static std::mt19937 gen(rd());
     static std::uniform_int_distribution<> dis(0, 100);
     
-    if (dis(gen) < 5) { // 5% 확률로 IR 코드 수신
+    if (dis(gen) < 5) { 
         std::uniform_int_distribution<> hex_dis(0, 15);
         std::string code = "0x";
         for (int i = 0; i < 8; i++) {
             code += "0123456789ABCDEF"[hex_dis(gen)];
         }
         return code;
-    }
+    }   
     return "";
 #elif defined(PLATFORM_LINUX)
-    // Linux: 실제 IR 센서에서 신호 읽기
     if (digitalRead(gpio_pin_) == LOW) {
         return decodeNECProtocol();
     }
@@ -160,23 +154,21 @@ std::string IRReceiver::readIRCode() {
 }
 
 std::string IRReceiver::decodeNECProtocol() {
-    // NEC 프로토콜 디코딩 (대부분 가전기기 리모컨)
-    std::string ir_code;
-    
-    // 리드 타임 대기 (9ms)
+
+    std::string ir_code;   
+
     auto start_time = std::chrono::high_resolution_clock::now();
     while (digitalRead(gpio_pin_) == LOW) {
         auto now = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - start_time);
-        if (duration.count() > 10000) break; // 10ms 초과 시 중단
+        if (duration.count() > 10000) break; 
         
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
     
-    // 데이터 비트 읽기 (32비트)
     uint32_t data = 0;
     for (int i = 0; i < 32; i++) {
-        // 펄스 폭 측정
+
         auto pulse_start = std::chrono::high_resolution_clock::now();
         while (digitalRead(gpio_pin_) == HIGH) {
             std::this_thread::sleep_for(std::chrono::microseconds(100));
@@ -185,26 +177,140 @@ std::string IRReceiver::decodeNECProtocol() {
         auto pulse_end = std::chrono::high_resolution_clock::now();
         auto pulse_width = std::chrono::duration_cast<std::chrono::microseconds>(pulse_end - pulse_start);
         
-        // NEC 프로토콜: 560μs = 0, 1690μs = 1
+
         if (pulse_width.count() > 1000) {
             data |= (1 << i);
         }
     }
     
-    // 16진수 문자열로 변환
+
     char hex_code[16];
     snprintf(hex_code, sizeof(hex_code), "0x%08X", data);
     return std::string(hex_code);
 }
 
 std::string IRReceiver::decodeRC5Protocol() {
-    // RC5 프로토콜 디코딩 (Philips 등)
-    // 구현 생략 - 필요시 추가
-    return "";
+    
+    std::string ir_code;    
+    uint16_t data = 0;
+    
+    auto start_time = std::chrono::high_resolution_clock::now();
+    while (digitalRead(gpio_pin_) == LOW) {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - start_time);
+        if (duration.count() > 2000) break; 
+        
+        std::this_thread::sleep_for(std::chrono::microseconds(50));
+    }
+    
+    for (int i = 0; i < 14; i++) {
+        auto pulse_start = std::chrono::high_resolution_clock::now();
+        while (digitalRead(gpio_pin_) == HIGH) {
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
+        }
+        
+        auto pulse_end = std::chrono::high_resolution_clock::now();
+        auto pulse_width = std::chrono::duration_cast<std::chrono::microseconds>(pulse_end - pulse_start);
+        
+        if (pulse_width.count() > 1200) {
+            data |= (1 << (13 - i));
+        }
+        
+        while (digitalRead(gpio_pin_) == LOW) {
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
+        }
+    }
+    
+    // 16진수 문자열로 변환
+    char hex_code[8];
+    snprintf(hex_code, sizeof(hex_code), "0x%04X", data);
+    return std::string(hex_code);
 }
 
 std::string IRReceiver::decodeSonyProtocol() {
-    // Sony 프로토콜 디코딩
-    // 구현 생략 - 필요시 추가
-    return "";
+    std::string ir_code;
+    uint32_t data = 0;
+    int bit_count = 0;
+    
+    auto start_time = std::chrono::high_resolution_clock::now();
+    while (digitalRead(gpio_pin_) == LOW) {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - start_time);
+        if (duration.count() > 5000) break; 
+        
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+    
+    for (int i = 0; i < 20; i++) {
+        auto pulse_start = std::chrono::high_resolution_clock::now();
+        while (digitalRead(gpio_pin_) == HIGH) {
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
+        }
+        
+        auto pulse_end = std::chrono::high_resolution_clock::now();
+        auto pulse_width = std::chrono::duration_cast<std::chrono::microseconds>(pulse_end - pulse_start);
+        
+        if (pulse_width.count() > 900) {
+            data |= (1 << i);
+        }
+        
+        bit_count++;
+        
+        
+        auto low_start = std::chrono::high_resolution_clock::now();
+        while (digitalRead(gpio_pin_) == LOW) {
+            auto now = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - low_start);
+            if (duration.count() > 3000) {
+                
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
+        }
+        
+        // 신호 종료 감지
+        if (digitalRead(gpio_pin_) == HIGH) {
+            auto check_time = std::chrono::high_resolution_clock::now();
+            auto check_duration = std::chrono::duration_cast<std::chrono::microseconds>(check_time - low_start);
+            if (check_duration.count() > 3000) {
+                break; 
+            }
+        }
+    }
+    
+    char hex_code[16];
+    if (bit_count <= 12) {
+        snprintf(hex_code, sizeof(hex_code), "0x%03X", data & 0xFFF);
+    } else if (bit_count <= 15) {
+        snprintf(hex_code, sizeof(hex_code), "0x%04X", data & 0xFFFF);
+    } else {
+        snprintf(hex_code, sizeof(hex_code), "0x%05X", data & 0xFFFFF);
+    }
+    
+    return std::string(hex_code);
+}
+
+std::string IRReceiver::getProtocolName(decode_type_t protocol) {
+    switch (protocol) {
+        case NEC: return "NEC";
+        case SONY: return "Sony";
+        case RC5: return "RC5";
+        case RC6: return "RC6";
+        case SAMSUNG: return "Samsung";
+        case LG: return "LG";
+        case PANASONIC: return "Panasonic";
+        case JVC: return "JVC";
+        case MITSUBISHI: return "Mitsubishi";
+        case DENON: return "Denon";
+        case SHARP: return "Sharp";
+        case SANYO: return "Sanyo";
+        case TOSHIBA: return "Toshiba";
+        case AIWA: return "Aiwa";
+        case PIONEER: return "Pioneer";
+        case ONKYO: return "Onkyo";
+        case BOSE: return "Bose";
+        case BANG_OLUFSEN: return "Bang & Olufsen";
+        case UNKNOWN:
+        default: return "Unknown";
+    }
 }

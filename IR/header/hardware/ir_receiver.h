@@ -55,6 +55,9 @@ private:
     
     // Sony 프로토콜 디코딩
     std::string decodeSonyProtocol();
+    
+    // 프로토콜 이름 변환
+    std::string getProtocolName(decode_type_t protocol);
 };
 
 #endif 
