@@ -5,14 +5,11 @@
 #include "ArduinoJson.h"
 
 #ifdef PLATFORM_ESP32
-// ESP32 환경에서는 IRremoteESP8266 사용
 #include "IRremoteESP8266.h"
 #include "IRsend.h"
 #elif defined(PLATFORM_LINUX)
-// Linux 환경에서는 lirc 사용
 #include <lirc/lirc_client.h>
 #elif defined(PLATFORM_WINDOWS)
-// Windows 환경에서는 시뮬레이션
 #include <random>
 #endif
 
@@ -73,13 +70,11 @@ bool IRSend::initialize() {
     }
     
 #ifdef PLATFORM_ESP32
-    // ESP32 IR 송신기 초기화
     int tx_pin = 4; // 기본 GPIO 핀
     irsend_ = new IRsend(tx_pin);
     irsend_->begin();
     LOG_INFO("ESP32 IR 송신기 초기화 완료 - GPIO %d", tx_pin);
-#elif defined(PLATFORM_LINUX)
-    // Linux lirc 초기화
+#elif defined(PLATFORM_LINUX)   
     lirc_fd_ = lirc_get_local_socket(nullptr, 0);
     if (lirc_fd_ < 0) {
         setLastError("lirc 소켓 생성 실패");
@@ -153,18 +148,16 @@ IRSendStatus IRSend::sendIRCode(const std::string& ir_code) {
     }
     
     try {
-        // 16진수 문자열을 정수로 변환
         uint64_t code = std::stoull(ir_code.substr(2), nullptr, 16); // "0x" 제거
         
 #ifdef PLATFORM_ESP32
         // ESP32 IR 송신
         if (irsend_) {
-            irsend_->sendNEC(code, 32); // NEC 프로토콜, 32비트
+            irsend_->sendNEC(code, 32); 
             LOG_INFO("ESP32 IR 코드 전송: %s", ir_code.c_str());
             return IRSendStatus(IRSendResult::SUCCESS, "IR 코드 전송 성공");
         }
 #elif defined(PLATFORM_LINUX)
-        // Linux lirc 송신
         if (lirc_fd_ >= 0) {
             std::string command = "SEND_ONCE " + ir_code;
             if (lirc_send_one(lirc_fd_, command.c_str()) == 0) {
@@ -175,7 +168,6 @@ IRSendStatus IRSend::sendIRCode(const std::string& ir_code) {
             }
         }
 #elif defined(PLATFORM_WINDOWS)
-        // Windows 시뮬레이션
         LOG_INFO("Windows IR 코드 시뮬레이션 전송: %s", ir_code.c_str());
         return IRSendStatus(IRSendResult::SUCCESS, "IR 코드 시뮬레이션 전송 성공");
 #endif
@@ -229,7 +221,6 @@ IRSend::Statistics IRSend::getStatistics() const {
 
 bool IRSend::checkDevicePermissions() {
 #ifdef PLATFORM_LINUX
-    // Linux에서 lirc 권한 확인
     return access("/dev/lirc0", W_OK) == 0;
 #else
     return true;
@@ -241,12 +232,10 @@ bool IRSend::validateControlSignal(const std::string& control_signal) {
         return false;
     }
     
-    // 기본적인 유효성 검사
     return control_signal.length() > 0 && control_signal.length() < 100;
 }
 
 std::string IRSend::convertControlSignalToIRCode(const std::string& control_signal) {
-    // 제어 신호를 IR 코드로 변환하는 매핑 테이블
     static std::map<std::string, std::string> control_to_ir = {
         {"TV_POWER", "0xE0E040BF"},
         {"TV_VOLUME_UP", "0xE0E0E01F"},

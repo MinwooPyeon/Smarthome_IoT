@@ -6,23 +6,19 @@
 #include <atomic>
 
 #ifdef PLATFORM_ESP32
-// ESP32 환경에서는 WiFi와 PubSubClient 사용
 #include "WiFi.h"
 #include "PubSubClient.h"
 #include <WiFiClient.h>
 #elif defined(PLATFORM_WINDOWS)
-// Windows 환경에서는 시뮬레이션
 #include <thread>
 #include <atomic>
 #elif defined(PLATFORM_LINUX)
-// Linux 환경에서는 실제 mosquitto 사용
 #include <mosquitto.h>
 #endif
 
 // MqttClient 클래스 구현
 MqttClient::MqttClient() {
 #ifdef PLATFORM_ESP32
-    // ESP32 구현 초기화
     wifi_client_ = new WiFiClient();
     mqtt_client_ = new PubSubClient(*wifi_client_);
     connected = false;
