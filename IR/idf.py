@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-#
-# ESP-IDF build system wrapper script
-# This script is a simple wrapper around the ESP-IDF build system
-#
-
 import os
 import sys
 import subprocess
