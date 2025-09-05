@@ -1,5 +1,6 @@
 package com.eeum.controller;
 
+import com.eeum.dto.request.DeviceStatusRequest;
 import com.eeum.dto.request.RegisterDeviceRequest;
 import com.eeum.service.DeviceService;
 import lombok.RequiredArgsConstructor;
@@ -93,6 +94,25 @@ public class DeviceController implements ControllerHelper {
             return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+    
+    
+    // 디바이스 상태 수정
+    @PatchMapping("/{deviceId}/status")
+    public ResponseEntity<?> updateStatus(
+            @PathVariable(name = "deviceId") Integer deviceId,
+            @RequestBody DeviceStatusRequest request
+    ) {
+        try {
+        	Integer result = deviceService.updateStatus(deviceId, request);
+    	
+	        return handleSuccess(Map.of("deviceId", result), HttpStatus.OK);
+	    } catch (IllegalArgumentException e) {
+	        return handleFail(e, HttpStatus.BAD_REQUEST);
+	    } catch (Exception e) {
+	        return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+	    }
+    }
+    
     
     private static boolean isBlank(String s) {
         return s == null || s.isBlank();
