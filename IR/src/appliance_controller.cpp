@@ -115,18 +115,129 @@ ControlResult ApplianceController::controlAppliance(const std::string& appliance
 }
 
 ControlCommand ApplianceController::convertIRToCommand(const std::string& ir_code) {
+    LOG_DEBUG("IR 코드 변환 시도: %s", ir_code.c_str());
+    
+    // 1. 기존 맵핑에서 찾기
     auto it = ir_code_map_.find(ir_code);
     if (it != ir_code_map_.end()) {
+        LOG_DEBUG("기존 맵핑에서 발견: %s -> %d", ir_code.c_str(), static_cast<int>(it->second.second));
         return it->second.second;
     }
+    
+    // 2. IR 데이터베이스에서 찾기
+    if (ir_database_) {
+        auto entries = ir_database_->searchByIRCode(ir_code);
+        if (!entries.empty()) {
+            const auto& entry = entries[0];
+            ControlCommand command = ControlCommand::UNKNOWN;
+            
+            // 명령어 매핑
+            if (entry.command == "power") command = ControlCommand::POWER_TOGGLE;
+            else if (entry.command == "volume_up") command = ControlCommand::VOLUME_UP;
+            else if (entry.command == "volume_down") command = ControlCommand::VOLUME_DOWN;
+            else if (entry.command == "channel_up") command = ControlCommand::CHANNEL_UP;
+            else if (entry.command == "channel_down") command = ControlCommand::CHANNEL_DOWN;
+            else if (entry.command == "mute") command = ControlCommand::MUTE;
+            else if (entry.command == "input") command = ControlCommand::INPUT_SELECT;
+            else if (entry.command == "menu") command = ControlCommand::MENU;
+            else if (entry.command == "ok") command = ControlCommand::OK;
+            else if (entry.command == "back") command = ControlCommand::BACK;
+            else if (entry.command == "temp_up") command = ControlCommand::TEMP_UP;
+            else if (entry.command == "temp_down") command = ControlCommand::TEMP_DOWN;
+            else if (entry.command == "mode") command = ControlCommand::MODE;
+            else if (entry.command == "fan_speed") command = ControlCommand::FAN_SPEED;
+            else if (entry.command == "swing") command = ControlCommand::SWING;
+            else if (entry.command == "timer") command = ControlCommand::TIMER;
+            else if (entry.command == "sleep") command = ControlCommand::SLEEP;
+            
+            if (command != ControlCommand::UNKNOWN) {
+                // 맵핑에 추가
+                std::string appliance_id = entry.brand + "_" + entry.device_type;
+                ir_code_map_[ir_code] = {appliance_id, command};
+                LOG_INFO("데이터베이스에서 발견하여 맵핑 추가: %s -> %s (%d)", 
+                        ir_code.c_str(), appliance_id.c_str(), static_cast<int>(command));
+                return command;
+            }
+        }
+    }
+    
+    // 3. 학습된 코드에서 찾기
+    if (ir_learner_) {
+        auto learned_codes = ir_learner_->getLearnedCodes();
+        for (const auto& learned : learned_codes) {
+            if (learned.ir_code == ir_code) {
+                ControlCommand command = ControlCommand::UNKNOWN;
+                
+                // 학습된 명령어 매핑
+                if (learned.command_name == "power") command = ControlCommand::POWER_TOGGLE;
+                else if (learned.command_name == "volume_up") command = ControlCommand::VOLUME_UP;
+                else if (learned.command_name == "volume_down") command = ControlCommand::VOLUME_DOWN;
+                else if (learned.command_name == "channel_up") command = ControlCommand::CHANNEL_UP;
+                else if (learned.command_name == "channel_down") command = ControlCommand::CHANNEL_DOWN;
+                else if (learned.command_name == "mute") command = ControlCommand::MUTE;
+                else if (learned.command_name == "input") command = ControlCommand::INPUT_SELECT;
+                else if (learned.command_name == "menu") command = ControlCommand::MENU;
+                else if (learned.command_name == "ok") command = ControlCommand::OK;
+                else if (learned.command_name == "back") command = ControlCommand::BACK;
+                else if (learned.command_name == "temp_up") command = ControlCommand::TEMP_UP;
+                else if (learned.command_name == "temp_down") command = ControlCommand::TEMP_DOWN;
+                else if (learned.command_name == "mode") command = ControlCommand::MODE;
+                else if (learned.command_name == "fan_speed") command = ControlCommand::FAN_SPEED;
+                else if (learned.command_name == "swing") command = ControlCommand::SWING;
+                else if (learned.command_name == "timer") command = ControlCommand::TIMER;
+                else if (learned.command_name == "sleep") command = ControlCommand::SLEEP;
+                
+                if (command != ControlCommand::UNKNOWN) {
+                    // 맵핑에 추가
+                    ir_code_map_[ir_code] = {learned.appliance_id, command};
+                    LOG_INFO("학습된 코드에서 발견하여 맵핑 추가: %s -> %s (%d)", 
+                            ir_code.c_str(), learned.appliance_id.c_str(), static_cast<int>(command));
+                    return command;
+                }
+            }
+        }
+    }
+    
+    LOG_WARN("알 수 없는 IR 코드: %s", ir_code.c_str());
     return ControlCommand::UNKNOWN;
 }
 
 std::string ApplianceController::getApplianceId(const std::string& ir_code) {
+    LOG_DEBUG("기기 ID 조회 시도: %s", ir_code.c_str());
+    
+    // 1. 기존 맵핑에서 찾기
     auto it = ir_code_map_.find(ir_code);
     if (it != ir_code_map_.end()) {
+        LOG_DEBUG("기존 맵핑에서 발견: %s -> %s", ir_code.c_str(), it->second.first.c_str());
         return it->second.first;
     }
+    
+    // 2. IR 데이터베이스에서 찾기
+    if (ir_database_) {
+        auto entries = ir_database_->searchByIRCode(ir_code);
+        if (!entries.empty()) {
+            const auto& entry = entries[0];
+            std::string appliance_id = entry.brand + "_" + entry.device_type;
+            LOG_INFO("데이터베이스에서 발견: %s -> %s", ir_code.c_str(), appliance_id.c_str());
+            return appliance_id;
+        }
+    }
+    
+    // 3. 학습된 코드에서 찾기
+    if (ir_learner_) {
+        auto learned_codes = ir_learner_->getLearnedCodes();
+        for (const auto& learned : learned_codes) {
+            if (learned.ir_code == ir_code) {
+                LOG_INFO("학습된 코드에서 발견: %s -> %s", ir_code.c_str(), learned.appliance_id.c_str());
+                return learned.appliance_id;
+            }
+        }
+    }
+    
+    // 4. 범용 기기에서 찾기 (GenericDeviceManager 사용)
+    // TODO: GenericDeviceManager와 연동
+    
+    LOG_WARN("알 수 없는 IR 코드의 기기 ID: %s", ir_code.c_str());
     return "";
 }
 
@@ -247,9 +358,12 @@ void ApplianceController::initializeIRCodeMapping() {
     
     ir_code_map_.clear();
     
+    // 1. IR 데이터베이스에서 기본 맵핑 로드
     if (ir_database_) {
-        std::vector<std::string> brands = {"samsung", "lg", "sony", "panasonic"};
-        std::vector<std::string> commands = {"power", "volume_up", "volume_down", "channel_up", "channel_down"};
+        std::vector<std::string> brands = {"samsung", "lg", "sony", "panasonic", "philips", "toshiba", "sharp", "jvc"};
+        std::vector<std::string> commands = {"power", "volume_up", "volume_down", "channel_up", "channel_down", 
+                                            "mute", "input", "menu", "ok", "back", "temp_up", "temp_down", 
+                                            "mode", "fan_speed", "swing", "timer", "sleep"};
         
         for (const auto& brand : brands) {
             auto entries = ir_database_->searchByBrand(brand);
@@ -264,6 +378,18 @@ void ApplianceController::initializeIRCodeMapping() {
                 else if (entry.command == "volume_down") command = ControlCommand::VOLUME_DOWN;
                 else if (entry.command == "channel_up") command = ControlCommand::CHANNEL_UP;
                 else if (entry.command == "channel_down") command = ControlCommand::CHANNEL_DOWN;
+                else if (entry.command == "mute") command = ControlCommand::MUTE;
+                else if (entry.command == "input") command = ControlCommand::INPUT_SELECT;
+                else if (entry.command == "menu") command = ControlCommand::MENU;
+                else if (entry.command == "ok") command = ControlCommand::OK;
+                else if (entry.command == "back") command = ControlCommand::BACK;
+                else if (entry.command == "temp_up") command = ControlCommand::TEMP_UP;
+                else if (entry.command == "temp_down") command = ControlCommand::TEMP_DOWN;
+                else if (entry.command == "mode") command = ControlCommand::MODE;
+                else if (entry.command == "fan_speed") command = ControlCommand::FAN_SPEED;
+                else if (entry.command == "swing") command = ControlCommand::SWING;
+                else if (entry.command == "timer") command = ControlCommand::TIMER;
+                else if (entry.command == "sleep") command = ControlCommand::SLEEP;
                 
                 if (command != ControlCommand::UNKNOWN) {
                     ir_code_map_[key] = {appliance_id, command};
@@ -272,8 +398,91 @@ void ApplianceController::initializeIRCodeMapping() {
         }
     }
     
+    // 2. 학습된 IR 코드 로드
+    if (ir_learner_) {
+        auto learned_codes = ir_learner_->getLearnedCodes();
+        for (const auto& learned : learned_codes) {
+            std::string key = learned.ir_code;
+            std::string appliance_id = learned.appliance_id;
+            ControlCommand command = ControlCommand::UNKNOWN;
+            
+            // 학습된 명령어 매핑
+            if (learned.command_name == "power") command = ControlCommand::POWER_TOGGLE;
+            else if (learned.command_name == "volume_up") command = ControlCommand::VOLUME_UP;
+            else if (learned.command_name == "volume_down") command = ControlCommand::VOLUME_DOWN;
+            else if (learned.command_name == "channel_up") command = ControlCommand::CHANNEL_UP;
+            else if (learned.command_name == "channel_down") command = ControlCommand::CHANNEL_DOWN;
+            else if (learned.command_name == "mute") command = ControlCommand::MUTE;
+            else if (learned.command_name == "input") command = ControlCommand::INPUT_SELECT;
+            else if (learned.command_name == "menu") command = ControlCommand::MENU;
+            else if (learned.command_name == "ok") command = ControlCommand::OK;
+            else if (learned.command_name == "back") command = ControlCommand::BACK;
+            else if (learned.command_name == "temp_up") command = ControlCommand::TEMP_UP;
+            else if (learned.command_name == "temp_down") command = ControlCommand::TEMP_DOWN;
+            else if (learned.command_name == "mode") command = ControlCommand::MODE;
+            else if (learned.command_name == "fan_speed") command = ControlCommand::FAN_SPEED;
+            else if (learned.command_name == "swing") command = ControlCommand::SWING;
+            else if (learned.command_name == "timer") command = ControlCommand::TIMER;
+            else if (learned.command_name == "sleep") command = ControlCommand::SLEEP;
+            
+            if (command != ControlCommand::UNKNOWN) {
+                ir_code_map_[key] = {appliance_id, command};
+                LOG_INFO("학습된 코드 맵핑 추가: %s -> %s (%s)", 
+                        key.c_str(), appliance_id.c_str(), learned.command_name.c_str());
+            }
+        }
+    }
+    
     LOG_INFO("동적 IR 매핑 완료: %d개 코드 로드됨", ir_code_map_.size());
     LOG_INFO("IR 학습 모드 활성화 - 실제 리모컨에서 코드 학습 가능");
+}
+
+void ApplianceController::updateIRCodeMapping() {
+    LOG_INFO("IR 코드 맵핑 업데이트 시작");
+    
+    // 학습된 IR 코드만 다시 로드
+    if (ir_learner_) {
+        auto learned_codes = ir_learner_->getLearnedCodes();
+        int added_count = 0;
+        
+        for (const auto& learned : learned_codes) {
+            std::string key = learned.ir_code;
+            std::string appliance_id = learned.appliance_id;
+            ControlCommand command = ControlCommand::UNKNOWN;
+            
+            // 학습된 명령어 매핑
+            if (learned.command_name == "power") command = ControlCommand::POWER_TOGGLE;
+            else if (learned.command_name == "volume_up") command = ControlCommand::VOLUME_UP;
+            else if (learned.command_name == "volume_down") command = ControlCommand::VOLUME_DOWN;
+            else if (learned.command_name == "channel_up") command = ControlCommand::CHANNEL_UP;
+            else if (learned.command_name == "channel_down") command = ControlCommand::CHANNEL_DOWN;
+            else if (learned.command_name == "mute") command = ControlCommand::MUTE;
+            else if (learned.command_name == "input") command = ControlCommand::INPUT_SELECT;
+            else if (learned.command_name == "menu") command = ControlCommand::MENU;
+            else if (learned.command_name == "ok") command = ControlCommand::OK;
+            else if (learned.command_name == "back") command = ControlCommand::BACK;
+            else if (learned.command_name == "temp_up") command = ControlCommand::TEMP_UP;
+            else if (learned.command_name == "temp_down") command = ControlCommand::TEMP_DOWN;
+            else if (learned.command_name == "mode") command = ControlCommand::MODE;
+            else if (learned.command_name == "fan_speed") command = ControlCommand::FAN_SPEED;
+            else if (learned.command_name == "swing") command = ControlCommand::SWING;
+            else if (learned.command_name == "timer") command = ControlCommand::TIMER;
+            else if (learned.command_name == "sleep") command = ControlCommand::SLEEP;
+            
+            if (command != ControlCommand::UNKNOWN) {
+                // 기존 맵핑이 없거나 다른 경우에만 추가/업데이트
+                auto it = ir_code_map_.find(key);
+                if (it == ir_code_map_.end() || it->second.first != appliance_id || it->second.second != command) {
+                    ir_code_map_[key] = {appliance_id, command};
+                    added_count++;
+                    LOG_INFO("맵핑 업데이트: %s -> %s (%s)", 
+                            key.c_str(), appliance_id.c_str(), learned.command_name.c_str());
+                }
+            }
+        }
+        
+        LOG_INFO("IR 코드 맵핑 업데이트 완료: %d개 추가/업데이트됨", added_count);
+    }
 }
 
 // MQTT 통합 메서드들
@@ -456,6 +665,14 @@ bool ApplianceController::startIRLearning(const std::string& appliance_id, const
     
     if (success) {
         LOG_INFO("IR 코드 학습 성공: %s - %s", appliance_id.c_str(), command_name.c_str());
+        
+        // 학습 완료 후 맵핑 업데이트
+        updateIRCodeMapping();
+        
+        // MQTT로 학습 완료 알림
+        if (mqtt_client_) {
+            publishStatus(appliance_id, "learning_completed");
+        }
         
         // 학습된 코드를 매핑에 추가
         auto learned_commands = ir_learner_->getLearnedCommands(appliance_id);

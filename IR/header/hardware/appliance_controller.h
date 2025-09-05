@@ -93,6 +93,7 @@ private:
     class MqttClient* mqtt_client_;
     
     void initializeIRCodeMapping();
+    void updateIRCodeMapping();
     ControlCommand convertIRToCommand(const std::string& ir_code);
     std::string getApplianceId(const std::string& ir_code);
     bool executeControl(const std::string& appliance_id, ControlCommand command);
