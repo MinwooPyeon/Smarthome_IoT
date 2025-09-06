@@ -15,15 +15,12 @@ public class UserHome {
     @Column(name = "user_home_id")
     private Integer userHomeId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Integer userId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "home_id", nullable = false)
-    private Home home;
+    @Column(name = "home_id", nullable = false)
+    private Integer homeId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "floorplan_id")
-    private Floorplan currentFloorplan;
+    @Column(name = "floorplan_id")
+    private Integer FloorplanId;
 }

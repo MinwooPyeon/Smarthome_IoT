@@ -30,8 +30,7 @@ public class Floorplan {
 
     @Column(name = "floorplans_y")
     private Double floorplansY;
-    
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "home_id", nullable = false)
-    private Home home;
+
+    @Column(name = "home_id", nullable = false)
+    private Integer homeId;
 }
