@@ -18,7 +18,7 @@ public class FloorplansController implements ControllerHelper {
 
     private final FloorplanService floorplanService;
 
-    // 평면도 등록 (수정하기)
+    // 평면도 등록 (수정하기- 지금은 유저가 하나의 집에 하나의 평면도만 등록 가능임)
     @PutMapping("/users/{userId}/homes/{homeId}/floorplan/{floorplanId}")
     public ResponseEntity<?> selectMyFloorplan(@PathVariable(name = "userId") Integer userId,
                                                @PathVariable(name = "homeId") Integer homeId,
@@ -47,11 +47,11 @@ public class FloorplansController implements ControllerHelper {
         }
     }
 
-    // 사용자가 설정한 평면도 리스트 조회 (수정하기)
-    @GetMapping("/users/{userId}/homes/{homeId}/floorplan")
-    public ResponseEntity<?> getMyCurrentFloorplan(@PathVariable(name = "userId") Integer userId, @PathVariable(name = "homeId") Integer homeId) {
+    // 사용자가 설정한 평면도 목록 조회
+    @GetMapping("/users/{userId}/floorplans")
+    public ResponseEntity<?> getMyFloorplans(@PathVariable(name = "userId") Integer userId) {
         try {
-            List<FloorplanResponse> list = floorplanService.getUserFloorplan(userId, homeId);
+            List<FloorplanResponse> list = floorplanService.getUserFloorplans(userId);
             return handleSuccess(list, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
             return handleFail(e, HttpStatus.BAD_REQUEST);

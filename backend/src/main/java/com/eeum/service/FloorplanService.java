@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,19 +48,19 @@ public class FloorplanService {
     
     // 사용자의 평면도 조회
     @Transactional(readOnly = true)
-    public List<FloorplanResponse> getUserFloorplan(Integer userId, Integer homeId) {
-        if (userId == null || homeId == null) {
-            throw new IllegalArgumentException("userId, homeId는 필수입니다.");
+    public List<FloorplanResponse> getUserFloorplans(Integer userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId는 필수입니다.");
         }
-        UserHome userhome = userHomeRepository.findByUserIdAndHomeId(userId, homeId);
-        
-        Integer floorplanId = userhome.getFloorplanId();
-        if (floorplanId == null)  return List.of();
 
-        Floorplan fp = floorplanRepository.findById(floorplanId)
-                .orElseThrow(() -> new IllegalArgumentException("평면도가 존재하지 않습니다. floorplanId=" + floorplanId));
+        List<FloorplanRepository.FloorplanSummary> rows =
+                floorplanRepository.findUserSelectedFloorplans(userId);
 
-        return List.of(new FloorplanResponse(fp.getFloorplanId(), fp.getImageUrl()));
+        List<FloorplanResponse> result = new ArrayList<>();
+        for (FloorplanRepository.FloorplanSummary row : rows) {
+            result.add(new FloorplanResponse(row.getFloorplanId(), row.getImageUrl()));
+        }
+        return result;
     }
 }
 
