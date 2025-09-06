@@ -16,20 +16,11 @@ public class Device {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "device_id")
+    @Column(name = "device_id", nullable = false)
     private Integer deviceId;
 
-    @Column(name = "user_id", nullable = false)
-    private Integer userId;
-
-    @Column(name = "room_id", nullable = false)
+    @Column(name = "home_id", nullable = false)
     private Integer roomId;
-
-    @Column(name = "remote_id", nullable = false)
-    private Integer remoteId;
-
-    @Column(name = "ir_device_id", nullable = false)
-    private Integer irDeviceId;
 
     @Column(name = "device_name")
     private String deviceName;

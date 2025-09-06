@@ -13,7 +13,7 @@ public class Floorplan {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "floorplan_id")
+    @Column(name = "floorplan_id", nullable = false)
     private Integer floorplanId;
 
     @Column(name = "image_url")
@@ -25,12 +25,13 @@ public class Floorplan {
     @Column(name = "square")
     private Double square;
 
-    @Column(name = "home_id", nullable = false)
-    private Integer homeId;
-
     @Column(name = "floorplans_x")
     private Double floorplansX;
 
     @Column(name = "floorplans_y")
     private Double floorplansY;
+    
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "home_id", nullable = false)
+    private Home home;
 }
