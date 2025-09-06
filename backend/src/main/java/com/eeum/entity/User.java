@@ -15,7 +15,8 @@ import java.time.OffsetDateTime;
 public class User {
 
     @Id
-    @Column(name = "user_id")
+    @Column(name = "user_id", nullable = false)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer userId;
 
     @Column(name = "login_id")
@@ -42,18 +43,4 @@ public class User {
     @Column(name = "last_active")
     private OffsetDateTime lastActive;
 
-    @Column(name = "trigger")
-    private String trigger;
-
-    @Column(name = "user_address")
-    private String userAddress;
-
-    @Column(name = "user_floorplans")
-    private String userFloorplans;
-
-    @Column(name = "floorplans_x")
-    private Double floorplansX;
-
-    @Column(name = "floorplans_y")
-    private Double floorplansY;
 }

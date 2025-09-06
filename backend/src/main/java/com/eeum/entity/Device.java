@@ -8,6 +8,8 @@ import java.time.OffsetDateTime;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 @Entity
 @Table(name = "device", schema = "eeum")
 @Getter
@@ -16,20 +18,11 @@ public class Device {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "device_id")
+    @Column(name = "device_id", nullable = false)
     private Integer deviceId;
 
-    @Column(name = "user_id", nullable = false)
-    private Integer userId;
-
-    @Column(name = "room_id", nullable = false)
-    private Integer roomId;
-
-    @Column(name = "remote_id", nullable = false)
-    private Integer remoteId;
-
-    @Column(name = "ir_device_id", nullable = false)
-    private Integer irDeviceId;
+    @Column(name = "home_id", nullable = false)
+    private Integer homeId;
 
     @Column(name = "device_name")
     private String deviceName;
@@ -40,4 +33,7 @@ public class Device {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "device_detail", columnDefinition = "json")
     private String deviceDetail;
+    
+//    @Column(name = "room_id", nullable = false)
+//    private Integer roomId;
 }
