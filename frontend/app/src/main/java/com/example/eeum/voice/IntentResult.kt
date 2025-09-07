@@ -1,6 +1,6 @@
 package com.example.eeum.voice
 
 data class IntentResult(
-    val name: String,
+    val intent: String,
     val slots: Map<String, String>
 )

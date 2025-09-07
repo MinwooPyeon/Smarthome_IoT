@@ -16,12 +16,10 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.eeum.R
-import com.example.eeum.data.remote.DeviceApi
 
 class VoiceService : Service() {
 
     private var tts: TtsHelper? = null
-    private var pv: PicovoiceManagerEngine? = null
 
     private var soundPool: SoundPool? = null
     private var earconId: Int = 0
