@@ -5,8 +5,6 @@ import lombok.Getter;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-import com.eeum.dto.request.RoutineDetailRequest;
-
 @Getter
 @AllArgsConstructor
 public class RoutineResponse {
@@ -18,4 +16,5 @@ public class RoutineResponse {
     private OffsetDateTime actTime;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+    private List<RoutineDetailResponse> details;
 }
