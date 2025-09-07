@@ -188,6 +188,7 @@
     <ClInclude Include="EeumMFCDoc.h" />
     <ClInclude Include="EeumMFCView.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="Ingestor.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="MqttClient.h" />
     <ClInclude Include="MsgBuffer.h" />
@@ -202,6 +203,7 @@
     <ClCompile Include="EeumMFC.cpp" />
     <ClCompile Include="EeumMFCDoc.cpp" />
     <ClCompile Include="EeumMFCView.cpp" />
+    <ClCompile Include="Ingestor.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="MqttClient.cpp" />
     <ClCompile Include="MsgBuffer.cpp" />
