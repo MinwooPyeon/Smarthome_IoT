@@ -13,7 +13,6 @@ import androidx.core.content.ContextCompat
 import com.example.eeum.ui.navigation.EeumApp
 import com.example.eeum.ui.theme.EeumTheme
 import com.example.eeum.util.PermissionRequester
-import com.example.eeum.voice.PicovoiceManagerEngine
 import com.example.eeum.voice.VoiceService
 
 class MainActivity : ComponentActivity() {

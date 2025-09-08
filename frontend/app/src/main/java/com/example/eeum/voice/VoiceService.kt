@@ -9,100 +9,194 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import com.example.eeum.R
-import com.example.eeum.data.remote.DeviceApi
+import com.example.eeum.data.model.dto.voice.IntentResult
+import com.example.eeum.data.model.dto.voice.NluUpdate
+import com.example.eeum.util.ResourceUtils
+import com.example.eeum.util.RuleCompiler
+import com.example.eeum.util.VoiceBus
+import kotlinx.coroutines.launch
 
 class VoiceService : Service() {
 
-    private var tts: TtsHelper? = null
-    private var pv: PicovoiceManagerEngine? = null
+    companion object {
+        const val ACTION_START_LISTEN = "com.example.eeum.voice.START_LISTEN"
+        const val ACTION_STOP_LISTEN  = "com.example.eeum.voice.STOP_LISTEN"
+    }
 
+    private var tts: TtsHelper? = null
     private var soundPool: SoundPool? = null
     private var earconId: Int = 0
+    private var earconReady = false
+    private var lastPlayAt = 0L
 
     private val CHANNEL_ID = "voice_hotword"
-    private val NOTIF_ID   = 1001
+    private val NOTIF_ID = 1001
 
-    @Volatile private var earconReady = false
-    private var lastPlayAt = 0L
+    // STT
+    private var recognizer: SpeechRecognizer? = null
+
+    // NLU
+    private lateinit var nlu: NluEngine
 
     override fun onCreate() {
         super.onCreate()
         startAsForeground()
-
         initEarcon()
-
         tts = TtsHelper(this)
 
-        // meta-data에서 키 읽기 (onCreate 안에서)
-        val appInfo = packageManager.getApplicationInfo(
-            packageName,
-            PackageManager.GET_META_DATA
-        )
-        val pvKey = appInfo.metaData?.getString("PICOVOICE_ACCESS_KEY").orEmpty()
+        // 1) YAML 로드 → 컴파일
+        val grammar = ResourceUtils.loadFromAssets(this, "grammar.yml")
+        val compiled = RuleCompiler.compile(grammar)
+        val connectors = grammar.context.macros["연결하다"] ?: listOf("그리고","하고","그 다음에","다음에","한 다음에","이어서","켜고","끄고")
+        nlu = NluEngine(compiled, connectors)
 
-        try {
-
-            // Picovoice 시작: 핫워드 상시 듣기 + 핫워드 이후 Rhino NLU
-            pv = PicovoiceManagerEngine(
-                context = this,
-                accessKey = pvKey,
-                wakeRes = R.raw.jenny,
-                rhinoRes = R.raw.eeum,
-                wakeResModel = R.raw.porcupine_params_ko,
-                rhinoResModel = R.raw.rhino_params_ko,
-                onInference = { r ->
-                    // 여기서 "핫워드 후" 발화가 파싱됨
-                    // 오늘은 API 없이 결과만 확인
-                    Log.i("VoiceService", "Intent=${r.name}, slots=${r.slots}")
-                    tts?.say("${r.name} 인식했어요.")
-                },
-                onWake = { playEarcon() }
-            ).also { it.start() }
-        } catch (e: ai.picovoice.picovoice.PicovoiceActivationLimitException) {
-            Log.e("VoiceService", "PV 비활성(라이선스 한도): ${e.message}")
-            updateNotification("핫워드 비활성화됨 (라이선스 한도)")
-            return
-        }
-
-
+        // 2) 안내
         Handler(Looper.getMainLooper()).postDelayed({
-            tts?.say("호출어를 말해 주세요.")
-        }, 800)
+            tts?.say("음성 명령을 말씀해 주세요.")
+        }, 600)
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_START_LISTEN -> startListening()
+            ACTION_STOP_LISTEN  -> stopListening()
+        }
+        return START_STICKY
+    }
 
     override fun onDestroy() {
         releaseEarcon()
-        pv?.stop(); pv = null
+        stopListening()
         tts?.shutdown(); tts = null
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    // ────────────────────────────
+    // STT
+    // ────────────────────────────
+    private fun startListening() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            Log.e("VoiceService", "SpeechRecognizer not available")
+            return
+        }
+        if (recognizer == null) {
+            recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+                setRecognitionListener(object : RecognitionListener {
+                    override fun onResults(results: Bundle) {
+                        val text = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                        Log.i("VoiceService", "ASR: $text")
+                        playEarcon()
+                        handleUtterance(text)
+                        // ⚠️ 더 이상 재시작하지 않음 (단발성)
+                        stopListening()
+                    }
+                    override fun onError(error: Int) {
+                        Log.e("VoiceService", "ASR error: $error")
+                        // ⚠️ 오류 후에도 재시작하지 않음 (단발성)
+                        stopListening()
+                    }
+                    override fun onReadyForSpeech(p0: Bundle?) {}
+                    override fun onBeginningOfSpeech() {}
+                    override fun onRmsChanged(p0: Float) {}
+                    override fun onBufferReceived(p0: ByteArray?) {}
+                    override fun onEndOfSpeech() {}
+                    override fun onPartialResults(p0: Bundle?) {}
+                    override fun onEvent(p0: Int, p1: Bundle?) {}
+                })
+            }
+        }
+
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ko-KR")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        recognizer?.startListening(intent)
+    }
+
+
+    private fun stopListening() {
+        recognizer?.stopListening()
+        recognizer?.cancel()
+        recognizer?.destroy()
+        recognizer = null
+    }
+
+    private fun handleUtterance(text: String) {
+        val intents = nlu.parseUtterance(text)
+        if (intents.isEmpty()) {
+            tts?.say("이해하지 못했어요.")
+            // UI에도 실패 결과 흘려보내기
+            ProcessLifecycleOwner.get().lifecycleScope.launch {
+                VoiceBus.updates.emit(NluUpdate(text, emptyList()))
+            }
+            return
+        }
+
+        // 라우팅: 예시로 로그 + TTS
+        intents.forEach { r ->
+            Log.i("VoiceService", "Intent=${r.intent}, slots=${r.slots}")
+        }
+
+        val summary = intents.joinToString(" 그리고 ") { r ->
+            val target = makeRoomKey(r.slots)?.let { "[$it]" } ?: ""
+            "${r.intent}${if (target.isNotEmpty()) " $target" else ""}"
+        }
+        tts?.say("$summary 실행할게요.")
+
+        // UI로 결과 emit
+        ProcessLifecycleOwner.get().lifecycleScope.launch {
+            VoiceBus.updates.emit(
+                NluUpdate(
+                    raw = text,
+                    intents = intents.map { IntentResult(it.intent, it.slots) }
+                )
+            )
+        }
+
+        // TODO: 실제 디바이스 API 호출로 연결
+    }
+
+    private fun makeRoomKey(slots: Map<String,String>): String? {
+        val name = slots["이름"] ?: return null
+        val kin  = slots["호칭"] ?: return null
+        val place= slots["장소"] ?: return null
+        return "${name}_${kin}_${place}"
+    }
+
+    // ────────────────────────────
+    // FG 알림 & 이어콘
+    // ────────────────────────────
     private fun startAsForeground() {
-        val channelId = "voice_hotword"
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             nm.createNotificationChannel(
-                NotificationChannel(channelId, "항상 듣기", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL_ID, "항상 듣기", NotificationManager.IMPORTANCE_LOW)
             )
         }
-        val notif = NotificationCompat.Builder(this, channelId)
+        val notif = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentTitle("듣고 있어요 (◕‿◕)")
-            .setContentText("『제니야』라고 불러 주세요")
+            .setContentText("말씀해 주세요")
             .setOngoing(true)
             .build()
-        startForeground(1001, notif)
+        startForeground(NOTIF_ID, notif)
     }
 
     private fun initEarcon() {
@@ -110,16 +204,11 @@ class VoiceService : Service() {
             .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
-        soundPool = SoundPool.Builder()
-            .setMaxStreams(1)
-            .setAudioAttributes(attrs)
-            .build()
-
+        soundPool = SoundPool.Builder().setMaxStreams(1).setAudioAttributes(attrs).build()
         soundPool?.setOnLoadCompleteListener { sp, sampleId, status ->
             if (status == 0 && sampleId == earconId) {
                 earconReady = true
-                // 첫 재생 지연 방지: 무음으로 1회 워밍업
-                sp.play(earconId, 0f, 0f, 0, 0, 1f)
+                sp.play(earconId, 0f, 0f, 0, 0, 1f) // warm-up
             }
         }
         earconId = soundPool!!.load(this, R.raw.earcon_beep, 1)
@@ -128,34 +217,16 @@ class VoiceService : Service() {
     private fun playEarcon() {
         val am = getSystemService(AUDIO_SERVICE) as AudioManager
         if (am.ringerMode == AudioManager.RINGER_MODE_SILENT) return
-
         if (!earconReady) return
-
         val now = SystemClock.uptimeMillis()
         if (now - lastPlayAt < 400) return
         lastPlayAt = now
-
-        soundPool?.play(earconId,0.5f,0.5f,0,0,1f)
+        soundPool?.play(earconId, 0.5f, 0.5f, 0, 0, 1f)
     }
 
     private fun releaseEarcon() {
         soundPool?.release()
         soundPool = null
         earconReady = false
-    }
-
-    private fun updateNotification(
-        text: String,
-        title: String = "항상 듣는 중"
-    ) {
-        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        val notif = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true) // 갱신 시 소리/진동 다시 울리지 않게
-            .build()
-        nm.notify(NOTIF_ID, notif) // 같은 ID로 notify → 기존 포그라운드 알림이 업데이트됨
     }
 }
