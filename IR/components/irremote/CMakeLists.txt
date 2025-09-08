@@ -20,4 +20,5 @@ idf_component_register(
         spiffs
         esp_timer
         freertos
+        mqtt
 )

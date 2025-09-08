@@ -120,7 +120,7 @@ bool MqttClient::subscribe(const std::string& topic) {
     if (!mosq || !connected) {
         return false;
     }
-    
+
     int result = mosquitto_subscribe(mosq, nullptr, topic.c_str(), 0);
     return result == MOSQ_ERR_SUCCESS;
 #endif

@@ -23,11 +23,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 # Find required packages
 find_package(Threads REQUIRED)
 
-# MQTT 라이브러리 찾기 (Windows에서는 찾지 않음)
-if(NOT WIN32)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(MOSQUITTO REQUIRED libmosquitto)
-endif()
+# MQTT 라이브러리 찾기 (ESP32에서는 ESP-IDF 내장 MQTT 사용)
+# ESP32 프로젝트에서는 ESP-IDF의 MQTT 컴포넌트를 사용하므로 외부 라이브러리 불필요
 
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/header)
@@ -71,11 +68,8 @@ target_link_libraries(irremote_lib
     Threads::Threads
 )
 
-# Windows가 아닌 경우 MQTT 라이브러리 링크
-if(NOT WIN32)
-    target_link_libraries(irremote_lib ${MOSQUITTO_LIBRARIES})
-    target_include_directories(irremote_lib PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
-endif()
+# ESP32에서는 ESP-IDF 내장 MQTT 컴포넌트 사용
+# 외부 MQTT 라이브러리 링크 불필요
 
 # Main executable
 set(MAIN_SOURCES src/main.cpp)
@@ -117,8 +111,8 @@ install(EXPORT irremoteTargets
     DESTINATION lib/cmake/irremote
 )
 
-# Add tests
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests")
+# Add tests (ESP32에서는 제외)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests" AND NOT CMAKE_SYSTEM_NAME STREQUAL "Generic")
     add_subdirectory(tests)
 endif()
 
