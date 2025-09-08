@@ -1,6 +1,6 @@
 package com.example.eeum.voice
 
-import com.example.eeum.data.remote.service.DeviceApi
+import com.example.eeum.data.model.dto.voice.IntentResult
 
 class IntentRouter(
 
