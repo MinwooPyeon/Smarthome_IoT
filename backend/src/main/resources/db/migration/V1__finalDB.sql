@@ -160,7 +160,7 @@ CREATE TABLE "ir_tx_queue" (
 
 CREATE TABLE "routine_icon" (
 	"icon_id"	INTEGER		NOT NULL,
-	"icon_url"	STRING		NULL
+	"icon_url"	text		NULL
 );
 
 CREATE TABLE "command" (
