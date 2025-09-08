@@ -39,11 +39,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: "8081"
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/eeum
-      SPRING_DATASOURCE_USERNAME: eeum
-      SPRING_DATASOURCE_PASSWORD: eeum
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: "6379"
+      DB_URL: jdbc:postgresql://db:5432/eeum
+      DB_USERNAME: eeum
+      DB_PASSWORD: eeum
+      
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
     expose:
       - "8081"
 
