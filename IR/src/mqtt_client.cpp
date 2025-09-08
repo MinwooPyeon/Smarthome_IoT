@@ -132,7 +132,6 @@ void MqttClient::setMessageCallback(std::function<void(const std::string&, const
 
 void MqttClient::loop() {
 #ifdef _WIN32
-    // Windows에서는 아무것도 하지 않음
 #else
     if (mosq) {
         mosquitto_loop(mosq, 0, 1);
