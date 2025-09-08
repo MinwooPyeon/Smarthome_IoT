@@ -44,6 +44,11 @@ CREATE TABLE "device_positions" (
 	"home_id"	INTEGER		NOT NULL
 );
 
+CREATE TABLE "routine_icon" (
+	"icon_id"	INTEGER		NOT NULL,
+	"icon_url"	text		NULL
+);
+
 CREATE TABLE "routine" (
 	"routine_id"	INTEGER		NOT NULL,
 	"name"	VARCHAR		NULL,
@@ -158,10 +163,6 @@ CREATE TABLE "ir_tx_queue" (
 	"ir_device_id"	int		NOT NULL
 );
 
-CREATE TABLE "routine_icon" (
-	"icon_id"	INTEGER		NOT NULL,
-	"icon_url"	text		NULL
-);
 
 CREATE TABLE "command" (
 	"command_id"	INTEGER		NOT NULL,
