@@ -1,0 +1,74 @@
+name: compose
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: eeum-db
+    restart: always
+    environment:
+      POSTGRES_DB: eeum
+      POSTGRES_USER: eeum
+      POSTGRES_PASSWORD: eeum
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eeum -d eeum -h localhost -p 5432"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    container_name: eeum-redis
+    restart: always
+    command: ["redis-server","--appendonly","yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - redis-data:/data
+
+  eeum:
+    image: eeum:latest
+    container_name: eeum
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    build:
+      context: /var/lib/jenkins/workspace/eeum
+      dockerfile: backend/eeum/Dockerfile
+      args:
+        MODULE_DIR: backend
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: "8081"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/eeum
+      SPRING_DATASOURCE_USERNAME: eeum
+      SPRING_DATASOURCE_PASSWORD: eeum
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+    expose:
+      - "8081"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx
+    restart: always
+    depends_on:
+      eeum:
+        condition: service_started
+    ports:
+      - "80:80"
+    volumes:
+      - type: bind
+        source: /var/lib/jenkins/workspace/eeum/infra/nginx/conf.d
+        target: /etc/nginx/conf.d
+        read_only: true
+        bind:
+          create_host_path: true
+
+volumes:
+  redis-data:
