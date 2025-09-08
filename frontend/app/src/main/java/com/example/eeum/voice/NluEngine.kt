@@ -4,61 +4,90 @@ import android.util.Log
 import com.example.eeum.data.model.dto.voice.CompiledIntent
 import com.example.eeum.data.model.dto.voice.IntentResult
 
+private const val TAG = "EEUM_NluEngine"
+
 class NluEngine(
     private val intents: List<CompiledIntent>,
     connectors: List<String>
 ) {
-    private val clauseSplit = Regex(
-        "(?<=^|\\s)(?:" + connectors.joinToString("|") { Regex.escape(it) } + ")(?=\\s|$)"
+    private val splitRegex = Regex(
+        "(?<=^|\\s)(?:" +
+                (listOf("\\|") + connectors.map { Regex.escape(it) }).joinToString("|") +
+                ")(?=\\s|$)"
     )
 
+    private fun normalizeForClauseSplit(t: String): String {
+        return t
+            .replace(Regex("\\s+"), " ")
+            .replace(Regex("(켜|끄|설정|맞춰|바꿔|틀어|연결)\\s*고"), "$1 |")
+            .replace(Regex("(켜|끄|설정|맞춰|바꿔|틀어|연결)\\s*주고"), "$1 |")
+            .replace(Regex("\\b(그리고|그\\s*다음에|그다음에|그리고나서|하고|한\\s*다음에|다음에)\\b"), "|")
+            .replace(Regex("\\s*\\|+\\s*"), " | ")
+            .trim()
+    }
+
     fun parseUtterance(utterance: String): List<IntentResult> {
-        // ── 0) Pre/regex
+        val TAG = "EEUM_NluEngine"
         val spaceNorm = "\\s+".toRegex()
-        val text = utterance.trim().replace(spaceNorm, " ")
 
-        // 상태+의문 감지 (QUERY 우선 판정용)
-        val rxPowerState  = Regex("(켜\\s*져|켜\\s*진|꺼\\s*져|꺼\\s*진|켜\\s*져\\s*있|꺼\\s*져\\s*있)")
-        val rxExistQ      = Regex("(있어|있니|있나요|있습니까|있냐)")
-        val rxPowerStatus = Regex("전원\\s*(상태|상황)\\s*(알려줘|알려줘요|알려주세요|말해줘|말해줘요|알려주라|알려줄래|알려줄수있어|얼마|얼마나|얼마에요|어때|어때요|어떤가|어떤가요)")
+        // 0) 공백 정규화
+        val text0 = utterance.trim().replace(spaceNorm, " ")
 
-        // ── 1) 절 단위 분리
+        // 1) 절 분리(동사+고/주고/그리고/그다음에 → '|')
+        val text = normalizeForClauseSplit(text0)
         val clauses = text
-            .split(clauseSplit)         // ex) "그리고/하고/그 다음에…" 등을 기준으로 분리
+            .split(splitRegex)           // 파이프(|) + 주입된 connectors 모두 split 대상으로
             .map { it.trim() }
             .filter { it.isNotEmpty() }
 
-        Log.d("NluEngine", "[text] $text")
-        Log.d("NluEngine", "[clauses] ${clauses.joinToString(separator = " | ")}")
+        Log.d(TAG, "[text] $text")
+        Log.d(TAG, "[clauses] ${clauses.joinToString(" | ")}")
 
-        // ── 2) 절-별 상속 슬롯 및 매칭
+        // 2) 절-별 매칭 + 컨텍스트 상속(화이트리스트)
+        val CONTEXT_KEYS = setOf("place", "device", "num")   // 상속 유지할 컨텍스트 키만
         val inherit = mutableMapOf<String, String>()
-        // (clauseIdx, result)로 들고 있다가 후처리에서 절 기준 판정에 활용
-        val rawPairs = mutableListOf<Pair<Int, IntentResult>>()
+        val rawPairs = mutableListOf<Pair<Int, IntentResult>>()  // (segIdx, mergedResult)
 
         clauses.forEachIndexed { idx, c ->
             val clauseText = c.replace(spaceNorm, " ")
             val r = parseOneClause(clauseText, inherit)
 
             if (r == null) {
-                Log.d("NluEngine", "NO_MATCH@seg$idx text='$clauseText'")
+                Log.d(TAG, "NO_MATCH@seg$idx text='$clauseText'")
                 return@forEachIndexed
             }
 
-            // 상속에 채우기
-            r.slots.forEach { (k, v) -> if (v.isNotBlank()) inherit[k] = v }
+            // 상속 베이스 = 컨텍스트 키만 유지
+            val base = inherit.filterKeys { it in CONTEXT_KEYS }.toMutableMap()
 
-            Log.d("NluEngine", "HIT@seg$idx ${r.intent} slots=${r.slots} seg='$clauseText'")
-            rawPairs += idx to r
+            // 현재 절 슬롯으로 override (현재 절 우선)
+            r.slots.forEach { (k, v) -> if (v.isNotBlank()) base[k] = v }
+
+            // 장소가 새로 말해졌는데 num이 없으면 num 리셋(방 번호는 장소 종속)
+            if ("place" in r.slots && "num" !in r.slots) {
+                base.remove("num")
+            }
+
+            // 다음 절을 위한 상속 업데이트
+            inherit.clear(); inherit.putAll(base)
+
+            // 결과에도 '완성된 슬롯' 저장
+            val out = IntentResult(r.intent, base.toMutableMap())
+
+            Log.d(TAG, "HIT@seg$idx ${out.intent} slots=${out.slots} seg='$clauseText'")
+            rawPairs += idx to out
         }
 
         if (rawPairs.isEmpty()) {
-            Log.d("NluEngine", "[results.final] (empty)")
+            Log.d(TAG, "[results.final] (empty)")
             return emptyList()
         }
 
-        // ── 3) 절 단위로 QUERY 우선 규칙 적용
-        //  - 해당 절이 '상태+의문' 또는 '전원 상태 문의'로 보이면 TURN_ON/OFF는 버림
+        // 3) 해당 절이 질의 성격이면(전원 상태 + 의문/요청) TURN_* 명령은 드랍
+        val rxPowerState  = Regex("(켜\\s*져|켜\\s*진|꺼\\s*져|꺼\\s*진|켜\\s*져\\s*있|꺼\\s*져\\s*있)")
+        val rxExistQ      = Regex("(있어|있니|있나요|있습니까|있냐)")
+        val rxPowerStatus = Regex("전원\\s*(상태|상황)\\s*(알려줘|알려줘요|알려주세요|말해줘|말해줘요|알려주라|알려줄래|알려줄수있어|얼마|얼마나|얼마에요|어때|어때요|어떤가|어떤가요)")
+
         val queryishSegs: Set<Int> = clauses.mapIndexedNotNull { i, c ->
             val t = c.replace(spaceNorm, " ")
             val isQueryish = (rxPowerState.containsMatchIn(t) && rxExistQ.containsMatchIn(t)) ||
@@ -69,24 +98,20 @@ class NluEngine(
         val filteredPairs = rawPairs.filter { (segIdx, res) ->
             val isCommand = res.intent == "TURN_ON_DEVICE" || res.intent == "TURN_OFF_DEVICE"
             if (segIdx in queryishSegs && isCommand) {
-                Log.d("NluEngine", "DROP@seg$segIdx ${res.intent} (query-priority)")
+                Log.d(TAG, "DROP@seg$segIdx ${res.intent} (query-priority)")
                 false
             } else true
         }
 
-        // ── 4) 같은 절 안에서 중복/충돌 정리(선택 규칙)
-        //  - 슬롯 많이 채운 결과 우선
-        //  - 같은 intent/주요 슬롯 조합은 1개만 유지
+        // 4) 같은 절 안에서 중복/충돌 정리: 슬롯 많이 채운 결과 우선, intent+핵심 슬롯 기준 dedupe
         val bySeg = filteredPairs.groupBy { it.first }.toSortedMap()
         val deduped = mutableListOf<IntentResult>()
 
         bySeg.forEach { (segIdx, list) ->
-            // 같은 절에서 결과가 여러 개인 경우 슬롯 수 내림차순 → 고정 우선순위
             val sorted = list
                 .sortedByDescending { (_, r) -> r.slots.count { it.value.isNotBlank() } }
                 .map { it.second }
 
-            // intent+주요 슬롯(device/place 등) 기준으로 중복 제거
             val seen = HashSet<String>()
             for (res in sorted) {
                 val key = buildString {
@@ -99,34 +124,47 @@ class NluEngine(
                 if (seen.add(key)) {
                     deduped += res
                 } else {
-                    Log.d("NluEngine", "DEDUP@seg$segIdx ${res.intent} slots=${res.slots}")
+                    Log.d(TAG, "DEDUP@seg$segIdx ${res.intent} slots=${res.slots}")
                 }
             }
         }
 
-        Log.d(
-            "NluEngine",
-            "[results.final] " + deduped.joinToString { it.intent + ":" + it.slots.toString() }
-        )
+        Log.d(TAG, "[results.final] " + deduped.joinToString { it.intent + ":" + it.slots.toString() })
         return deduped
     }
 
     private fun parseOneClause(clause: String, inherit: Map<String,String>): IntentResult? {
+        var best: IntentResult? = null
+        var bestExplicit = -1
+        var ruleOrder = 0
+        var bestOrder = Int.MAX_VALUE
+
         for (ci in intents) {
             for (rule in ci.rules) {
-                val m = rule.regex.find(clause) ?: continue
-
-                val slots = mutableMapOf<String,String>()
-                // ★ 이 패턴(rule)에 실제로 존재하는 슬롯만 조회!
-                for (name in rule.slotNames) {
-                    val v = m.groups[name]?.value
-                    if (!v.isNullOrBlank()) slots[name] = v
-                    else inherit[name]?.let { slots[name] = it }
+                val m = rule.regex.find(clause)
+                if (m == null) {
+                    ruleOrder++
+                    continue
                 }
 
-                return IntentResult(ci.intent, slots.filterValues { it.isNotBlank() })
+                val slots = mutableMapOf<String,String>()
+                var explicit = 0
+                for (name in rule.slotNames) {
+                    val v = m.groups[name]?.value
+                    if (!v.isNullOrBlank()) {
+                        slots[name] = v
+                        explicit++
+                    }
+                }
+
+                if (explicit > bestExplicit || (explicit == bestExplicit && ruleOrder < bestOrder)) {
+                    best = IntentResult(ci.intent, slots)
+                    bestExplicit = explicit
+                    bestOrder = ruleOrder
+                }
+                ruleOrder++
             }
         }
-        return null
+        return best
     }
 }
