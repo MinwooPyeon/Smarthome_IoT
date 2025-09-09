@@ -1,34 +1,32 @@
 package com.eeum.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import java.time.OffsetDateTime;
 
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @Entity
 @Table(name = "device", schema = "eeum")
-@Getter
-@Setter
 public class Device {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "device_id", nullable = false)
+    @Column(name = "device_id")
     private Integer deviceId;
 
     @Column(name = "device_name")
     private String deviceName;
 
-    @Column(name = "registered_at", columnDefinition = "timestamptz")
+    @Column(name = "registered_at")
     private OffsetDateTime registeredAt;
-    
-    @JdbcTypeCode(SqlTypes.JSON)
+
     @Column(name = "device_detail", columnDefinition = "json")
     private String deviceDetail;
-    
-//    @Column(name = "room_id", nullable = false)
-//    private Integer roomId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "remote_id", nullable = false)
+    private IrRemoteir remote;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ir_device_id", nullable = false)
+    private IrDevice irDevice;
 }

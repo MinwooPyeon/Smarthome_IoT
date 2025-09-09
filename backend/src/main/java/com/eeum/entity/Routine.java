@@ -40,6 +40,10 @@ public class Routine {
 
     @Column(name = "act_time")
     private OffsetDateTime actTime;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "icon_id", nullable = false)
+    private RoutineIcon icon;
 
     @OneToMany(mappedBy = "routine", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RoutineDetail> details = new ArrayList<>();
