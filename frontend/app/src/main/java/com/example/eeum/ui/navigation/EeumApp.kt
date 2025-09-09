@@ -15,13 +15,13 @@ import androidx.navigation.compose.rememberNavController
 import com.example.eeum.R
 import com.example.eeum.ui.components.EeumBottomAppBar
 import com.example.eeum.ui.components.EeumFloatingActionButton
+import com.example.eeum.ui.screens.CreateRoutineFirstScreen
 import com.example.eeum.ui.screens.DeviceScreen
 import com.example.eeum.ui.screens.HomeScreen
 import com.example.eeum.ui.screens.MenuScreen
 import com.example.eeum.ui.screens.UseScreen
 import com.example.eeum.ui.screens.VoiceScreen
 import com.example.eeum.ui.screens.RoutineScreen // 기존 루틴 목록/메인
-import com.example.eeum.ui.screens.CreatetRoutineFirstScreen // 루틴 생성 1단계
 import com.example.eeum.ui.screens.CreateRoutineSecondScreen // 루틴 생성 2단계
 
 import androidx.compose.material.Scaffold as M2Scaffold
@@ -86,7 +86,7 @@ fun EeumApp() {
                 composable(Tab.Home.route) { HomeScreen() }
                 composable(Tab.Device.route) { DeviceScreen() }
                 composable(Tab.Use.route) { UseScreen() }
-                composable(Tab.Menu.route) { MenuScreen(navController) }
+                composable(Tab.Menu.route) { MenuScreen() }
                 composable(VOICE_ROUTE) { VoiceScreen() }
 
                 // 루틴 메인 화면
@@ -94,7 +94,7 @@ fun EeumApp() {
 
                 //루틴 생성
                 composable(ROUTE_CREATE_ROUTINE_FIRST) {
-                    CreatetRoutineFirstScreen(navController)
+                    CreateRoutineFirstScreen(navController)
                 }
                 composable(ROUTE_CREATE_ROUTINE_SECOND) {
                     CreateRoutineSecondScreen()

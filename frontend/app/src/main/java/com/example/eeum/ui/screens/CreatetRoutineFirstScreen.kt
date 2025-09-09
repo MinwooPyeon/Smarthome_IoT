@@ -36,7 +36,7 @@ private val BorderGray = Color(0xFFE0E0E0)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreatetRoutineFirstScreen(navController: NavController) {
+fun CreateRoutineFirstScreen(navController: NavController) {
     var title by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
     var selectedDays by remember { mutableStateOf(setOf(0)) } // 0=일 ~ 6=토
@@ -279,5 +279,5 @@ private fun ActionCard(
 @Composable
 fun Preview_CreatetRoutineFirstScreen() {
     val nav = rememberNavController()
-    CreatetRoutineFirstScreen(navController = nav)
+    CreateRoutineFirstScreen(navController = nav)
 }

@@ -115,6 +115,10 @@ private fun MyRoutineCard(
 ) {
     var enabled by remember { mutableStateOf(routine.enabled) }
 
+    // description 시작선 = 아이콘(56) + 간격(14)
+    val textIndent = 56.dp + 14.dp
+    val statusTextColor = if (enabled) Color(0xFF22C55E) else BodyColor
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -124,15 +128,37 @@ private fun MyRoutineCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(Modifier.fillMaxWidth()) {
+
+            // ⬅️ 우측 상단: 상태(점+텍스트) + 메뉴 아이콘
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 6.dp, end = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StatusDot(active = enabled)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = if (enabled) "활성화" else "비활성화",
+                        fontSize = 13.sp,
+                        color = statusTextColor
+                    )
+                }
+                IconButton(onClick = { /* menu */ }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "more")
+                }
+            }
+
             Column(
                 modifier = Modifier.padding(
                     start = 16.dp,
                     top = 16.dp,
-                    end = 72.dp, // Switch 공간
+                    end = 12.dp,
                     bottom = 16.dp
                 )
             ) {
-                // 아이콘 + 제목 + 설명
+                // 아이콘 + 제목/설명
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconBox(icon = routine.icon, bg = routine.iconBg)
                     Spacer(Modifier.width(14.dp))
@@ -155,55 +181,34 @@ private fun MyRoutineCard(
 
                 Spacer(Modifier.height(16.dp))
 
-                // 실행 요일 라벨 + 칩
+                // 실행 요일 줄: description 시작선에 맞추고, 우측 끝에 스위치
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = textIndent),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("실행 요일:", fontSize = 14.sp, color = BodyColor)
                     Spacer(Modifier.width(8.dp))
+
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        routine.days.forEach { DayChip(label = it) }
+                        routine.days.forEach { DayChip(label = it) } // 정사각 칩 유지
                     }
+
+                    Spacer(Modifier.weight(1f))
+
+                    Switch(
+                        checked = enabled,
+                        onCheckedChange = {
+                            enabled = it
+                            onToggle(routine, it)
+                        }
+                    )
                 }
             }
-
-            //우측 상단 고정 상태
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 8.dp, end = 4.dp)
-            ) {
-                StatusDot(active = enabled)
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = if (enabled) "활성화" else "비활성화",
-                    fontSize = 13.sp,
-                    color = BodyColor
-                )
-                IconButton(onClick = { /* menu */ }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "more")
-                }
-            }
-
-            // 우측 하단 고정 스위치
-            Switch(
-                checked = enabled,
-                onCheckedChange = {
-                    enabled = it
-                    onToggle(routine, it)
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 12.dp, end = 12.dp)
-            )
         }
     }
 }
-
-
-
 @Composable
 private fun IconBox(icon: ImageVector, bg: Color) {
     Box(
@@ -228,13 +233,19 @@ private fun StatusDot(active: Boolean) {
 
 @Composable
 private fun DayChip(label: String) {
+    val size = 25.dp
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(5.dp))
-            .background(Color(0xFF2563EB))
-            .padding(horizontal = 8.dp, vertical = 1.dp),
+            .size(size)
+            .clip(RoundedCornerShape(6.dp))
+            .background(Color(0xFF2563EB)),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Medium)
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = Color.White,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

@@ -1,10 +1,11 @@
 package com.example.eeum.ui.pages
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
@@ -14,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -46,12 +46,11 @@ private val DUMMY_RECOMMENDS = listOf(
 )
 
 // Colors
-private val CardStroke = Color(0xFFE6F1FF)
 private val TitleColor = Color(0xFF0F172A)
 private val BodyColor = Color(0xFF6B7280)
 private val PrimaryBlue = Color(0xFF3D6EF7)
-private val BadgeBg = Color(0xFFFFEBCD)
-private val BadgeFg = Color(0xFFF59E0B)
+private val PrimaryBorderBlue = Color(0xFF007BFF) // 카드 테두리 색
+
 @Preview(showBackground = false)
 @Composable
 fun RecommendRoutinePage() {
@@ -65,28 +64,33 @@ fun RecommendRoutinePage() {
         items(DUMMY_RECOMMENDS) { item ->
             RecommendRoutineCard(
                 data = item,
-                onAddClick = { /* TODO: Add routine */ }
+                onAddClick = { }
             )
         }
     }
 }
+
 @Composable
 private fun RecommendRoutineCard(
     data: RecommendRoutine,
     onAddClick: () -> Unit
 ) {
+    val days = parseDaysFrom(data.time)        // 실행 요일 파싱
+    val timeText = extractTimeOfDay(data.time) // "오전/오후 HH:MM"
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(BorderStroke(2.dp, PrimaryBorderBlue), RoundedCornerShape(12.dp)),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
-        // 아이콘 왼쪽, 나머지는 모두 오른쪽 컬럼에 배치
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp),
             verticalAlignment = Alignment.Top
         ) {
-            // 아이콘
+            // 좌측 아이콘
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -103,35 +107,14 @@ private fun RecommendRoutineCard(
 
             Spacer(Modifier.width(12.dp))
 
-            // 타이틀 · 설명 · 시간 · 버튼이 같은 시작선에서 세로로 정렬
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                // 상단: 타이틀(+배지 공간)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = data.title,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TitleColor
-                    )
-
-                    // 배지 필요하면 주석 해제
-                    // Text(
-                    //     text = "추천",
-                    //     color = BadgeFg,
-                    //     fontSize = 12.sp,
-                    //     fontWeight = FontWeight.Medium,
-                    //     modifier = Modifier
-                    //         .clip(RoundedCornerShape(8.dp))
-                    //         .background(BadgeBg)
-                    //         .padding(horizontal = 8.dp, vertical = 4.dp)
-                    // )
-                }
+            // 우측 내용
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = data.title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TitleColor
+                )
 
                 Spacer(Modifier.height(8.dp))
 
@@ -144,37 +127,76 @@ private fun RecommendRoutineCard(
 
                 Spacer(Modifier.height(12.dp))
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFCBD5E1))
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = data.time,
-                        fontSize = 12.sp,
-                        color = BodyColor
-                    )
+                // 실행 요일 (왼쪽 정렬)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("실행 요일:", fontSize = 14.sp, color = BodyColor)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        days.forEach { DayChipSquare(it) }
+                    }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                // ⬇ 실행 요일 ↔ 실행 시간 간격을 더 촘촘하게 (2dp)
+                Spacer(Modifier.height(2.dp))
 
-                Button(
-                    onClick = onAddClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(44.dp)
+                // 실행 시간 (요일 밑줄) | 같은 줄 우측에 버튼
+                Row(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "추가하기",
+                        text = "실행 시간: $timeText",
                         fontSize = 14.sp,
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium
+                        color = BodyColor,
+                        modifier = Modifier
+                            .weight(1f)
+                            .alignByBaseline() // 텍스트와 버튼을 베이스라인 기준으로 맞춤
                     )
+                    Button(
+                        onClick = onAddClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .height(40.dp)
+                            .alignByBaseline()
+                    ) {
+                        Text(
+                            text = "추가하기",
+                            fontSize = 14.sp,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun DayChipSquare(label: String) {
+    val size = 26.dp
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(RoundedCornerShape(6.dp))
+            .background(PrimaryBlue),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** "월/수/금 오후 7:00" -> ["월","수","금"],  "매일 오후 10:30" -> ["매일"] */
+private fun parseDaysFrom(text: String): List<String> {
+    val head = text.substringBefore(' ', missingDelimiterValue = text).trim()
+    if (head.isEmpty()) return emptyList()
+    return if (head == "매일") listOf("매일") else head.split('/').map { it.trim() }
+}
+
+/** "월/수/금 오후 7:00" -> "오후 7:00", "매일 오후 10:30" -> "오전/오후 HH:MM" */
+private fun extractTimeOfDay(text: String): String {
+    val tail = text.substringAfter(' ', missingDelimiterValue = text).trim()
+    return if (tail.isEmpty()) text else tail
 }
