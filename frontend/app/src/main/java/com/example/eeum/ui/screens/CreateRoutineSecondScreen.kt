@@ -1,5 +1,6 @@
 package com.example.eeum.ui.screens
 
+import android.os.Parcelable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,16 +15,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,23 +28,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.eeum.data.model.dto.NewActionResult
+import kotlinx.parcelize.Parcelize
 
 private val TextBlue = Color(0xFF3B82F6)
 private val CardBg = Color(0x80FFFFFF)
-private val PageBg = Color(0xFFE8F3FF) // 연한 하늘색 배경
+private val PageBg = Color(0xFFE8F3FF)
 private val BorderGray = Color(0xFFE0E0E0)
 private val IconBg = Color(0xFFEAF2FF)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateRoutineSecondScreen(navController: NavController) {
-    // 옵션 목록
     val roomItems = listOf(
         RowItem(Icons.Filled.LocationOn, "거실"),
         RowItem(Icons.Filled.LocationOn, "안방"),
         RowItem(Icons.Filled.LocationOn, "발코니")
     )
-    val deviceItems = listOf( // 에어컨, 선풍기, TV, 공기청정기, 빔프로젝터, 조명
+    val deviceItems = listOf(
         RowItem(Icons.Filled.Star, "에어컨"),
         RowItem(Icons.Filled.Star, "선풍기"),
         RowItem(Icons.Filled.Star, "TV"),
@@ -65,32 +58,23 @@ fun CreateRoutineSecondScreen(navController: NavController) {
         StateItem("OFF", "끄기")
     )
 
-    // 상태값들
-    var selectedRoomIdx by remember { mutableIntStateOf(1) } // 기본 "안방"
-    val defaultDeviceIndex = remember {
-        deviceItems.indexOfFirst { it.title == "조명" }.let { if (it == -1) 0 else it }
-    }
-    var selectedDeviceIdx by remember { mutableIntStateOf(defaultDeviceIndex) } // 기본 "조명" → 추가 섹션 숨김
-    var selectedStateIdx by remember { mutableIntStateOf(1) } // 기본 끄기
-    var windLevel by remember { mutableIntStateOf(2) }        // 1~5
-    var acTemp by remember { mutableIntStateOf(24) }          // 16~30
+    var selectedRoomIdx by remember { mutableIntStateOf(1) } // 안방
+    val defaultDeviceIndex = remember { deviceItems.indexOfFirst { it.title == "조명" }.let { if (it == -1) 0 else it } }
+    var selectedDeviceIdx by remember { mutableIntStateOf(defaultDeviceIndex) } // 기본 조명
+    var selectedStateIdx by remember { mutableIntStateOf(1) } // 끄기
+    var windLevel by remember { mutableIntStateOf(2) }
+    var acTemp by remember { mutableIntStateOf(24) }
 
     val selectedDeviceTitle = deviceItems.getOrNull(selectedDeviceIdx)?.title ?: ""
     val showWind = selectedDeviceTitle == "선풍기"
     val showAcTemp = selectedDeviceTitle == "에어컨"
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(PageBg)
-    ) {
+    Box(modifier = Modifier.fillMaxSize().background(PageBg)) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 40.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 40.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -101,7 +85,7 @@ fun CreateRoutineSecondScreen(navController: NavController) {
                         modifier = Modifier.clickable { navController.popBackStack() }
                     )
                     Text("루틴 만들기", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.size(24.dp)) // 우측 정렬용
+                    Spacer(modifier = Modifier.size(24.dp))
                 }
             }
         ) { inner ->
@@ -118,8 +102,7 @@ fun CreateRoutineSecondScreen(navController: NavController) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         roomItems.forEachIndexed { idx, item ->
                             RadioListRow(
-                                title = item.title,
-                                icon = item.icon,
+                                title = item.title, icon = item.icon,
                                 selected = selectedRoomIdx == idx,
                                 onClick = { selectedRoomIdx = idx }
                             )
@@ -132,8 +115,7 @@ fun CreateRoutineSecondScreen(navController: NavController) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         deviceItems.forEachIndexed { idx, item ->
                             RadioListRow(
-                                title = item.title,
-                                icon = item.icon,
+                                title = item.title, icon = item.icon,
                                 selected = selectedDeviceIdx == idx,
                                 onClick = { selectedDeviceIdx = idx }
                             )
@@ -146,8 +128,7 @@ fun CreateRoutineSecondScreen(navController: NavController) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         stateItems.forEachIndexed { idx, item ->
                             RadioListRowWithChip(
-                                chipText = item.chip,
-                                title = item.title,
+                                chipText = item.chip, title = item.title,
                                 selected = selectedStateIdx == idx,
                                 onClick = { selectedStateIdx = idx }
                             )
@@ -155,49 +136,32 @@ fun CreateRoutineSecondScreen(navController: NavController) {
                     }
                 }
 
-                // 바람 세기 — 선풍기 선택 시에만 표시
+                // 조건부 섹션
                 if (showWind) {
                     SectionCard(title = "바람 세기") {
                         SegmentedNumberSelector(
-                            count = 5,
-                            selected = windLevel,
+                            count = 5, selected = windLevel,
                             onSelect = { windLevel = it }
                         )
                     }
                 }
-
-                // 에어컨 온도 — 에어컨 선택 시에만 표시
                 if (showAcTemp) {
                     SectionCard(title = "에어컨 온도") {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
                                 color = Color.White,
                                 border = BorderStroke(1.dp, BorderGray),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 96.dp)
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp)
                             ) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Text("${acTemp}°C", fontSize = 32.sp, fontWeight = FontWeight.SemiBold)
                                 }
                             }
                             Spacer(Modifier.height(12.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                SquareIconButton(
-                                    icon = Icons.Filled.KeyboardArrowUp,
-                                    onClick = { if (acTemp < 30) acTemp++ }
-                                )
-                                SquareIconButton(
-                                    icon = Icons.Filled.KeyboardArrowDown,
-                                    onClick = { if (acTemp > 16) acTemp-- }
-                                )
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                SquareIconButton(icon = Icons.Filled.KeyboardArrowUp) { if (acTemp < 30) acTemp++ }
+                                SquareIconButton(icon = Icons.Filled.KeyboardArrowDown) { if (acTemp > 16) acTemp-- }
                             }
                         }
                     }
@@ -205,53 +169,40 @@ fun CreateRoutineSecondScreen(navController: NavController) {
 
                 Spacer(Modifier.height(6.dp))
 
+                // 동작 저장 → 결과 전달 후 이전 화면으로
                 Button(
-                    onClick = { navController.popBackStack() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
+                    onClick = {
+                        val result = NewActionResult(
+                            room = roomItems[selectedRoomIdx].title,
+                            device = selectedDeviceTitle,
+                            state = if (selectedStateIdx == 0) "켜기" else "끄기",
+                            windLevel = if (showWind) windLevel else null,
+                            acTemp = if (showAcTemp) acTemp else null
+                        )
+                        navController.previousBackStackEntry
+                            ?.savedStateHandle
+                            ?.set("new_action", result)
+                        navController.popBackStack()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = TextBlue,
-                        contentColor = Color.White
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = TextBlue, contentColor = Color.White)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Spacer(Modifier.width(6.dp))
-                        Text("동작 저장", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    }
+                    Text("동작 저장", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFE8F3FF)
-@Composable
-private fun Preview_CreateRoutineSecondScreen() {
-    val nav = rememberNavController()
-    CreateRoutineSecondScreen(navController = nav)
-}
-
-/* ---------- UI 구성요소 ---------- */
-
 private data class RowItem(val icon: ImageVector, val title: String)
 private data class StateItem(val chip: String, val title: String)
 
 @Composable
-private fun SectionCard(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = CardBg,
-        modifier = Modifier.fillMaxWidth()
-    ) {
+private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Surface(shape = RoundedCornerShape(16.dp), color = CardBg, modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
@@ -261,132 +212,71 @@ private fun SectionCard(
 }
 
 @Composable
-private fun RadioListRow(
-    title: String,
-    icon: ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
+private fun RadioListRow(title: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) TextBlue else BorderGray),
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .clickable { onClick() }
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { onClick() }
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(IconBg),
+                modifier = Modifier.size(36.dp).clip(CircleShape).background(IconBg),
                 contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = TextBlue)
-            }
+            ) { Icon(icon, contentDescription = null, tint = TextBlue) }
             Spacer(Modifier.width(12.dp))
-            Text(
-                title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f)
-            )
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             RadioButton(
-                selected = selected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = TextBlue,
-                    unselectedColor = BorderGray
-                )
+                selected = selected, onClick = onClick,
+                colors = RadioButtonDefaults.colors(selectedColor = TextBlue, unselectedColor = BorderGray)
             )
         }
     }
 }
 
 @Composable
-private fun RadioListRowWithChip(
-    chipText: String,
-    title: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
+private fun RadioListRowWithChip(chipText: String, title: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) TextBlue else BorderGray),
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .clickable { onClick() }
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { onClick() }
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, TextBlue),
-                color = Color.Transparent,
-                modifier = Modifier.height(28.dp)
-            ) {
-                Box(
-                    modifier = Modifier.padding(horizontal = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+            Surface(shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, TextBlue), color = Color.Transparent) {
+                Box(Modifier.height(28.dp).padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
                     Text(chipText, color = TextBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             Spacer(Modifier.width(12.dp))
             Text(title, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             RadioButton(
-                selected = selected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = TextBlue,
-                    unselectedColor = BorderGray
-                )
+                selected = selected, onClick = onClick,
+                colors = RadioButtonDefaults.colors(selectedColor = TextBlue, unselectedColor = BorderGray)
             )
         }
     }
 }
 
 @Composable
-private fun SegmentedNumberSelector(
-    count: Int,
-    selected: Int,
-    onSelect: (Int) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
+private fun SegmentedNumberSelector(count: Int, selected: Int, onSelect: (Int) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         (1..count).forEach { i ->
             val isSelected = i == selected
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = if (isSelected) TextBlue else Color.White,
                 border = BorderStroke(1.dp, if (isSelected) TextBlue else BorderGray),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .clickable { onSelect(i) }
+                modifier = Modifier.weight(1f).height(44.dp).clickable { onSelect(i) }
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "$i",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isSelected) Color.White else Color.Black
-                    )
+                    Text("$i", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = if (isSelected) Color.White else Color.Black)
                 }
             }
         }
@@ -394,19 +284,15 @@ private fun SegmentedNumberSelector(
 }
 
 @Composable
-private fun SquareIconButton(
-    icon: ImageVector,
-    onClick: () -> Unit
-) {
-    Surface(
-        color = TextBlue,
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier
-            .size(44.dp)
-            .clickable { onClick() }
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = Color.White)
-        }
+private fun SquareIconButton(icon: ImageVector, onClick: () -> Unit) {
+    Surface(color = TextBlue, shape = RoundedCornerShape(10.dp), modifier = Modifier.size(44.dp).clickable { onClick() }) {
+        Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null, tint = Color.White) }
     }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFE8F3FF)
+@Composable
+private fun Preview_CreateRoutineSecondScreen() {
+    val nav = rememberNavController()
+    CreateRoutineSecondScreen(navController = nav)
 }
