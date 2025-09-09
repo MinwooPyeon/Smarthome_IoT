@@ -65,8 +65,8 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./infra/nginx.conf:/etc/nginx/nginx.conf:ro
-
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
 networks:
   eeum-net:
     name: eeum-net   # 네트워크 이름 고정
