@@ -33,3 +33,6 @@ Thumbs.db
 
 # Config files with sensitive data
 *.conf.json
+
+# ESP-IDF framework
+esp-idf/
