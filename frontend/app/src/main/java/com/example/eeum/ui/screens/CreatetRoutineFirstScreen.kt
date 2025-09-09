@@ -1,5 +1,6 @@
 package com.example.eeum.ui.screens
 
+import android.widget.NumberPicker
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -26,14 +27,17 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.eeum.R
 import com.example.eeum.data.model.dto.ActionItem
-import com.example.eeum.data.model.dto.NewActionResult
 import com.example.eeum.data.model.dto.ActionUi
+import com.example.eeum.data.model.dto.NewActionResult
 
 private val TextBlue = Color(0xFF3B82F6)
 private val CardBg = Color(0x80FFFFFF)
@@ -45,6 +49,12 @@ fun CreateRoutineFirstScreen(navController: NavController) {
     var title by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
     var selectedDays by remember { mutableStateOf(setOf(0)) } // 0=일 ~ 6=토
+
+    // 시간 상태 (24시간제)
+    var hour24 by remember { mutableIntStateOf(8) } // 08시
+    var minute by remember { mutableIntStateOf(0) } // 00분
+    var showTimePicker by remember { mutableStateOf(false) }
+    val timeText = remember(hour24, minute) { "%02d:%02d".format(hour24, minute) }
 
     val actions = remember {
         mutableStateListOf(
@@ -154,7 +164,9 @@ fun CreateRoutineFirstScreen(navController: NavController) {
                 item {
                     Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
                         Column(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text("요일 선택", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
@@ -198,7 +210,42 @@ fun CreateRoutineFirstScreen(navController: NavController) {
                     }
                 }
 
-                // 카드 3: 동작 설정 (리스트 + 추가 버튼)
+                //카드 3: 시간 설정
+                item {
+                    Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text("시간 설정", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("설정 시간", style = MaterialTheme.typography.bodyLarge)
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color.White,
+                                    border = BorderStroke(1.dp, BorderGray),
+                                    modifier = Modifier.clickable { showTimePicker = true }
+                                ) {
+                                    Text(
+                                        text = timeText,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 카드 4: 동작 설정 (리스트 + 추가 버튼)
                 item {
                     Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
                         Column(
@@ -245,6 +292,20 @@ fun CreateRoutineFirstScreen(navController: NavController) {
                 }
             }
         }
+
+        //시간 휠 다이얼로그
+        if (showTimePicker) {
+            TimeWheelDialog(
+                initialHour24 = hour24,
+                initialMinute = minute,
+                onConfirm = { h, m ->
+                    hour24 = h
+                    minute = m
+                    showTimePicker = false
+                },
+                onDismiss = { showTimePicker = false }
+            )
+        }
     }
 }
 
@@ -266,7 +327,6 @@ private fun ActionCard(
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 선택된 디바이스 아이콘
             Box(
                 modifier = Modifier
                     .size(36.dp)
@@ -276,24 +336,18 @@ private fun ActionCard(
             ) {
                 Icon(iconForDevice(item.device), contentDescription = null, tint = TextBlue)
             }
-
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(item.item.title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, maxLines = 1)
             }
             IconButton(onClick = { onDelete(item) }) {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = "delete",
-                    tint = Color(0xFFDD4B39)
-                )
+                Icon(imageVector = Icons.Filled.Delete, contentDescription = "delete", tint = Color(0xFFDD4B39))
             }
         }
     }
 }
 
 private fun iconForDevice(device: String): ImageVector = when (device) {
-    // 실제 아이콘으로 바꾸고 싶으면 둘 다 동일한 매핑 규칙으로 변경하세요.
     "에어컨" -> Icons.Filled.Star
     "선풍기" -> Icons.Filled.Star
     "TV" -> Icons.Filled.Star
@@ -301,6 +355,183 @@ private fun iconForDevice(device: String): ImageVector = when (device) {
     "빔프로젝터" -> Icons.Filled.Star
     "조명" -> Icons.Filled.Star
     else -> Icons.Filled.Star
+}
+
+@Composable
+private fun TimeWheelDialog(
+    initialHour24: Int,
+    initialMinute: Int,
+    onConfirm: (hour24: Int, minute: Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // 초기값을 오전/오후 & 12시간제로 변환
+    var ampm by remember { mutableIntStateOf(if (initialHour24 >= 12) 1 else 0) } // 0=오전, 1=오후
+    var hour12 by remember {
+        mutableIntStateOf(
+            when {
+                initialHour24 == 0 -> 12
+                initialHour24 > 12 -> initialHour24 - 12
+                else -> initialHour24
+            }
+        )
+    }
+    val minuteValues = listOf(0, 10, 20, 30, 40, 50)
+    var minuteIndex by remember {
+        mutableIntStateOf(minuteValues.indexOf(initialMinute).coerceAtLeast(0))
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            tonalElevation = 0.dp,
+            shadowElevation = 6.dp,
+            color = Color.White
+        ) {
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 280.dp)
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // 제목
+                Text(
+                    text = "시간 설정",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(12.dp))
+
+                // 피커 3종
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 오전/오후
+                    WheelPicker(
+                        values = arrayOf("오전", "오후"),
+                        value = ampm,
+                        onValueChange = { ampm = it },
+                        width = 72.dp
+                    )
+                    // 시: 1~12
+                    WheelPicker(
+                        min = 1, max = 12,
+                        value = hour12,
+                        onValueChange = { hour12 = it },
+                        width = 64.dp
+                    )
+                    // 분: 00,10,20,30,40,50
+                    WheelPicker(
+                        values = arrayOf("00", "10", "20", "30", "40", "50"),
+                        value = minuteIndex,
+                        onValueChange = { minuteIndex = it },
+                        width = 72.dp
+                    )
+                }
+
+                Spacer(Modifier.height(18.dp))
+
+                // 하단 버튼 두 개 (좌: 파랑 설정 / 우: 회색 취소)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            val m = minuteValues[minuteIndex]
+                            val h24 = when {
+                                ampm == 0 && hour12 == 12 -> 0      // 12 AM -> 00
+                                ampm == 1 && hour12 == 12 -> 12     // 12 PM -> 12
+                                ampm == 1 -> hour12 + 12            // PM
+                                else -> hour12                      // AM
+                            }
+                            onConfirm(h24, m)
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = TextBlue,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("설정", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    }
+
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE8EBF1),   // 연회색
+                            contentColor = Color(0xFF4B5563)       // 진회색 텍스트
+                        )
+                    ) {
+                        Text("취소", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 그대로 사용 (필요시 높이/폭만 조정)
+@Composable
+private fun WheelPicker(
+    min: Int = 0,
+    max: Int = 0,
+    values: Array<String>? = null,
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    width: Dp = 72.dp
+) {
+    AndroidView(
+        modifier = Modifier
+            .width(width)
+            .height(150.dp),
+        factory = { context ->
+            NumberPicker(context).apply {
+                wrapSelectorWheel = true
+                descendantFocusability = NumberPicker.FOCUS_BLOCK_DESCENDANTS
+                if (values != null) {
+                    minValue = 0
+                    maxValue = values.size - 1
+                    displayedValues = values
+                } else {
+                    minValue = min
+                    maxValue = max
+                }
+                this.value = value
+                setOnValueChangedListener { _, _, newVal -> onValueChange(newVal) }
+
+                // (선택) API 29+ 에서 선택 텍스트 색만 살짝 진하게
+                try {
+                    if (android.os.Build.VERSION.SDK_INT >= 29) {
+                        setTextColor(android.graphics.Color.BLACK)
+                    }
+                } catch (_: Throwable) { /* ignore */ }
+            }
+        },
+        update = { picker ->
+            if (values != null) {
+                if (picker.displayedValues?.contentEquals(values) != true) {
+                    picker.displayedValues = values
+                }
+                picker.minValue = 0
+                picker.maxValue = values.size - 1
+            } else {
+                picker.minValue = min
+                picker.maxValue = max
+            }
+            picker.value = value
+        }
+    )
 }
 
 @Preview(showBackground = true)
