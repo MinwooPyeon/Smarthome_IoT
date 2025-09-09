@@ -11,7 +11,10 @@ public:
 	}
 
 	std::vector<T> flush() {
-		return std::vector<T>();
+		std::lock_guard<std::mutex> lock(mtx);
+		std::vector<T> out;
+		out.swap(buffer);         // ← buffer 내용을 한 번에 비움 + 반환
+		return out;
 	}
 
 	size_t size() const {
