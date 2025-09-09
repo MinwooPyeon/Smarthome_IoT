@@ -18,7 +18,8 @@ CREATE TABLE "routine_detail" (
 	"routine_detail"	INTEGER		NOT NULL,
 	"device_id"	INTEGER		NOT NULL,
 	"routine_id"	INTEGER		NOT NULL,
-	"device_detail"	JSON		NULL
+	"device_detail"	JSON		NULL,
+	"model"	text		NULL
 );
 
 CREATE TABLE "gungu" (
@@ -45,12 +46,8 @@ CREATE TABLE "device_positions" (
 	"y_coordinate"	DOUBLE PRECISION		NULL,
 	"device_id"	INTEGER		NOT NULL,
 	"room_id"	INTEGER		NOT NULL,
-	"home_id"	INTEGER		NOT NULL
-);
-
-CREATE TABLE "routine_icon" (
-	"icon_id"	INTEGER		NOT NULL,
-	"icon_url"	text		NULL
+	"home_id"	INTEGER		NOT NULL,
+	"model"	text		NULL
 );
 
 CREATE TABLE "routine" (
@@ -63,7 +60,8 @@ CREATE TABLE "routine" (
 	"routine_description"	TEXT		NULL,
 	"user_id"	INTEGER		NOT NULL,
 	"act_time"	timestamptz		NULL,
-	"icon_id"	INTEGER		NOT NULL
+	"icon_id"	INTEGER		NOT NULL,
+	"is_ai"	BOOLEAN		NULL
 );
 
 CREATE TABLE "ir_event_log" (
@@ -71,7 +69,8 @@ CREATE TABLE "ir_event_log" (
 	"event_time"	timestamptz		NULL,
 	"kind"	text		NULL,
 	"ir_device_id"	int		NOT NULL,
-	"tx_id"	uuid		NOT NULL
+	"tx_id"	uuid		NOT NULL,
+	"model"	text		NULL
 );
 
 CREATE TABLE "eupmyeondong" (
@@ -121,7 +120,7 @@ CREATE TABLE "ir_button" (
 	"button_id"	INTEGER		NOT NULL,
 	"label"	text		NULL,
 	"category"	text		NULL,
-	"remote_id"	INTEGER		NOT NULL
+	"model"	text		NULL
 );
 
 CREATE TABLE "ir_device" (
@@ -137,12 +136,11 @@ CREATE TABLE "user_home" (
 );
 
 CREATE TABLE "ir_remoteir" (
-	"remote_id"	INTEGER		NOT NULL,
-	"brand"	text		NULL,
 	"model"	text		NULL,
+	"brand"	text		NULL,
 	"device_type"	text		NULL,
 	"created_at"	timestamptz		NULL,
-	"power consumption"	float		NULL
+	"power_consumption"	float		NULL
 );
 
 CREATE TABLE "device" (
@@ -150,8 +148,8 @@ CREATE TABLE "device" (
 	"device_name"	VARCHAR		NULL,
 	"registered_at"	timestamptz		NULL,
 	"device_detail"	JSON		NULL,
-	"remote_id"	INTEGER		NOT NULL,
-	"ir_device_id"	int		NOT NULL
+	"ir_device_id"	int		NOT NULL,
+	"model"	text		NULL
 );
 
 CREATE TABLE "ir_tx_queue" (
@@ -164,16 +162,22 @@ CREATE TABLE "ir_tx_queue" (
 	"last_error"	text		NULL,
 	"created_at"	timestamptz		NULL,
 	"signal_id"	int		NOT NULL,
-	"ir_device_id"	int		NOT NULL
+	"ir_device_id"	int		NOT NULL,
+	"model"	text		NULL
 );
 
+CREATE TABLE "routine_icon" (
+	"icon_id"	INTEGER		NOT NULL,
+	"icon_url"	text		NULL
+);
 
 CREATE TABLE "command" (
 	"command_id"	INTEGER		NOT NULL,
 	"button_id"	INTEGER		NOT NULL,
 	"command"	TEXT		NULL,
 	"device_id"	INTEGER		NOT NULL,
-	"user_id"	INTEGER		NOT NULL
+	"user_id"	INTEGER		NOT NULL,
+	"model"	text		NULL
 );
 
 CREATE TABLE "addresses" (
@@ -203,7 +207,8 @@ CREATE TABLE "ir_signal" (
 	"norm_hash"	text		NULL,
 	"tolerance_us"	int		NULL,
 	"protocol_id"	int		NOT NULL,
-	"button_id"	int		NOT NULL
+	"button_id"	int		NOT NULL,
+	"model"	text		NULL
 );
 
 CREATE TABLE "ir_protocol" (
@@ -211,6 +216,15 @@ CREATE TABLE "ir_protocol" (
 	"프로토콜 이름"	text		NULL,
 	"Field"	text		NULL,
 	"true : msb / false : lsb"	boolean		NULL
+);
+
+CREATE TABLE "ai_routine" (
+	"routine_id"	INTEGER		NOT NULL,
+	"name"	VARCHAR		NULL,
+	"routine_weekday"	INTEGER		NULL,
+	"routine_description"	TEXT		NULL,
+	"act_time"	timestamptz		NULL,
+	"icon_id"	INTEGER		NOT NULL
 );
 
 ALTER TABLE "user" ADD CONSTRAINT "PK_USER" PRIMARY KEY (
@@ -282,7 +296,7 @@ ALTER TABLE "user_home" ADD CONSTRAINT "PK_USER_HOME" PRIMARY KEY (
 );
 
 ALTER TABLE "ir_remoteir" ADD CONSTRAINT "PK_IR_REMOTEIR" PRIMARY KEY (
-	"remote_id"
+	"model"
 );
 
 ALTER TABLE "device" ADD CONSTRAINT "PK_DEVICE" PRIMARY KEY (
@@ -313,11 +327,22 @@ ALTER TABLE "ir_protocol" ADD CONSTRAINT "PK_IR_PROTOCOL" PRIMARY KEY (
 	"protocol serial"
 );
 
+ALTER TABLE "ai_routine" ADD CONSTRAINT "PK_AI_ROUTINE" PRIMARY KEY (
+	"routine_id"
+);
+
 ALTER TABLE "routine_detail" ADD CONSTRAINT "FK_device_TO_routine_detail_1" FOREIGN KEY (
 	"device_id"
 )
 REFERENCES "device" (
 	"device_id"
+);
+
+ALTER TABLE "routine_detail" ADD CONSTRAINT "FK_device_TO_routine_detail_2" FOREIGN KEY (
+	"model"
+)
+REFERENCES "device" (
+	"model"
 );
 
 ALTER TABLE "routine_detail" ADD CONSTRAINT "FK_routine_TO_routine_detail_1" FOREIGN KEY (
@@ -346,6 +371,13 @@ ALTER TABLE "device_positions" ADD CONSTRAINT "FK_device_TO_device_positions_1" 
 )
 REFERENCES "device" (
 	"device_id"
+);
+
+ALTER TABLE "device_positions" ADD CONSTRAINT "FK_device_TO_device_positions_2" FOREIGN KEY (
+	"model"
+)
+REFERENCES "device" (
+	"model"
 );
 
 ALTER TABLE "device_positions" ADD CONSTRAINT "FK_room_TO_device_positions_1" FOREIGN KEY (
@@ -390,6 +422,13 @@ REFERENCES "ir_tx_queue" (
 	"tx_id"
 );
 
+ALTER TABLE "ir_event_log" ADD CONSTRAINT "FK_ir_tx_queue_TO_ir_event_log_2" FOREIGN KEY (
+	"model"
+)
+REFERENCES "ir_tx_queue" (
+	"model"
+);
+
 ALTER TABLE "eupmyeondong" ADD CONSTRAINT "FK_gungu_TO_eupmyeondong_1" FOREIGN KEY (
 	"sgg_code"
 )
@@ -426,10 +465,10 @@ REFERENCES "addresses" (
 );
 
 ALTER TABLE "ir_button" ADD CONSTRAINT "FK_ir_remoteir_TO_ir_button_1" FOREIGN KEY (
-	"remote_id"
+	"model"
 )
 REFERENCES "ir_remoteir" (
-	"remote_id"
+	"model"
 );
 
 ALTER TABLE "ir_device" ADD CONSTRAINT "FK_hub_device_TO_ir_device_1" FOREIGN KEY (
@@ -453,13 +492,6 @@ REFERENCES "home" (
 	"home_id"
 );
 
-ALTER TABLE "device" ADD CONSTRAINT "FK_ir_remoteir_TO_device_1" FOREIGN KEY (
-	"remote_id"
-)
-REFERENCES "ir_remoteir" (
-	"remote_id"
-);
-
 ALTER TABLE "device" ADD CONSTRAINT "FK_ir_device_TO_device_1" FOREIGN KEY (
 	"ir_device_id"
 )
@@ -467,11 +499,25 @@ REFERENCES "ir_device" (
 	"ir_device_id"
 );
 
+ALTER TABLE "device" ADD CONSTRAINT "FK_ir_remoteir_TO_device_1" FOREIGN KEY (
+	"model"
+)
+REFERENCES "ir_remoteir" (
+	"model"
+);
+
 ALTER TABLE "ir_tx_queue" ADD CONSTRAINT "FK_ir_signal_TO_ir_tx_queue_1" FOREIGN KEY (
 	"signal_id"
 )
 REFERENCES "ir_signal" (
 	"signal_id"
+);
+
+ALTER TABLE "ir_tx_queue" ADD CONSTRAINT "FK_ir_signal_TO_ir_tx_queue_2" FOREIGN KEY (
+	"model"
+)
+REFERENCES "ir_signal" (
+	"model"
 );
 
 ALTER TABLE "ir_tx_queue" ADD CONSTRAINT "FK_ir_device_TO_ir_tx_queue_1" FOREIGN KEY (
@@ -486,6 +532,13 @@ ALTER TABLE "command" ADD CONSTRAINT "FK_ir_button_TO_command_1" FOREIGN KEY (
 )
 REFERENCES "ir_button" (
 	"button_id"
+);
+
+ALTER TABLE "command" ADD CONSTRAINT "FK_ir_button_TO_command_2" FOREIGN KEY (
+	"model"
+)
+REFERENCES "ir_button" (
+	"model"
 );
 
 ALTER TABLE "command" ADD CONSTRAINT "FK_device_TO_command_1" FOREIGN KEY (
@@ -537,6 +590,20 @@ REFERENCES "ir_button" (
 	"button_id"
 );
 
+ALTER TABLE "ir_signal" ADD CONSTRAINT "FK_ir_button_TO_ir_signal_2" FOREIGN KEY (
+	"model"
+)
+REFERENCES "ir_button" (
+	"model"
+);
+
+ALTER TABLE "ai_routine" ADD CONSTRAINT "FK_routine_icon_TO_ai_routine_1" FOREIGN KEY (
+	"icon_id"
+)
+REFERENCES "routine_icon" (
+	"icon_id"
+);
+
 
 
 
@@ -554,7 +621,6 @@ ALTER TABLE eeum.gungu           ALTER COLUMN sgg_code       ADD GENERATED BY DE
 ALTER TABLE eeum.device_positions ALTER COLUMN position_id   ADD GENERATED BY DEFAULT AS IDENTITY;
 ALTER TABLE eeum.ir_button       ALTER COLUMN button_id      ADD GENERATED BY DEFAULT AS IDENTITY;
 ALTER TABLE eeum.ir_device       ALTER COLUMN ir_device_id   ADD GENERATED BY DEFAULT AS IDENTITY;
-ALTER TABLE eeum.ir_remoteir     ALTER COLUMN remote_id      ADD GENERATED BY DEFAULT AS IDENTITY;
 ALTER TABLE eeum.addresses       ALTER COLUMN address_id     ADD GENERATED BY DEFAULT AS IDENTITY;
 ALTER TABLE eeum.command         ALTER COLUMN command_id     ADD GENERATED BY DEFAULT AS IDENTITY;
 ALTER TABLE eeum."user"          ALTER COLUMN user_id        ADD GENERATED BY DEFAULT AS IDENTITY;
@@ -562,3 +628,5 @@ ALTER TABLE eeum.ir_signal       ALTER COLUMN signal_id      ADD GENERATED BY DE
 ALTER TABLE eeum.ir_protocol     ALTER COLUMN "protocol serial" ADD GENERATED BY DEFAULT AS IDENTITY;
 ALTER TABLE eeum.device ALTER COLUMN device_id ADD GENERATED BY DEFAULT AS IDENTITY;
 ALTER TABLE eeum.routine_icon ALTER COLUMN icon_id ADD GENERATED BY DEFAULT AS IDENTITY;
+ALTER TABLE eeum.user_home ALTER COLUMN user_home_id ADD GENERATED BY DEFAULT AS IDENTITY;
+ALTER TABLE eeum.ai_routine         ALTER COLUMN routine_id     ADD GENERATED BY DEFAULT AS IDENTITY;

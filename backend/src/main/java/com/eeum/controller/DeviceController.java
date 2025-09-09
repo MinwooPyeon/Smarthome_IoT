@@ -1,38 +1,43 @@
-//package com.eeum.controller;
-//
-//import com.eeum.dto.request.DeviceStatusRequest;
-//import com.eeum.dto.request.RegisterDeviceRequest;
-//import com.eeum.service.DeviceService;
-//import lombok.RequiredArgsConstructor;
-//
-//import java.util.Map;
-//
-//import org.springframework.http.HttpStatus;
-//import org.springframework.http.ResponseEntity;
-//import org.springframework.web.bind.annotation.*;
-//
-//@RestController
-//@RequestMapping("/api/devices")
-//@RequiredArgsConstructor
-//public class DeviceController implements ControllerHelper {
-//
-//    private final DeviceService deviceService;
-//
-//    // 디바이스 등록
-//    @PostMapping
-//    public ResponseEntity<?> registerDevice(@RequestBody RegisterDeviceRequest request) {
-//        try {
-//            Integer userId = 1;
-//            Boolean res = deviceService.registerDevice(userId, request);
-//  
-//            return handleSuccess(res, HttpStatus.OK);
-//        } catch (IllegalArgumentException e) {
-//            return handleFail(e, HttpStatus.BAD_REQUEST);
-//        } catch (Exception e) {
-//            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
-//        }
-//    }
-//    
+package com.eeum.controller;
+
+import com.eeum.dto.request.DeviceStatusRequest;
+import com.eeum.dto.request.RegisterDeviceRequest;
+import com.eeum.service.DeviceService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+
+import java.util.Map;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/devices")
+@RequiredArgsConstructor
+@Tag(name = "Device API", description = "디바이스 API")
+public class DeviceController implements ControllerHelper {
+
+    private final DeviceService deviceService;
+
+    // 디바이스 등록
+    @Operation(summary = "디바이스 등록", description = "유저가 디바이스를 등록합니다.")
+    @PostMapping
+    public ResponseEntity<?> registerDevice(@RequestBody RegisterDeviceRequest request) {
+        try {
+            Integer userId = 1;
+            Boolean res = deviceService.registerDevice(userId, request);
+  
+            return handleSuccess(res, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    
 //    // 조건에 해당하는 device 목록/개수 조회
 //    @GetMapping
 //    public ResponseEntity<?> listDevices(
@@ -52,22 +57,23 @@
 //        }
 //    }
 //
-//    // device 단건 조회
-//    @GetMapping("/{deviceId}")
-//    public ResponseEntity<?> getDeviceById(@PathVariable("deviceId") Integer deviceId) {
-//        try {
-//            Integer userId = 1;
-//            var dto = deviceService.getDevice(userId, deviceId);
-//            if (dto == null) {
-//                return handleFail(new RuntimeException("해당 디바이스가 없습니다."), HttpStatus.NOT_FOUND);
-//            }
-//            return handleSuccess(dto, HttpStatus.OK);
-//        } catch (IllegalArgumentException e) {
-//            return handleFail(e, HttpStatus.BAD_REQUEST);
-//        } catch (Exception e) {
-//            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
-//        }
-//    }
+    // device 단건 조회
+    @Operation(summary = "디바이스 단건 조회", description = "유저의 디바이스를 조회합니다.")
+    @GetMapping("/{deviceId}")
+    public ResponseEntity<?> getDeviceById(@PathVariable("deviceId") Integer deviceId) {
+        try {
+            Integer userId = 1;
+            var dto = deviceService.getDevice(userId, deviceId);
+            if (dto == null) {
+                return handleFail(new RuntimeException("해당 디바이스가 없습니다."), HttpStatus.NOT_FOUND);
+            }
+            return handleSuccess(dto, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 //    
 //    // roomName + deviceName로 deviceId 조회
 //    @GetMapping("/device-id")
@@ -117,4 +123,4 @@
 //    private static boolean isBlank(String s) {
 //        return s == null || s.isBlank();
 //    }
-//}
+}
