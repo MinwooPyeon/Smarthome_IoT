@@ -27,9 +27,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import android.text.format.DateUtils
-import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -138,12 +140,7 @@ private fun AlarmRow(item: AlarmItem) {
     }
     
     val relativeTime = remember(item.timeMillis, currentTime) {
-        DateUtils.getRelativeTimeSpanString(
-            item.timeMillis,
-            currentTime,
-            DateUtils.MINUTE_IN_MILLIS,
-            DateUtils.FORMAT_ABBREV_RELATIVE
-        ).toString()
+        getKoreanRelativeTimeString(item.timeMillis, currentTime)
     }
     
     Row(
@@ -186,5 +183,43 @@ private fun AlarmRow(item: AlarmItem) {
                     )
                 )
             }
+    }
+}
+
+// 한국어 상대 시간 문자열 반환 함수
+private fun getKoreanRelativeTimeString(pastTimeMillis: Long, currentTimeMillis: Long): String {
+    val diffMillis = currentTimeMillis - pastTimeMillis
+    
+    return when {
+        diffMillis < 60 * 1000 -> "방금 전"  // 1분 미만
+        diffMillis < 60 * 60 * 1000 -> {
+            val minutes = (diffMillis / (60 * 1000)).toInt()
+            "${minutes}분 전"
+        }
+        diffMillis < 24 * 60 * 60 * 1000 -> {
+            val hours = (diffMillis / (60 * 60 * 1000)).toInt()
+            "${hours}시간 전"
+        }
+        diffMillis < 7 * 24 * 60 * 60 * 1000 -> {
+            val days = (diffMillis / (24 * 60 * 60 * 1000)).toInt()
+            when (days) {
+                1 -> "어제"
+                2 -> "그저께"
+                else -> "${days}일 전"
+            }
+        }
+        diffMillis < 30 * 24 * 60 * 60 * 1000 -> {
+            val weeks = (diffMillis / (7 * 24 * 60 * 60 * 1000)).toInt()
+            "${weeks}주 전"
+        }
+        diffMillis < 365 * 24 * 60 * 60 * 1000 -> {
+            val months = (diffMillis / (30 * 24 * 60 * 60 * 1000)).toInt()
+            "${months}개월 전"
+        }
+        else -> {
+            // 1년 이상된 경우는 날짜 형식으로 표시
+            val dateFormat = SimpleDateFormat("yyyy년 M월 d일", Locale.KOREAN)
+            dateFormat.format(Date(pastTimeMillis))
+        }
     }
 }
