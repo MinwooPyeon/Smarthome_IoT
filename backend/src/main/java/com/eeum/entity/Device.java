@@ -3,6 +3,10 @@ package com.eeum.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.OffsetDateTime;
+import java.util.Map;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @Entity
@@ -19,14 +23,13 @@ public class Device {
     @Column(name = "registered_at")
     private OffsetDateTime registeredAt;
 
-    @Column(name = "device_detail", columnDefinition = "json")
-    private String deviceDetail;
+    @JdbcTypeCode(SqlTypes.JSON)   
+    @Column(name = "device_detail", columnDefinition = "jsonb")
+    private Map<String, Object> deviceDetail;
+    
+    @Column(name = "model", nullable = false)
+    private String model;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "remote_id", nullable = false)
-    private IrRemoteir remote;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ir_device_id", nullable = false)
-    private IrDevice irDevice;
+    @Column(name = "ir_device_id", nullable = false)
+    private Integer irDeviceId;
 }

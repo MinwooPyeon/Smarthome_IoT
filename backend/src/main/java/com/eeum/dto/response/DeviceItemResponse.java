@@ -1,7 +1,10 @@
 package com.eeum.dto.response;
 
 import lombok.*;
+
 import java.time.Instant;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 @Getter @Setter
 @NoArgsConstructor
@@ -9,11 +12,14 @@ import java.time.Instant;
 @Builder
 public class DeviceItemResponse {
     private Integer deviceId;
-    private Integer homeId;
     private Integer roomId;
-    private String  roomName;
+    private Integer remoteId;
+    private Integer irDeviceId;
+    private String  brand;
+    private String  model;
+    private String  type;
     private String  deviceName;
-    private Boolean active;
     private Instant registeredAt;
-    private String  deviceDetail;
+    private JsonNode deviceDetail;
+
 }
