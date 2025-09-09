@@ -2,11 +2,10 @@
 #include "core/platform.h"
 #include <iostream>
 #include <fstream>
-#include "ArduinoJson.h"
 
 #ifdef PLATFORM_ESP32
-#include "IRremoteESP8266.h"
-#include "IRsend.h"
+#include "driver/rmt.h"
+#include "esp_log.h"
 #elif defined(PLATFORM_LINUX)
 #include <lirc/lirc_client.h>
 #elif defined(PLATFORM_WINDOWS)
@@ -17,7 +16,7 @@ IRSend::IRSend()
     : initialized_(false), debug_mode_(false), code_store_(nullptr) {
     
 #ifdef PLATFORM_ESP32
-    irsend_ = nullptr;
+    // RMT 채널은 초기화에서 설정됨
 #endif
 }
 
@@ -33,8 +32,7 @@ IRSend::IRSend(IRSend&& other) noexcept
       last_error_(std::move(other.last_error_)) {
     
 #ifdef PLATFORM_ESP32
-    irsend_ = other.irsend_;
-    other.irsend_ = nullptr;
+        // RMT 채널은 복사하지 않음
 #endif
     
     other.initialized_ = false;
@@ -52,8 +50,7 @@ IRSend& IRSend::operator=(IRSend&& other) noexcept {
         last_error_ = std::move(other.last_error_);
         
 #ifdef PLATFORM_ESP32
-        irsend_ = other.irsend_;
-        other.irsend_ = nullptr;
+        // RMT 채널은 복사하지 않음
 #endif
         
         other.initialized_ = false;
@@ -70,10 +67,35 @@ bool IRSend::initialize() {
     }
     
 #ifdef PLATFORM_ESP32
-    int tx_pin = 4; // 기본 GPIO 핀
-    irsend_ = new IRsend(tx_pin);
-    irsend_->begin();
-    LOG_INFO("ESP32 IR 송신기 초기화 완료 - GPIO %d", tx_pin);
+    int tx_pin = 22; // GPIO 22번 핀 (HX_53 IR Transmitter)
+    
+    // RMT 채널 설정
+    rmt_config_t config = {};
+    config.rmt_mode = RMT_MODE_TX;
+    config.channel = RMT_CHANNEL_0;
+    config.gpio_num = (gpio_num_t)tx_pin;
+    config.mem_block_num = 1;
+    config.tx_config.loop_en = false;
+    config.tx_config.carrier_en = true;
+    config.tx_config.carrier_freq_hz = 38000; // 38kHz
+    config.tx_config.carrier_duty_percent = 33;
+    config.tx_config.carrier_level = RMT_CARRIER_LEVEL_HIGH;
+    config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
+    config.tx_config.idle_output_en = true;
+    
+    esp_err_t ret = rmt_config(&config);
+    if (ret != ESP_OK) {
+        ESP_LOGE("IR_SEND", "RMT 설정 실패: %s", esp_err_to_name(ret));
+        return false;
+    }
+    
+    ret = rmt_driver_install(config.channel, 0, 0);
+    if (ret != ESP_OK) {
+        ESP_LOGE("IR_SEND", "RMT 드라이버 설치 실패: %s", esp_err_to_name(ret));
+        return false;
+    }
+    
+    ESP_LOGI("IR_SEND", "ESP32 IR 송신기 초기화 완료 - GPIO %d", tx_pin);
 #elif defined(PLATFORM_LINUX)   
     lirc_fd_ = lirc_get_local_socket(nullptr, 0);
     if (lirc_fd_ < 0) {
@@ -97,10 +119,7 @@ void IRSend::cleanup() {
     }
     
 #ifdef PLATFORM_ESP32
-    if (irsend_) {
-        delete irsend_;
-        irsend_ = nullptr;
-    }
+    rmt_driver_uninstall(RMT_CHANNEL_0);
 #elif defined(PLATFORM_LINUX)
     if (lirc_fd_ >= 0) {
         lirc_freeconfig(config_);
@@ -151,11 +170,46 @@ IRSendStatus IRSend::sendIRCode(const std::string& ir_code) {
         uint64_t code = std::stoull(ir_code.substr(2), nullptr, 16); // "0x" 제거
         
 #ifdef PLATFORM_ESP32
-        // ESP32 IR 송신
-        if (irsend_) {
-            irsend_->sendNEC(code, 32); 
-            LOG_INFO("ESP32 IR 코드 전송: %s", ir_code.c_str());
+        // ESP32 RMT를 사용한 IR 송신
+        rmt_item32_t items[68]; // NEC 프로토콜용 아이템 배열
+        int item_count = 0;
+        
+        // NEC 프로토콜 구현
+        // Leader pulse
+        items[item_count].level0 = 1;
+        items[item_count].duration0 = 9000; // 9ms
+        items[item_count].level1 = 0;
+        items[item_count].duration1 = 4500; // 4.5ms
+        item_count++;
+        
+        // Data bits (32비트)
+        for (int i = 31; i >= 0; i--) {
+            bool bit = (code >> i) & 1;
+            items[item_count].level0 = 1;
+            items[item_count].duration0 = 560; // 0.56ms
+            items[item_count].level1 = 0;
+            if (bit) {
+                items[item_count].duration1 = 1690; // 1.69ms for '1'
+            } else {
+                items[item_count].duration1 = 560;  // 0.56ms for '0'
+            }
+            item_count++;
+        }
+        
+        // Stop bit
+        items[item_count].level0 = 1;
+        items[item_count].duration0 = 560;
+        items[item_count].level1 = 0;
+        items[item_count].duration1 = 0; // End marker
+        item_count++;
+        
+        esp_err_t ret = rmt_write_items(RMT_CHANNEL_0, items, item_count, true);
+        if (ret == ESP_OK) {
+            ESP_LOGI("IR_SEND", "ESP32 IR 코드 전송: %s", ir_code.c_str());
             return IRSendStatus(IRSendResult::SUCCESS, "IR 코드 전송 성공");
+        } else {
+            ESP_LOGE("IR_SEND", "RMT 전송 실패: %s", esp_err_to_name(ret));
+            return IRSendStatus(IRSendResult::TRANSMISSION_FAILED, "RMT 전송 실패");
         }
 #elif defined(PLATFORM_LINUX)
         if (lirc_fd_ >= 0) {
@@ -236,28 +290,8 @@ bool IRSend::validateControlSignal(const std::string& control_signal) {
 }
 
 std::string IRSend::convertControlSignalToIRCode(const std::string& control_signal) {
-    static std::map<std::string, std::string> control_to_ir = {
-        {"TV_POWER", "0xE0E040BF"},
-        {"TV_VOLUME_UP", "0xE0E0E01F"},
-        {"TV_VOLUME_DOWN", "0xE0E0D02F"},
-        {"TV_CHANNEL_UP", "0xE0E048B7"},
-        {"TV_CHANNEL_DOWN", "0xE0E008F7"},
-        {"AC_POWER", "0xE0E040BF"},
-        {"AC_TEMP_UP", "0xE0E01CE3"},
-        {"AC_TEMP_DOWN", "0xE0E05CA3"},
-        {"AC_MODE", "0xE0E014EB"},
-        {"PURIFIER_POWER", "0xE0E040BF"},
-        {"PURIFIER_MODE", "0xE0E014EB"},
-        {"PROJECTOR_POWER", "0x20DF10EF"},
-        {"PROJECTOR_MODE", "0x20DF50AF"}
-    };
-    
-    auto it = control_to_ir.find(control_signal);
-    if (it != control_to_ir.end()) {
-        return it->second;
-    }
-    
-    // IR 코드 저장소에서 찾기
+    // MQTT로 직접 IR 코드를 받으므로 매핑 테이블 불필요
+    // IR 코드 저장소에서만 찾기
     if (code_store_) {
         return code_store_->getIRCode(control_signal);
     }
