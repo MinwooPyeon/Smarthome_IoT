@@ -39,10 +39,9 @@ import androidx.navigation.NavController
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MenuScreen(
+    modifier: Modifier = Modifier,
     navController: NavController? = null,
-    modifier: Modifier = Modifier
 ) {
-    // New implementation matching 메뉴.png
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -181,7 +180,10 @@ fun MenuScreen(
                 )
                 ServiceItem(
                     bg = Yellow200, iconTint = Amber600,
-                    icon = R.drawable.ic_routine, label = "내 루틴"
+                    icon = R.drawable.ic_routine, label = "내 루틴",
+                    onClick = {
+                        navController?.navigate("routine")
+                    }
                 )
                 ServiceItem(
                     bg = SurfaceAlt, iconTint = Color(0xFF14AE5C),
@@ -232,11 +234,12 @@ fun MenuScreen(
 }
 
 @Composable
-private fun ServiceItem(bg: Color, iconTint: Color, icon: Int, label: String) {
+private fun ServiceItem(bg: Color, iconTint: Color, icon: Int, label: String, onClick: () -> Unit = {} ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
             color = bg,
-            shape = RoundedCornerShape(9999.dp)
+            shape = RoundedCornerShape(9999.dp),
+            modifier = Modifier.clickable(onClick = onClick)
         ) {
             Image(
                 painter = painterResource(id = icon),

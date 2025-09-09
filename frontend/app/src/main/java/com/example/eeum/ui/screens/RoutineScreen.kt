@@ -56,7 +56,7 @@ private val TextSelected = Color(0xFF007BFF)
 fun RoutineScreen(navController: NavController) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
-    val tabs = listOf("내 루틴", "추천 루틴")
+    val tabs = listOf("내 루틴", "AI 추천 루틴")
 
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
