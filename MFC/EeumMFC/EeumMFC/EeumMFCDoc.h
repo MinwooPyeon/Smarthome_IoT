@@ -10,7 +10,7 @@
 
 
 #ifndef WM_APP_DATAREADY
-#define WM_APP_DATAREADY
+#define WM_APP_DATAREADY (WM_APP + 100)
 #endif
 
 class CEeumMFCDoc : public CDocument
