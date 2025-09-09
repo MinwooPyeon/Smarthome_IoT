@@ -46,6 +46,7 @@ protected:
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
+	afx_msg void OnShowWindow(BOOL bShow, UINT nStatus);
 	DECLARE_MESSAGE_MAP()
 
 private:
@@ -55,10 +56,12 @@ private:
 	Microsoft::WRL::ComPtr<ICoreWebView2> m_webview;
 
 private:
+	
 	void CreateWebHostWindow();
 	void InitWebView();
 	void ResizeWebView();
 	void LoadChartHtml();
+
 
 public:
 	void PushMetrics(const Metrics& m);
