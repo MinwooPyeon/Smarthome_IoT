@@ -36,8 +36,7 @@ protected:  // 컨트롤 모음이 포함된 멤버입니다.
 // 생성된 메시지 맵 함수
 protected:
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
+	afx_msg LRESULT OnDataReady(WPARAM, LPARAM);
 	DECLARE_MESSAGE_MAP()
 
 };
-
-

@@ -5,6 +5,7 @@
 #include "pch.h"
 #include "framework.h"
 #include "EeumMFC.h"
+#include "EeumMFCDoc.h"
 
 #include "MainFrm.h"
 
@@ -18,6 +19,7 @@ IMPLEMENT_DYNCREATE(CMainFrame, CFrameWnd)
 
 BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_WM_CREATE()
+	ON_MESSAGE(WM_APP_DATAREADY, &CMainFrame::OnDataReady)
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -66,6 +68,17 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	return 0;
 }
+
+LRESULT CMainFrame::OnDataReady(WPARAM, LPARAM)
+{
+	CEeumMFCDoc* doc = dynamic_cast<CEeumMFCDoc*>(GetActiveDocument());
+
+	if (doc) {
+		doc->UpdateAllViews(nullptr);
+	}
+
+	return 0;
+}	
 
 BOOL CMainFrame::PreCreateWindow(CREATESTRUCT& cs)
 {

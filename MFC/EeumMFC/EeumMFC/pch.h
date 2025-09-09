@@ -7,6 +7,10 @@
 #ifndef PCH_H
 #define PCH_H
 
+#pragma once
+#ifndef WM_APP_DATAREADY
+#define WM_APP_DATAREADY (WM_APP + 100)
+#endif
 // 여기에 미리 컴파일하려는 헤더 추가
 #include "framework.h"
 

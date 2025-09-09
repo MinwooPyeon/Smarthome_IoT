@@ -8,11 +8,6 @@
 #include "Ingestor.h"
 #include "Types.h"
 
-
-#ifndef WM_APP_DATAREADY
-#define WM_APP_DATAREADY (WM_APP + 100)
-#endif
-
 class CEeumMFCDoc : public CDocument
 {
 protected: // serialization에서만 만들어집니다.
