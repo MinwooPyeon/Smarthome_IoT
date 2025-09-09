@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
@@ -47,30 +46,38 @@ private val IconBg = Color(0xFFEAF2FF)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateRoutineSecondScreen(navController: NavController) {
-    // 상태값들
-    var selectedRoomIdx by remember { mutableIntStateOf(1) }     // 방 선택(거실/안방/발코니) - 기본 "안방"
-    var selectedDeviceIdx by remember { mutableIntStateOf(1) }   // 디바이스 - 기본 "조명"
-    var selectedStateIdx by remember { mutableIntStateOf(1) }    // 상태 설정 - 0=켜기, 1=끄기 (기본 끄기)
-    var windLevel by remember { mutableIntStateOf(2) }           // 바람 세기 - 1~5 (기본 2)
-    var acTemp by remember { mutableIntStateOf(24) }             // 에어컨 온도 (기본 24℃)
-
+    // 옵션 목록
     val roomItems = listOf(
         RowItem(Icons.Filled.LocationOn, "거실"),
         RowItem(Icons.Filled.LocationOn, "안방"),
         RowItem(Icons.Filled.LocationOn, "발코니")
     )
-
-    val deviceItems = listOf(
+    val deviceItems = listOf( // 에어컨, 선풍기, TV, 공기청정기, 빔프로젝터, 조명
+        RowItem(Icons.Filled.Star, "에어컨"),
         RowItem(Icons.Filled.Star, "선풍기"),
-        RowItem(Icons.Filled.Star, "조명"),
-        RowItem(Icons.Filled.Star, "에어컨")
+        RowItem(Icons.Filled.Star, "TV"),
+        RowItem(Icons.Filled.Star, "공기청정기"),
+        RowItem(Icons.Filled.Star, "빔프로젝터"),
+        RowItem(Icons.Filled.Star, "조명")
     )
-
     val stateItems = listOf(
-        // 칩 텍스트 + 제목
         StateItem("ON", "켜기"),
         StateItem("OFF", "끄기")
     )
+
+    // 상태값들
+    var selectedRoomIdx by remember { mutableIntStateOf(1) } // 기본 "안방"
+    val defaultDeviceIndex = remember {
+        deviceItems.indexOfFirst { it.title == "조명" }.let { if (it == -1) 0 else it }
+    }
+    var selectedDeviceIdx by remember { mutableIntStateOf(defaultDeviceIndex) } // 기본 "조명" → 추가 섹션 숨김
+    var selectedStateIdx by remember { mutableIntStateOf(1) } // 기본 끄기
+    var windLevel by remember { mutableIntStateOf(2) }        // 1~5
+    var acTemp by remember { mutableIntStateOf(24) }          // 16~30
+
+    val selectedDeviceTitle = deviceItems.getOrNull(selectedDeviceIdx)?.title ?: ""
+    val showWind = selectedDeviceTitle == "선풍기"
+    val showAcTemp = selectedDeviceTitle == "에어컨"
 
     Box(
         modifier = Modifier
@@ -94,8 +101,7 @@ fun CreateRoutineSecondScreen(navController: NavController) {
                         modifier = Modifier.clickable { navController.popBackStack() }
                     )
                     Text("루틴 만들기", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    // 오른쪽 공간 맞춤용
-                    Spacer(modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.size(24.dp)) // 우측 정렬용
                 }
             }
         ) { inner ->
@@ -135,7 +141,7 @@ fun CreateRoutineSecondScreen(navController: NavController) {
                     }
                 }
 
-                // 상태 설정 (켜기/끄기) — 칩 + 라디오
+                // 상태 설정
                 SectionCard(title = "상태 설정") {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         stateItems.forEachIndexed { idx, item ->
@@ -149,46 +155,50 @@ fun CreateRoutineSecondScreen(navController: NavController) {
                     }
                 }
 
-                // 바람 세기 (세그먼트)
-                SectionCard(title = "바람 세기") {
-                    SegmentedNumberSelector(
-                        count = 5,
-                        selected = windLevel,
-                        onSelect = { windLevel = it }
-                    )
+                // 바람 세기 — 선풍기 선택 시에만 표시
+                if (showWind) {
+                    SectionCard(title = "바람 세기") {
+                        SegmentedNumberSelector(
+                            count = 5,
+                            selected = windLevel,
+                            onSelect = { windLevel = it }
+                        )
+                    }
                 }
 
-                // 에어컨 온도
-                SectionCard(title = "에어컨 온도") {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.White,
-                            border = BorderStroke(1.dp, BorderGray),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 96.dp)
+                // 에어컨 온도 — 에어컨 선택 시에만 표시
+                if (showAcTemp) {
+                    SectionCard(title = "에어컨 온도") {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("${acTemp}°C", fontSize = 32.sp, fontWeight = FontWeight.SemiBold)
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color.White,
+                                border = BorderStroke(1.dp, BorderGray),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 96.dp)
+                            ) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text("${acTemp}°C", fontSize = 32.sp, fontWeight = FontWeight.SemiBold)
+                                }
                             }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            SquareIconButton(
-                                icon = Icons.Filled.KeyboardArrowUp,
-                                onClick = { if (acTemp < 30) acTemp++ }
-                            )
-                            SquareIconButton(
-                                icon = Icons.Filled.KeyboardArrowDown,
-                                onClick = { if (acTemp > 16) acTemp-- }
-                            )
+                            Spacer(Modifier.height(12.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SquareIconButton(
+                                    icon = Icons.Filled.KeyboardArrowUp,
+                                    onClick = { if (acTemp < 30) acTemp++ }
+                                )
+                                SquareIconButton(
+                                    icon = Icons.Filled.KeyboardArrowDown,
+                                    onClick = { if (acTemp > 16) acTemp-- }
+                                )
+                            }
                         }
                     }
                 }
@@ -223,7 +233,7 @@ private fun Preview_CreateRoutineSecondScreen() {
     CreateRoutineSecondScreen(navController = nav)
 }
 
-/* ---------- UI 구성요소들 ---------- */
+/* ---------- UI 구성요소 ---------- */
 
 private data class RowItem(val icon: ImageVector, val title: String)
 private data class StateItem(val chip: String, val title: String)
@@ -244,7 +254,7 @@ private fun SectionCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Column(content = content)
         }
     }
@@ -322,13 +332,11 @@ private fun RadioListRowWithChip(
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 칩
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 border = BorderStroke(1.dp, TextBlue),
                 color = Color.Transparent,
-                modifier = Modifier
-                    .height(28.dp)
+                modifier = Modifier.height(28.dp)
             ) {
                 Box(
                     modifier = Modifier.padding(horizontal = 10.dp),
