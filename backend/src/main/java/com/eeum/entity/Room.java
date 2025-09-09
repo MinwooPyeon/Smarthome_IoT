@@ -19,10 +19,10 @@ public class Room {
 
     @Column(name = "room_name")
     private String roomName;
+    
+    @Column(name = "room_color")
+    private Integer roomColor;
 
-    @Column(name = "created_at")
-    private OffsetDateTime createdAt;
-
-    @Column(name = "user_house_id", nullable = false)
-    private Integer userHouseId;
+    @Column(name = "floorplan_id", nullable = false)
+    private Integer floorplanId;
 }

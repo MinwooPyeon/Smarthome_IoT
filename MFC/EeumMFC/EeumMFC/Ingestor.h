@@ -3,6 +3,7 @@
 #include "MqttClient.h"
 #include "Timer.h"
 #include "Analyzer.h"
+#include "Types.h"
 
 class Ingestor {
 public:
