@@ -3,7 +3,10 @@
 //
 
 #pragma once
-
+#include <wrl.h>
+#include <webview2.h>
+#include "Types.h"
+#include <afxwin.h>
 
 class CEeumMFCView : public CView
 {
@@ -39,7 +42,26 @@ protected:
 
 // 생성된 메시지 맵 함수
 protected:
+	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
+	afx_msg void OnSize(UINT nType, int cx, int cy);
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
 	DECLARE_MESSAGE_MAP()
+
+private:
+	HWND m_hWebHost = nullptr;
+	Microsoft::WRL::ComPtr<ICoreWebView2Environment> m_env;
+	Microsoft::WRL::ComPtr<ICoreWebView2Controller> m_controller;
+	Microsoft::WRL::ComPtr<ICoreWebView2> m_webview;
+
+private:
+	void CreateWebHostWindow();
+	void InitWebView();
+	void ResizeWebView();
+	void LoadChartHtml();
+
+public:
+	void PushData(double temp, double hum);
 };
 
 #ifndef _DEBUG  // EeumMFCView.cpp의 디버그 버전
