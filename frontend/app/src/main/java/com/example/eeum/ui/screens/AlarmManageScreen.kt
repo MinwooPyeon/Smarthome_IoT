@@ -15,11 +15,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Divider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,7 +70,7 @@ fun AlarmManageScreen(
             .background(
                 Brush.horizontalGradient(colors = listOf(Color(0xFFB4E3FD), Color(0xFFCCFCFF)))
             )
-            .padding(horizontal = 16.dp, vertical = 24.dp)
+            .padding(horizontal = 16.dp, vertical = 40.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // 헤더
@@ -116,7 +114,7 @@ fun AlarmManageScreen(
                         AlarmRow(item)
                         if (index < items.size - 1) {
                             Divider(
-                                color = Gray500,
+                                color = Gray50,
                                 modifier = Modifier.padding(horizontal = 60.dp)
                             )
                         }

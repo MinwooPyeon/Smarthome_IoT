@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -69,7 +70,8 @@ fun CreateRoutineFirstScreen(navController: NavController) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.Black
+                        tint = Color.Black,
+                        modifier = Modifier.clickable { navController.popBackStack() }
                     )
                     Text("루틴 만들기", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text(" ", color = TextBlue, fontSize = 16.sp)

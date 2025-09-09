@@ -1,53 +1,89 @@
 package com.example.eeum.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.eeum.R
 
-// Colors
 private val TextBlue = Color(0xFF3B82F6)
-private val CardBg = Color(0x80FFFFFF)          // 반투명 화이트
+private val CardBg = Color(0x80FFFFFF)
 private val BorderGray = Color(0xFFE0E0E0)
-private val AccentPill = Color(0xFFEAF2FF)
-private val ScreenBg = Color(0x80B8E7FD)        // #B8E7FD, 50% 투명 (0x80 = 50%)
 
-// -------- Entry --------
 @OptIn(ExperimentalMaterial3Api::class)
-@Preview(showBackground = true)
 @Composable
-fun CreateRoutineSecondScreen() {
-    var selectedRoom by remember { mutableIntStateOf(1) }     // 안방
-    var selectedDevice by remember { mutableIntStateOf(1) }   // 조명
-    var isOn by remember { mutableStateOf(false) }             // 끄기 선택
-    var windLevel by remember { mutableIntStateOf(2) }         // 1~5
-    var temperature by remember { mutableIntStateOf(24) }
+fun CreateRoutineSecondScreen(navController: NavController) {
+    var selectedDeviceIdx by remember { mutableIntStateOf(1) } // 기본 선택: "조명"
+    var selectedDetailIdx by remember { mutableIntStateOf(1) } // 기본 선택: "조명이"
+    var startTime by remember { mutableStateOf("08:00") }
+    var endTime by remember { mutableStateOf("22:00") }
 
-    val rooms = listOf("거실", "안방", "발코니")
-    val devices = listOf("선풍기", "조명", "에어컨")
+    val deviceItems = listOf(
+        DeviceItem(R.drawable.ic_device, "선풍기"),
+        DeviceItem(R.drawable.ic_light, "조명"),
+        DeviceItem(R.drawable.ic_device, "에어컨"),
+        DeviceItem(R.drawable.ic_device, "공기청정기"),
+        DeviceItem(R.drawable.ic_device, "프로젝터")
+    )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(ScreenBg) // 배경을 #B8E7FD 50% 투명으로
-    ) {
+    val detailItems = listOf(
+        DeviceItem(R.drawable.ic_light, "예배"),
+        DeviceItem(R.drawable.ic_light, "조명이")
+    )
+
+    Box(Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -61,176 +97,136 @@ fun CreateRoutineSecondScreen() {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.Black
+                        tint = Color.Black,
+                        modifier = Modifier.clickable { navController.popBackStack() }
                     )
                     Text("루틴 만들기", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text(" ", fontSize = 16.sp) // 우측 정렬용
+                    Text(" ", color = TextBlue, fontSize = 16.sp)
                 }
             }
-        ) { inner ->
+) { inner ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(inner)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-
-                // 방 선택
-                SectionCard(title = "방 선택") {
-                    rooms.forEachIndexed { idx, title ->
-                        SelectRow(
-                            title = title,
-                            selected = selectedRoom == idx,
-                            onClick = { selectedRoom = idx }
-                        )
-                        Spacer(Modifier.height(8.dp))
-                    }
-                }
-
-                // 디바이스 선택
-                SectionCard(title = "디바이스 선택") {
-                    devices.forEachIndexed { idx, title ->
-                        SelectRow(
-                            title = title,
-                            selected = selectedDevice == idx,
-                            onClick = { selectedDevice = idx }
-                        )
-                        Spacer(Modifier.height(8.dp))
-                    }
-                }
-
-                // 상태 설정 (켜기/끄기)
-                SectionCard(title = "상태 설정") {
-                    SelectRow(
-                        title = "켜기",
-                        badge = "ON",
-                        selected = isOn,
-                        onClick = { isOn = true }
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    SelectRow(
-                        title = "끄기",
-                        badge = "OFF",
-                        selected = !isOn,
-                        onClick = { isOn = false }
-                    )
-                }
-
-                // 바람 세기
-                SectionCard(title = "바람 세기") {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        (1..5).forEach { lvl ->
-                            LevelChip(
-                                label = lvl.toString(),
-                                selected = windLevel == lvl,
-                                onClick = { windLevel = lvl }
-                            )
-                        }
-                    }
-                }
-
-                // 에어컨 온도
-                SectionCard(title = "에어컨 온도") {
+                // 디바이스 선택 카드
+                Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
                     Column(
-                        Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("${temperature}°C", fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                            ControlButton("▲") { temperature++ }
-                            ControlButton("▼") { temperature-- }
+                        Text("디바이스 선택", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            deviceItems.forEachIndexed { idx, item ->
+                                RadioListRow(
+                                    title = item.title,
+                                    iconRes = item.iconRes,
+                                    selected = selectedDeviceIdx == idx,
+                                    onClick = { selectedDeviceIdx = idx }
+                                )
+                            }
                         }
                     }
                 }
 
-                // 저장 버튼
+                // 세부 선택 카드
+                Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("세부 선택", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            detailItems.forEachIndexed { idx, item ->
+                                RadioListRow(
+                                    title = item.title,
+                                    iconRes = item.iconRes,
+                                    selected = selectedDetailIdx == idx,
+                                    onClick = { selectedDetailIdx = idx }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 시간 설정 카드
+                Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text("시간 설정", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+
+                        TimeRow(label = "시작 시간", time = startTime)
+                        TimeRow(label = "종료 시간", time = endTime)
+                    }
+                }
+
                 Button(
-                    onClick = { /* TODO: 저장 처리 */ },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 24.dp),
+                    onClick = { navController.popBackStack() },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = TextBlue, contentColor = Color.White
                     )
                 ) {
-                    Text("…   동작 저장", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text("동작 저장", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
     }
 }
 
-// -------- Reusable UI --------
+@Preview(showBackground = true)
 @Composable
-private fun SectionCard(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = CardBg,
-        border = BorderStroke(1.dp, Color(0x22000000))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            content()
-        }
-    }
+private fun Preview_CreateRoutineSecondScreen() {
+    val nav = rememberNavController()
+    CreateRoutineSecondScreen(navController = nav)
 }
 
+private data class DeviceItem(val iconRes: Int, val title: String)
+
 @Composable
-private fun SelectRow(
+private fun RadioListRow(
     title: String,
+    iconRes: Int,
     selected: Boolean,
-    badge: String? = null,
     onClick: () -> Unit
 ) {
-    val borderColor = if (selected) TextBlue else BorderGray
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
-        border = BorderStroke(1.dp, borderColor)
+        border = BorderStroke(1.dp, BorderGray)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 54.dp)
+                .heightIn(min = 56.dp)
                 .clickable { onClick() }
-                .padding(horizontal = 14.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 좌측 아이콘/배지 캡슐
             Box(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(AccentPill),
+                    .background(Color(0xFFEAF2FF)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(badge ?: "📍", fontSize = if (badge == null) 14.sp else 10.sp, fontWeight = FontWeight.SemiBold, color = TextBlue)
+                Image(painter = painterResource(id = iconRes), contentDescription = null, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(12.dp))
-
-            Text(
-                title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f)
-            )
-
-            // 우측 라디오 점
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             RadioButton(
                 selected = selected,
                 onClick = onClick,
@@ -244,34 +240,24 @@ private fun SelectRow(
 }
 
 @Composable
-private fun LevelChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = if (selected) Color.White else Color(0xFFF7FAFF),
-        border = BorderStroke(1.dp, if (selected) TextBlue else BorderGray),
-        modifier = Modifier
-            .height(40.dp)
-            .width(48.dp)
-            .clickable { onClick() }
+private fun TimeRow(label: String, time: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Text(label, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = if (selected) TextBlue else Color(0xFF6B7280))
-        }
-    }
-}
-
-@Composable
-private fun ControlButton(text: String, onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, BorderGray),
-        modifier = Modifier
-            .size(width = 72.dp, height = 44.dp)
-            .clickable { onClick() }
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Text(text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextBlue)
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, BorderGray)
+        ) {
+            Text(
+                text = time,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
