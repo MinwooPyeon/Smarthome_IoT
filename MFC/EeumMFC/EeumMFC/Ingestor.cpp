@@ -26,7 +26,7 @@ void Ingestor::tickOnce() {
 	auto ir = irBuf_.flush();
 
 	if (env.empty() && ir.empty()) return;
-
+	
 	auto met = analyzer_.compute(env);
 	if (onTick_) onTick_(env, ir, met);
 }
