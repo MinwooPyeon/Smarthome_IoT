@@ -1,3 +1,7 @@
+CREATE SCHEMA IF NOT EXISTS eeum;
+SET search_path TO eeum;
+
+
 CREATE TABLE "user" (
 	"user_id"	INTEGER		NOT NULL,
 	"login_id"	VARCHAR		NULL,
