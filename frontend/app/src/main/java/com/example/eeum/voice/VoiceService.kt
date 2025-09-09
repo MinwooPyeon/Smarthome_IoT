@@ -86,9 +86,7 @@ class VoiceService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    // ────────────────────────────
     // STT
-    // ────────────────────────────
     private fun startListening() {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             Log.e("VoiceService", "SpeechRecognizer not available")
@@ -102,12 +100,10 @@ class VoiceService : Service() {
                         Log.i("VoiceService", "ASR: $text")
                         playEarcon()
                         handleUtterance(text)
-                        // ⚠️ 더 이상 재시작하지 않음 (단발성)
                         stopListening()
                     }
                     override fun onError(error: Int) {
                         Log.e("VoiceService", "ASR error: $error")
-                        // ⚠️ 오류 후에도 재시작하지 않음 (단발성)
                         stopListening()
                     }
                     override fun onReadyForSpeech(p0: Bundle?) {}

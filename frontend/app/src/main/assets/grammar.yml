@@ -1,6 +1,6 @@
 context:
   expressions:
-    TURN_ON_DEVICE:
+    SET_TURN_ON:
       - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device (좀) @켜다
       - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (좀) @켜다
       - $장소:place (@위치_조사) $기기:device (좀) @켜다
@@ -8,7 +8,7 @@ context:
       - $기기:device (좀) @켜다
       - (좀) @켜다
 
-    TURN_OFF_DEVICE:
+    SET_TURN_OFF:
       - ($pv.TwoDigitInteger:num)(번) $장소:place (@위치_조사) $기기:device (좀) @끄다
       - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (좀) @끄다
       - $장소:place (@위치_조사) $기기:device (좀) @끄다
@@ -36,16 +36,14 @@ context:
       - $장소:place (@위치_조사) $기기:device (@바람) $세기:level (으로,로) @설정하다
       - $기기:device (@바람) $세기:level (으로,로) @설정하다
       - (@바람) $세기:level (으로,로) @설정하다
-
-    SET_FAN_STEP:
       - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) ($기기:device) (@바람)
-        $pv.SingleDigitInteger:step [단,단계] (으로,로) @설정하다
+        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
       - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) ($기기:device) (@바람)
-        $pv.SingleDigitInteger:step [단,단계] (으로,로) @설정하다
+        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
       - $장소:place (@위치_조사) ($기기:device) (@바람)
-        $pv.SingleDigitInteger:step [단,단계] (으로,로) @설정하다
-      - $기기:device (@바람) $pv.SingleDigitInteger:step [단,단계] (으로,로) @설정하다
-      - $pv.SingleDigitInteger:step [단,단계] (으로,로) @설정하다
+        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
+      - $기기:device (@바람) $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
+      - $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
 
     QUERY_IS_ON:
       - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device @전원_꺼짐 @존재_의문
@@ -63,6 +61,12 @@ context:
 
     QUERY_WHERE_ON_LOCATION:
       - $기기:device [중,들] (지금) @전원_켜짐 [있는,있는지] [곳,방,위치] [@알려줘,@얼마야,@상태_어때]
+
+    QUERY_WHERE_OFF:
+      - (여기서) @장소_의문 $기기:device (이,가) @전원_꺼짐 [있는,있는지] [@알려줘,@얼마야,@상태_어때]
+
+    QUERY_WHERE_OFF_LOCATION:
+      - $기기:device [중,들] (지금) @전원_꺼짐 [있는,있는지] [곳,방,위치] [@알려줘,@얼마야,@상태_어때]
 
     QUERY_TEMPERATURE:
       - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device [현재 온도, 온도]
@@ -92,12 +96,6 @@ context:
       - $장소:place ($pv.TwoDigitInteger:num)(번) [전기,전력,에너지] [사용량,소비량]
         [@알려줘,@얼마야,@상태_어때]
       - (우리집) [전기,전력,에너지] [사용량,소비량] [@알려줘,@얼마야,@상태_어때]
-
-    QUERY_WHERE_OFF:
-      - (여기서) @장소_의문 $기기:device (이,가) @전원_꺼짐 [있는,있는지] [@알려줘,@얼마야,@상태_어때]
-
-    QUERY_WHERE_OFF_LOCATION:
-      - $기기:device [중,들] (지금) @전원_꺼짐 [있는,있는지] [곳,방,위치] [@알려줘,@얼마야,@상태_어때]
 
   slots:
     장소:

@@ -1,4 +1,4 @@
-package com.example.mon_fit.base
+package com.example.eeum.base
 
 import android.app.Fragment
 import android.os.Bundle
