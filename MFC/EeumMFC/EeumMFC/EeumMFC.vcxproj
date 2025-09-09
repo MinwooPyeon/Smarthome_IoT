@@ -185,11 +185,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Analyzer.h" />
+    <ClInclude Include="DevicePane.h" />
     <ClInclude Include="EeumMFC.h" />
     <ClInclude Include="EeumMFCDoc.h" />
     <ClInclude Include="EeumMFCView.h" />
+    <ClInclude Include="FactorPane.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Ingestor.h" />
+    <ClInclude Include="LogPane.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="MqttClient.h" />
     <ClInclude Include="MsgBuffer.h" />
@@ -201,10 +204,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Analyzer.cpp" />
+    <ClCompile Include="DevicePane.cpp" />
     <ClCompile Include="EeumMFC.cpp" />
     <ClCompile Include="EeumMFCDoc.cpp" />
     <ClCompile Include="EeumMFCView.cpp" />
+    <ClCompile Include="FactorPane.cpp" />
     <ClCompile Include="Ingestor.cpp" />
+    <ClCompile Include="LogPane.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="MqttClient.cpp" />
     <ClCompile Include="pch.cpp">

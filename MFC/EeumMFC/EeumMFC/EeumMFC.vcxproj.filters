@@ -69,6 +69,15 @@
     <ClInclude Include="Ingestor.h">
       <Filter>헤더 파일\Core</Filter>
     </ClInclude>
+    <ClInclude Include="DevicePane.h">
+      <Filter>헤더 파일\App</Filter>
+    </ClInclude>
+    <ClInclude Include="LogPane.h">
+      <Filter>헤더 파일\App</Filter>
+    </ClInclude>
+    <ClInclude Include="FactorPane.h">
+      <Filter>헤더 파일\App</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="EeumMFC.cpp">
@@ -97,6 +106,15 @@
     </ClCompile>
     <ClCompile Include="Ingestor.cpp">
       <Filter>소스 파일\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DevicePane.cpp">
+      <Filter>소스 파일\App</Filter>
+    </ClCompile>
+    <ClCompile Include="FactorPane.cpp">
+      <Filter>소스 파일\App</Filter>
+    </ClCompile>
+    <ClCompile Include="LogPane.cpp">
+      <Filter>소스 파일\App</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

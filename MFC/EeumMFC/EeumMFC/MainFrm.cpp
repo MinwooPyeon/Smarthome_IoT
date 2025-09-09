@@ -3,6 +3,8 @@
 //
 
 #include "pch.h"
+
+
 #include "framework.h"
 #include "EeumMFC.h"
 #include "EeumMFCDoc.h"
@@ -15,9 +17,9 @@
 
 // CMainFrame
 
-IMPLEMENT_DYNCREATE(CMainFrame, CFrameWnd)
+IMPLEMENT_DYNCREATE(CMainFrame, CFrameWndEx)
 
-BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
+BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_WM_CREATE()
 	ON_MESSAGE(WM_APP_DATAREADY, &CMainFrame::OnDataReady)
 END_MESSAGE_MAP()
@@ -43,7 +45,7 @@ CMainFrame::~CMainFrame()
 
 int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
-	if (CFrameWnd::OnCreate(lpCreateStruct) == -1)
+	if (CFrameWndEx::OnCreate(lpCreateStruct) == -1)
 		return -1;
 
 	if (!m_wndToolBar.CreateEx(this, TBSTYLE_FLAT, WS_CHILD | WS_VISIBLE | CBRS_TOP | CBRS_GRIPPER | CBRS_TOOLTIPS | CBRS_FLYBY | CBRS_SIZE_DYNAMIC) ||
@@ -62,9 +64,14 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	// TODO: 도구 모음을 도킹할 수 없게 하려면 이 세 줄을 삭제하십시오.
 	m_wndToolBar.EnableDocking(CBRS_ALIGN_ANY);
+	
+	CDockingManager::SetDockingMode(DT_SMART);
+	CMFCVisualManager::SetDefaultManager(RUNTIME_CLASS(CMFCVisualManagerWindows));
 	EnableDocking(CBRS_ALIGN_ANY);
-	DockControlBar(&m_wndToolBar);
+	EnableAutoHidePanes(CBRS_ALIGN_ANY);
 
+	if (!CreateDockingPanes())
+		return -1;
 
 	return 0;
 }
@@ -80,9 +87,47 @@ LRESULT CMainFrame::OnDataReady(WPARAM, LPARAM)
 	return 0;
 }	
 
+void CMainFrame::Log(const CString& level, const CString& msg)
+{
+	if (m_wndLogPane.GetSafeHwnd())
+		m_wndLogPane.Append(level, msg);
+}
+
+BOOL CMainFrame::CreateDockingPanes()
+{
+	// 좌: Device/Topic Tree
+	if (!m_wndDevicePane.Create(L"Device / Topic", this, CRect(0, 0, 250, 500),
+		TRUE, 5001, WS_CHILD | WS_VISIBLE | CBRS_LEFT))
+		return FALSE;
+	m_wndDevicePane.EnableDocking(CBRS_ALIGN_LEFT);
+	DockPane(&m_wndDevicePane, AFX_IDW_DOCKBAR_LEFT);
+
+	// 하: Error/Event Log
+	if (!m_wndLogPane.Create(L"Error / Event Log", this, CRect(0, 0, 500, 180),
+		TRUE, 5002, WS_CHILD | WS_VISIBLE | CBRS_BOTTOM))
+		return FALSE;
+	m_wndLogPane.EnableDocking(CBRS_ALIGN_BOTTOM);
+	DockPane(&m_wndLogPane, AFX_IDW_DOCKBAR_BOTTOM);
+
+	// 우: Factor/Option
+	if (!m_wndFactorPane.Create(L"Factors / Options", this, CRect(0, 0, 260, 500),
+		TRUE, 5003, WS_CHILD | WS_VISIBLE | CBRS_RIGHT))
+		return FALSE;
+	m_wndFactorPane.EnableDocking(CBRS_ALIGN_RIGHT);
+	DockPane(&m_wndFactorPane, AFX_IDW_DOCKBAR_RIGHT);
+
+	// 자동 숨김 버튼 표시
+	m_wndDevicePane.ShowPane(TRUE, FALSE, TRUE);
+	m_wndLogPane.ShowPane(TRUE, FALSE, TRUE);
+	m_wndFactorPane.ShowPane(TRUE, FALSE, TRUE);
+
+	return TRUE;
+}
+
+
 BOOL CMainFrame::PreCreateWindow(CREATESTRUCT& cs)
 {
-	if( !CFrameWnd::PreCreateWindow(cs) )
+	if( !CFrameWndEx::PreCreateWindow(cs) )
 		return FALSE;
 	// TODO: CREATESTRUCT cs를 수정하여 여기에서
 	//  Window 클래스 또는 스타일을 수정합니다.
@@ -95,12 +140,12 @@ BOOL CMainFrame::PreCreateWindow(CREATESTRUCT& cs)
 #ifdef _DEBUG
 void CMainFrame::AssertValid() const
 {
-	CFrameWnd::AssertValid();
+	CFrameWndEx::AssertValid();
 }
 
 void CMainFrame::Dump(CDumpContext& dc) const
 {
-	CFrameWnd::Dump(dc);
+	CFrameWndEx::Dump(dc);
 }
 #endif //_DEBUG
 

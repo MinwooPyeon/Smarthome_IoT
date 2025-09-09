@@ -13,5 +13,6 @@
 #endif
 // 여기에 미리 컴파일하려는 헤더 추가
 #include "framework.h"
-
+#include <afxcontrolbars.h>   // 도킹 매니저/툴바/탭/프로퍼티 그리드 등
+#include <afxframewndex.h>    // CFrameWndEx
 #endif //PCH_H
