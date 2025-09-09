@@ -178,10 +178,6 @@ private fun MyRoutineCard(
                         )
                     }
                 }
-
-                Spacer(Modifier.height(16.dp))
-
-                // 실행 요일 줄: description 시작선에 맞추고, 우측 끝에 스위치
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -209,6 +205,10 @@ private fun MyRoutineCard(
         }
     }
 }
+
+
+
+
 @Composable
 private fun IconBox(icon: ImageVector, bg: Color) {
     Box(
@@ -233,19 +233,13 @@ private fun StatusDot(active: Boolean) {
 
 @Composable
 private fun DayChip(label: String) {
-    val size = 25.dp
     Box(
         modifier = Modifier
-            .size(size)
-            .clip(RoundedCornerShape(6.dp))
-            .background(Color(0xFF2563EB)),
+            .clip(RoundedCornerShape(5.dp))
+            .background(Color(0xFF2563EB))
+            .padding(horizontal = 8.dp, vertical = 5.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = Color.White,
-            fontWeight = FontWeight.Medium
-        )
+        Text(label, fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Medium)
     }
 }
