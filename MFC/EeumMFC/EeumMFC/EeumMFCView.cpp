@@ -15,6 +15,7 @@
 
 #include <wrl.h>
 #include <WebView2.h>
+#include <filesystem>
 
 using Microsoft::WRL::ComPtr;
 using Microsoft::WRL::Callback;
@@ -26,68 +27,7 @@ using Microsoft::WRL::Callback;
 
 // ====== 차트 HTML (ECharts, Temp/Hum 2패널) ======
 static const wchar_t* kChartHtml = LR"HTML(
-<!doctype html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>ECharts - Temp/Hum</title>
-<style>
- html,body,#root{height:100%; margin:0; padding:0; overflow:hidden; background:#0b0f14;}
- #root{display:flex; flex-direction:column; gap:8px; padding:8px; box-sizing:border-box;}
- .panel{flex:1; min-height:0;}
- .label{color:#9ab; font-family:Segoe UI, sans-serif; margin-bottom:4px}
-</style>
-</head>
-<body>
-<div id="root">
-  <div class="label">EEUM · Live Env Chart</div>
-  <div id="temp" class="panel"></div>
-  <div id="hum" class="panel"></div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
-<script>
-  const tDom = document.getElementById('temp');
-  const hDom = document.getElementById('hum');
-  const tChart = echarts.init(tDom);
-  const hChart = echarts.init(hDom);
 
-  const now = Date.now();
-  const xs = Array.from({length:50}, (_,i)=> new Date(now - (49-i)*1000).toLocaleTimeString());
-  const tData = Array.from({length:50}, ()=> 23 + (Math.random()-0.5)*1.5);
-  const hData = Array.from({length:50}, ()=> 55 + (Math.random()-0.5)*3);
-
-  const makeOpt = (name, unit, data) => ({
-    backgroundColor: 'transparent',
-    grid:{left:48,right:16,top:18,bottom:28},
-    xAxis:{type:'category', data: xs, boundaryGap:false, axisLabel:{show:false}},
-    yAxis:{type:'value', name: unit, nameTextStyle:{color:'#9ab'}, axisLine:{lineStyle:{color:'#789'}}, splitLine:{lineStyle:{type:'dashed'}}},
-    series:[{name, type:'line', data, smooth:true, showSymbol:false, areaStyle:{}}],
-    tooltip:{trigger:'axis'}
-  });
-
-  tChart.setOption(makeOpt('Temperature','°C',tData));
-  hChart.setOption(makeOpt('Humidity','%',hData));
-
-  new ResizeObserver(()=>{ tChart.resize(); hChart.resize(); }).observe(document.body);
-
-  // C++ → JS 데이터 수신
-  if (window.chrome && chrome.webview) {
-    chrome.webview.addEventListener('message', (msg)=>{
-      const {temp, hum, ts} = msg.data || {};
-      const label = new Date(ts || Date.now()).toLocaleTimeString();
-
-      xs.push(label); tData.push(temp); hData.push(hum);
-      if (xs.length>300){ xs.shift(); tData.shift(); hData.shift(); }
-
-      tChart.setOption({ xAxis:{data:xs}, series:[{data:tData}] });
-      hChart.setOption({ xAxis:{data:xs}, series:[{data:hData}] });
-    });
-  }
-</script>
-</body>
-</html>
 )HTML";
 
 // CEeumMFCView
@@ -201,18 +141,42 @@ void CEeumMFCView::ResizeWebView()
 // ====== HTML 로드 ======
 void CEeumMFCView::LoadChartHtml()
 {
-	if (!m_webview) return;
-	m_webview->NavigateToString(kChartHtml);
+    wchar_t modulePath[MAX_PATH]{};
+    GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
+
+    // exe 경로 → 프로젝트 루트로 이동
+    std::filesystem::path exeDir = std::filesystem::path(modulePath).parent_path();
+    std::filesystem::path rootDir = exeDir.parent_path();  // 한 단계 위
+    auto htmlPath = rootDir / L"dashboard.html";
+
+    if (!std::filesystem::exists(htmlPath)) {
+        AfxMessageBox(L"dashboard.html not found!");
+        return;
+    }
+
+    CString url;
+    url.Format(L"file:///%s", htmlPath.wstring().c_str());
+    url.Replace(L"\\", L"/"); // 파일 URL 표준화
+    m_webview->Navigate(url);
 }
 
 // ====== C++ → JS 데이터 푸시 ======
-void CEeumMFCView::PushData(double temp, double hum)
+void CEeumMFCView::PushMetrics(const Metrics& m)
 {
 	if (!m_webview) return;
 
 	// JS 측에서 chrome.webview.addEventListener('message')로 수신
 	CString js;
-	js.Format(L"chrome.webview.postMessage({temp:%g, hum:%g, ts: Date.now()});", temp, hum);
+	js.Format(
+		L"chrome.webview.postMessage({"
+		L"tAvg:%g, hAvg:%g, tEwma:%g, hEwma:%g, "
+		L"dewPoint:%g, heatIndex:%g, spike:%s, "
+		L"absHumidity:%g, wbgt:%g, pmv:%g, ppd:%g, "
+		L"ts:Date.now()});",
+		m.tAvg, m.hAvg, m.tEwma, m.hEwma,
+		m.dewPoint, m.heatIndex, m.spike ? L"true" : L"false",
+		m.absHumidity, m.wbgt, m.pmv, m.ppd
+	);
 	m_webview->ExecuteScript(js, nullptr);
 }
 
@@ -242,7 +206,6 @@ void CEeumMFCView::OnEndPrinting(CDC* /*pDC*/, CPrintInfo* /*pInfo*/)
 }
 
 // ====== 메시지 핸들러 ======
-
 int CEeumMFCView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
 	if (CView::OnCreate(lpCreateStruct) == -1) return -1;
@@ -265,7 +228,20 @@ void CEeumMFCView::OnTimer(UINT_PTR nIDEvent)
 		static double t = 23.0, h = 55.0;
 		t += (rand() % 100 - 50) * 0.01;
 		h += (rand() % 100 - 50) * 0.02;
-		PushData(t, h);
+		
+        Metrics m{};
+        m.tAvg = t;
+        m.hAvg = h;
+        m.tEwma = t;   // 예시: 그대로 사용
+        m.hEwma = h;
+        m.dewPoint = t - ((100 - h) / 5.0);  // 단순 근사
+        m.heatIndex = t + 0.5;                // 단순 근사
+        m.spike = (fabs(t - 23.0) > 2.0);   // 단순 조건
+        m.absHumidity = h * 0.25;               // 단순 근사
+        m.wbgt = t - 0.7;                // 단순 근사
+        m.pmv = (t - 23.0) / 10.0;          // 단순 근사
+        m.ppd = (std::min)(100.0, fabs(m.pmv) * 20); // 단순 근사
+        PushMetrics(m);
 	}
 	CView::OnTimer(nIDEvent);
 }
@@ -275,8 +251,8 @@ BOOL CEeumMFCView::OnEraseBkgnd(CDC* pDC)
 	// WebView2가 덮어쓰므로 깜빡임 방지용으로 기본 배경 지우기 생략
 	return TRUE;
 }
-// CEeumMFCView 진단
 
+// CEeumMFCView 진단
 #ifdef _DEBUG
 void CEeumMFCView::AssertValid() const
 {

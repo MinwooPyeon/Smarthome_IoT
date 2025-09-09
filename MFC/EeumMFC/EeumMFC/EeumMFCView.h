@@ -61,7 +61,7 @@ private:
 	void LoadChartHtml();
 
 public:
-	void PushData(double temp, double hum);
+	void PushMetrics(const Metrics& m);
 };
 
 #ifndef _DEBUG  // EeumMFCView.cpp의 디버그 버전
