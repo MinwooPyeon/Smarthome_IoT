@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.example.eeum.R
 import com.example.eeum.ui.theme.*
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.navigation.NavController
@@ -42,7 +43,6 @@ fun MenuScreen(
     navController: NavController? = null,
     modifier: Modifier = Modifier
 ) {
-    // New implementation matching 메뉴.png
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -71,7 +71,9 @@ fun MenuScreen(
                 painter = painterResource(id = R.drawable.ic_alarm),
                 contentDescription = "알림",
                 colorFilter = ColorFilter.tint(Gray600),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable { navController?.navigate("alarm_manage") }
             )
         }
 
@@ -179,16 +181,20 @@ fun MenuScreen(
                     bg = Purple100, iconTint = Purple600,
                     icon = R.drawable.ic_search, label = "찾기"
                 )
+                Box(modifier = Modifier.clickable { navController?.navigate("routine") }) {
+                    ServiceItem(
+                        bg = Yellow200, iconTint = Amber600,
+                        icon = R.drawable.ic_routine, label = "내 루틴"
+                    )
+                }
+                Box(modifier = Modifier.clickable { navController?.navigate("log_manage") }) {
+                    ServiceItem(
+                        bg = Color(0xFFDEFEC3), iconTint = Color(0xFF14AE5C),
+                        icon = R.drawable.ic_log_management, label = "로그 기록"
+                    )
+                }
                 ServiceItem(
-                    bg = Yellow200, iconTint = Amber600,
-                    icon = R.drawable.ic_routine, label = "내 루틴"
-                )
-                ServiceItem(
-                    bg = SurfaceAlt, iconTint = Color(0xFF14AE5C),
-                    icon = R.drawable.ic_log_management, label = "로그 기록"
-                )
-                ServiceItem(
-                    bg = SurfaceAlt, iconTint = Blue600,
+                    bg = Color(0xFFC3DCFE), iconTint = Blue600,
                     icon = R.drawable.ic_membership, label = "멤버십"
                 )
             }
@@ -218,9 +224,11 @@ fun MenuScreen(
                 androidx.compose.material3.Divider(color = Gray50)
                 MenuListItem(icon = R.drawable.ic_user_manual, tint = Blue500, text = "사용 설명서")
                 androidx.compose.material3.Divider(color = Gray50)
-                MenuListItem(icon = R.drawable.ic_setting, tint = Gray500, text = "설정")
+                MenuListItem(icon = R.drawable.ic_blueprint, tint = Color(0xFF9333EA), text = "평면도 관리")
                 androidx.compose.material3.Divider(color = Gray50)
                 MenuListItem(icon = R.drawable.ic_hub_management, tint = Color(0xFF14AE5C), text = "허브 관리")
+                androidx.compose.material3.Divider(color = Gray50)
+                MenuListItem(icon = R.drawable.ic_setting, tint = Gray500, text = "설정")
             }
         }
         }

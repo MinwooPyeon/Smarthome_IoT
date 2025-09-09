@@ -79,7 +79,8 @@ fun RoutineScreen(navController: NavController) {
                 Icon(
                     Icons.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color.Black
+                    tint = Color.Black,
+                    modifier = Modifier.clickable { navController.popBackStack() }
                 )
                 Text(
                     text = "루틴 관리",

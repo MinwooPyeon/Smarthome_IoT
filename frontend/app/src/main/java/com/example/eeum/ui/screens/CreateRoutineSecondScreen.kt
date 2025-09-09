@@ -1,6 +1,8 @@
 package com.example.eeum.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -54,9 +56,8 @@ private val CardBg = Color(0x80FFFFFF)
 private val BorderGray = Color(0xFFE0E0E0)
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Preview(showBackground = true)
 @Composable
-fun CreateRoutineSecondScreen() {
+fun CreateRoutineSecondScreen(navController: NavController) {
     var selectedDeviceIdx by remember { mutableIntStateOf(1) } // 기본 선택: "조명"
     var selectedDetailIdx by remember { mutableIntStateOf(1) } // 기본 선택: "조명이"
     var startTime by remember { mutableStateOf("08:00") }
@@ -96,7 +97,8 @@ fun CreateRoutineSecondScreen() {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.Black
+                        tint = Color.Black,
+                        modifier = Modifier.clickable { navController.popBackStack() }
                     )
                     Text("루틴 만들기", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text(" ", color = TextBlue, fontSize = 16.sp)
@@ -171,7 +173,7 @@ fun CreateRoutineSecondScreen() {
                 }
 
                 Button(
-                    onClick = { /* 저장 액션 */ },
+                    onClick = { navController.popBackStack() },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -183,6 +185,13 @@ fun CreateRoutineSecondScreen() {
             }
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun Preview_CreateRoutineSecondScreen() {
+    val nav = rememberNavController()
+    CreateRoutineSecondScreen(navController = nav)
 }
 
 private data class DeviceItem(val iconRes: Int, val title: String)
