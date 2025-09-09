@@ -17,6 +17,7 @@
 #include <WebView2.h>
 #include <filesystem>
 #include <Shlwapi.h>
+#include <sstream>
 
 using Microsoft::WRL::ComPtr;
 using Microsoft::WRL::Callback;
@@ -108,6 +109,12 @@ void CEeumMFCView::InitWebView() {
 							m_controller->put_IsVisible(TRUE);
 							ResizeWebView(); // ← 사이즈 먼저
 
+
+							Microsoft::WRL::ComPtr<ICoreWebView2Settings> settings;
+							m_webview->get_Settings(&settings);
+							if (settings) {
+								settings->put_IsWebMessageEnabled(TRUE);
+							}
 //							m_webview->NavigateToString(L"<!doctype html><html><body><h1 style='font-family:sans-serif'>hello</h1></body></html>");
 							// 네비 완료 로깅
 							m_webview->add_NavigationCompleted(
@@ -130,7 +137,6 @@ void CEeumMFCView::InitWebView() {
 				return S_OK;
 			}).Get());
 }
-
 
 // ====== 크기 조정 ======
 void CEeumMFCView::ResizeWebView()
@@ -169,20 +175,29 @@ void CEeumMFCView::PushMetrics(const Metrics& m)
 {
 	if (!m_webview) return;
 
-	// JS 측에서 chrome.webview.addEventListener('message')로 수신
-	CString js;
-	js.Format(
-		L"chrome.webview.postMessage({"
-		L"tAvg:%g, hAvg:%g, tEwma:%g, hEwma:%g, "
-		L"dewPoint:%g, heatIndex:%g, spike:%s, "
-		L"absHumidity:%g, wbgt:%g, pmv:%g, ppd:%g, "
-		L"ts:Date.now()});",
-		m.tAvg, m.hAvg, m.tEwma, m.hEwma,
-		m.dewPoint, m.heatIndex, m.spike ? L"true" : L"false",
-		m.absHumidity, m.wbgt, m.pmv, m.ppd
-	);
-	m_webview->ExecuteScript(js, nullptr);
+	// std::ostringstream는 항상 '.'을 소수점으로 씁니다 (로케일 영향 없음)
+	std::ostringstream oss;
+	oss << "{"
+		<< "\"tAvg\":" << m.tAvg << ","
+		<< "\"hAvg\":" << m.hAvg << ","
+		<< "\"tEwma\":" << m.tEwma << ","
+		<< "\"hEwma\":" << m.hEwma << ","
+		<< "\"dewPoint\":" << m.dewPoint << ","
+		<< "\"heatIndex\":" << m.heatIndex << ","
+		<< "\"spike\":" << (m.spike ? "true" : "false") << ","
+		<< "\"absHumidity\":" << m.absHumidity << ","
+		<< "\"wbgt\":" << m.wbgt << ","
+		<< "\"pmv\":" << m.pmv << ","
+		<< "\"ppd\":" << m.ppd << ","
+		<< "\"ts\":" << static_cast<long long>(::GetTickCount64())
+		<< "}";
+
+	std::string json = oss.str();
+	std::wstring wjson(json.begin(), json.end());
+
+	m_webview->PostWebMessageAsJson(wjson.c_str());
 }
+
 
 // CEeumMFCView 그리기
 void CEeumMFCView::OnDraw(CDC* /*pDC*/)
@@ -218,6 +233,10 @@ int CEeumMFCView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	m_hWebHost = this->GetSafeHwnd();
 	InitWebView(); // 비동기 초기화, 완료되면 HTML 로드됨
+
+	//TODO : DUMMY TEST용 코드
+	SetTimer(1, 1000, NULL); // 1초마다 더미 Metrics 발생
+
 	return 0;
 }
 
