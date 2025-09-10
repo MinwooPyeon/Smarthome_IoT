@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -110,15 +111,19 @@ fun LogManageScreen(
         )
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                Brush.horizontalGradient(colors = listOf(Color(0xFFB4E3FD), Color(0xFFCCFCFF)))
-            )
-            .padding(horizontal = 16.dp, vertical = 40.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 60.dp)
+        ) {
             // 헤더: 뒤로가기 + 중앙 타이틀
             Box(modifier = Modifier.fillMaxWidth()) {
                 Image(
@@ -283,6 +288,7 @@ private fun LogRecordItem(record: LogRecord) {
                     fontFamily = FontFamily(Font(R.font.goormsansmedium))
                 ),
             )
+            Spacer(Modifier.height(2.dp))
             Text(
                 text = record.status,
                 color = Gray500,
