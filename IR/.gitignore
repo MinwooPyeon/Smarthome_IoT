@@ -1,38 +1,79 @@
-# C++ build artifacts
+# Build directories
 build/
+out/
+.pio/
+.vscode/
+
+# ESP-IDF build artifacts
+sdkconfig.old
+dependencies.lock
+
+# PlatformIO
+.pioenvs/
+.piolibdeps/
+.platformio/
+
+# Compiled Object files
 *.o
 *.obj
+*.elf
+*.bin
+*.hex
+*.map
+
+# Executables
 *.exe
 *.out
 *.app
-*.so
-*.dylib
-*.dll
-*.a
-*.lib
 
-# CMake
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-Makefile
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
 
 # IDE files
-.vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS files
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.sln.docstates
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code (keep .vscode for project settings)
+# .vscode/
+
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
 # Logs
 *.log
 
-# Config files with sensitive data
-*.conf.json
+# Temporary files
+*.tmp
+*.temp
 
-# ESP-IDF framework
-esp-idf/
+# Backup files
+*~
+*.bak
+*.backup
+
+# Test artifacts
+test_results/
+coverage/
+
+# Dependencies
+node_modules/
