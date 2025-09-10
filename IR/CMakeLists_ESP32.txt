@@ -1,9 +1,0 @@
-# ESP32 전용 CMakeLists.txt
-cmake_minimum_required(VERSION 3.16)
-
-# ESP-IDF 프로젝트 설정
-include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-
-# ESP32 프로젝트 등록
-project(esp32-ir-remote)
-
