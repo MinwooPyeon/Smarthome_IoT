@@ -8,6 +8,5 @@ import lombok.Setter;
 @Getter 
 @Setter
 public class DeviceStatusRequest {
-	private Integer deviceId;
 	private JsonNode deviceDetail;
 }

@@ -149,7 +149,8 @@ CREATE TABLE "device" (
 	"registered_at"	timestamptz		NULL,
 	"device_detail"	JSON		NULL,
 	"ir_device_id"	int		NOT NULL,
-	"model"	text		NULL
+	"model"	text		NULL,
+	"user_home_id"	INTEGER		NOT NULL
 );
 
 CREATE TABLE "ir_tx_queue" (
@@ -171,13 +172,22 @@ CREATE TABLE "routine_icon" (
 	"icon_url"	text		NULL
 );
 
+CREATE TABLE "ai_routine" (
+	"routine_id"	INTEGER		NOT NULL,
+	"name"	VARCHAR		NULL,
+	"routine_weekday"	INTEGER		NULL,
+	"routine_description"	TEXT		NULL,
+	"act_time"	timestamptz		NULL,
+	"icon_id"	INTEGER		NOT NULL
+);
+
 CREATE TABLE "command" (
 	"command_id"	INTEGER		NOT NULL,
 	"button_id"	INTEGER		NOT NULL,
 	"command"	TEXT		NULL,
 	"device_id"	INTEGER		NOT NULL,
 	"user_id"	INTEGER		NOT NULL,
-	"model"	text		NOT NULL
+	"model"	text		NULL
 );
 
 CREATE TABLE "addresses" (
@@ -208,7 +218,7 @@ CREATE TABLE "ir_signal" (
 	"tolerance_us"	int		NULL,
 	"protocol_id"	int		NOT NULL,
 	"button_id"	int		NOT NULL,
-	"model"	text		NOT NULL
+	"model"	text		NULL
 );
 
 CREATE TABLE "ir_protocol" (
@@ -216,15 +226,6 @@ CREATE TABLE "ir_protocol" (
 	"프로토콜 이름"	text		NULL,
 	"Field"	text		NULL,
 	"true : msb / false : lsb"	boolean		NULL
-);
-
-CREATE TABLE "ai_routine" (
-	"routine_id"	INTEGER		NOT NULL,
-	"name"	VARCHAR		NULL,
-	"routine_weekday"	INTEGER		NULL,
-	"routine_description"	TEXT		NULL,
-	"act_time"	timestamptz		NULL,
-	"icon_id"	INTEGER		NOT NULL
 );
 
 ALTER TABLE "user" ADD CONSTRAINT "PK_USER" PRIMARY KEY (
@@ -295,10 +296,6 @@ ALTER TABLE "user_home" ADD CONSTRAINT "PK_USER_HOME" PRIMARY KEY (
 	"user_home_id"
 );
 
-ALTER TABLE "ir_remoteir" ADD CONSTRAINT "PK_IR_REMOTEIR" PRIMARY KEY (
-	"model"
-);
-
 ALTER TABLE "device" ADD CONSTRAINT "PK_DEVICE" PRIMARY KEY (
 	"device_id"
 );
@@ -309,6 +306,10 @@ ALTER TABLE "ir_tx_queue" ADD CONSTRAINT "PK_IR_TX_QUEUE" PRIMARY KEY (
 
 ALTER TABLE "routine_icon" ADD CONSTRAINT "PK_ROUTINE_ICON" PRIMARY KEY (
 	"icon_id"
+);
+
+ALTER TABLE "ai_routine" ADD CONSTRAINT "PK_AI_ROUTINE" PRIMARY KEY (
+	"routine_id"
 );
 
 ALTER TABLE "command" ADD CONSTRAINT "PK_COMMAND" PRIMARY KEY (
@@ -327,16 +328,14 @@ ALTER TABLE "ir_protocol" ADD CONSTRAINT "PK_IR_PROTOCOL" PRIMARY KEY (
 	"protocol serial"
 );
 
-ALTER TABLE "ai_routine" ADD CONSTRAINT "PK_AI_ROUTINE" PRIMARY KEY (
-	"routine_id"
-);
-
 ALTER TABLE "routine_detail" ADD CONSTRAINT "FK_device_TO_routine_detail_1" FOREIGN KEY (
 	"device_id"
 )
 REFERENCES "device" (
 	"device_id"
 );
+
+
 
 ALTER TABLE "routine_detail" ADD CONSTRAINT "FK_routine_TO_routine_detail_1" FOREIGN KEY (
 	"routine_id"
@@ -445,12 +444,6 @@ REFERENCES "addresses" (
 	"address_id"
 );
 
-ALTER TABLE "ir_button" ADD CONSTRAINT "FK_ir_remoteir_TO_ir_button_1" FOREIGN KEY (
-	"model"
-)
-REFERENCES "ir_remoteir" (
-	"model"
-);
 
 ALTER TABLE "ir_device" ADD CONSTRAINT "FK_hub_device_TO_ir_device_1" FOREIGN KEY (
 	"hub_device_id"
@@ -480,11 +473,12 @@ REFERENCES "ir_device" (
 	"ir_device_id"
 );
 
-ALTER TABLE "device" ADD CONSTRAINT "FK_ir_remoteir_TO_device_1" FOREIGN KEY (
-	"model"
+
+ALTER TABLE "device" ADD CONSTRAINT "FK_user_home_TO_device_1" FOREIGN KEY (
+	"user_home_id"
 )
-REFERENCES "ir_remoteir" (
-	"model"
+REFERENCES "user_home" (
+	"user_home_id"
 );
 
 ALTER TABLE "ir_tx_queue" ADD CONSTRAINT "FK_ir_signal_TO_ir_tx_queue_1" FOREIGN KEY (
@@ -494,11 +488,19 @@ REFERENCES "ir_signal" (
 	"signal_id"
 );
 
+
 ALTER TABLE "ir_tx_queue" ADD CONSTRAINT "FK_ir_device_TO_ir_tx_queue_1" FOREIGN KEY (
 	"ir_device_id"
 )
 REFERENCES "ir_device" (
 	"ir_device_id"
+);
+
+ALTER TABLE "ai_routine" ADD CONSTRAINT "FK_routine_icon_TO_ai_routine_1" FOREIGN KEY (
+	"icon_id"
+)
+REFERENCES "routine_icon" (
+	"icon_id"
 );
 
 ALTER TABLE "command" ADD CONSTRAINT "FK_ir_button_TO_command_1" FOREIGN KEY (
@@ -507,7 +509,6 @@ ALTER TABLE "command" ADD CONSTRAINT "FK_ir_button_TO_command_1" FOREIGN KEY (
 REFERENCES "ir_button" (
 	"button_id"
 );
-
 
 ALTER TABLE "command" ADD CONSTRAINT "FK_device_TO_command_1" FOREIGN KEY (
 	"device_id"
@@ -556,14 +557,6 @@ ALTER TABLE "ir_signal" ADD CONSTRAINT "FK_ir_button_TO_ir_signal_1" FOREIGN KEY
 )
 REFERENCES "ir_button" (
 	"button_id"
-);
-
-
-ALTER TABLE "ai_routine" ADD CONSTRAINT "FK_routine_icon_TO_ai_routine_1" FOREIGN KEY (
-	"icon_id"
-)
-REFERENCES "routine_icon" (
-	"icon_id"
 );
 
 
