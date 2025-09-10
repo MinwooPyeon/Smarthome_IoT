@@ -3,8 +3,7 @@ package com.eeum.dto.response;
 import lombok.*;
 
 import java.time.Instant;
-
-import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Map;
 
 @Getter @Setter
 @NoArgsConstructor
@@ -13,13 +12,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 public class DeviceItemResponse {
     private Integer deviceId;
     private Integer roomId;
-    private Integer remoteId;
     private Integer irDeviceId;
     private String  brand;
     private String  model;
     private String  type;
     private String  deviceName;
     private Instant registeredAt;
-    private JsonNode deviceDetail;
-
+    private Map<String, Object> deviceDetail;
+    
 }

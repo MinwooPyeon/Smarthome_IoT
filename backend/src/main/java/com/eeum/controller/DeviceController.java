@@ -38,27 +38,35 @@ public class DeviceController implements ControllerHelper {
         }
     }
     
-//    // 조건에 해당하는 device 목록/개수 조회
-//    @GetMapping
-//    public ResponseEntity<?> listDevices(
-//            @RequestParam(name = "active",     required = false) Boolean active,
-//            @RequestParam(name = "type",       required = false) String type,
-//            @RequestParam(name = "roomName",   required = false) String roomName,
-//            @RequestParam(name = "deviceName", required = false) String deviceName
-//    ) {
-//        try {
-//            Integer userId = 1;
-//            var list = deviceService.findDevices(userId, active, type, roomName, deviceName);
-//            return handleSuccess(list, HttpStatus.OK);
-//        } catch (IllegalArgumentException e) {
-//            return handleFail(e, HttpStatus.BAD_REQUEST);
-//        } catch (Exception e) {
-//            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
-//        }
-//    }
-//
+    // 조건에 해당하는 device 목록/개수 조회
+    @Operation(
+    	    summary = "디바이스 목록 조회",
+    	    description = """
+    	    사용자가 소속된 집의 디바이스들을 조회합니다.
+    	    - 필터(active, type, roomName, deviceName)를 조건으로 검색할 수 있습니다.
+    	    - 조건이 없을 경우 전체 목록을 조회합니다.
+    	    """
+    	)
+    @GetMapping
+    public ResponseEntity<?> listDevices(
+            @RequestParam(name = "active",     required = false) Boolean active,
+            @RequestParam(name = "type",       required = false) String type,
+            @RequestParam(name = "roomName",   required = false) String roomName,
+            @RequestParam(name = "deviceName", required = false) String deviceName
+    ) {
+        try {
+            Integer userId = 1;
+            var list = deviceService.findDevices(userId, active, type, roomName, deviceName);
+            return handleSuccess(list, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     // device 단건 조회
-    @Operation(summary = "디바이스 단건 조회", description = "유저의 디바이스를 조회합니다.")
+    @Operation(summary = "디바이스 단건 조회", description = "디바이스 정보를 조회합니다.")
     @GetMapping("/{deviceId}")
     public ResponseEntity<?> getDeviceById(@PathVariable("deviceId") Integer deviceId) {
         try {
@@ -74,53 +82,30 @@ public class DeviceController implements ControllerHelper {
             return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-//    
-//    // roomName + deviceName로 deviceId 조회
-//    @GetMapping("/device-id")
-//    public ResponseEntity<?> resolveDeviceId(
-//            @RequestParam(name = "roomName") String roomName,
-//            @RequestParam(name = "deviceName") String deviceName
-//    ) {
-//        try {
-//            Integer userId = 1;
-//            
-//            if (isBlank(roomName) || isBlank(deviceName)) {
-//                return handleFail(new IllegalArgumentException("roomName과 deviceName은 필수입니다."), HttpStatus.BAD_REQUEST);
-//            }
-//
-//            Integer deviceId = deviceService.findDeviceId(userId, roomName.trim(), deviceName.trim());
-//            if (deviceId == null) {
-//                return handleFail(new RuntimeException("조건에 해당하는 디바이스가 없습니다."), HttpStatus.NOT_FOUND);
-//            }
-//
-//            return handleSuccess(Map.of("deviceId", deviceId), HttpStatus.OK);
-//        } catch (IllegalArgumentException e) {
-//            return handleFail(e, HttpStatus.BAD_REQUEST);
-//        } catch (Exception e) {
-//            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
-//        }
-//    }
-//    
-//    
-//    // 디바이스 상태 수정
-//    @PatchMapping("/{deviceId}/status")
-//    public ResponseEntity<?> updateStatus(
-//            @PathVariable(name = "deviceId") Integer deviceId,
-//            @RequestBody DeviceStatusRequest request
-//    ) {
-//        try {
-//        	Integer result = deviceService.updateStatus(deviceId, request);
-//    	
-//	        return handleSuccess(Map.of("deviceId", result), HttpStatus.OK);
-//	    } catch (IllegalArgumentException e) {
-//	        return handleFail(e, HttpStatus.BAD_REQUEST);
-//	    } catch (Exception e) {
-//	        return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
-//	    }
-//    }
-//    
-//    
-//    private static boolean isBlank(String s) {
-//        return s == null || s.isBlank();
-//    }
+
+    
+    // 디바이스 상태 수정
+    @Operation(
+    	    summary = "디바이스 상태 변경",
+    	    description = """
+    	    device_detail을 부분 갱신합니다.
+    	    - 요청 JSON은 **부분 파라미터**만 포함해도 됩니다.
+    	    - 예) { "power": true }만 보내면 기존 level 등 다른 필드는 유지됩니다.
+    	    """
+    	)
+    @PutMapping("/{deviceId}/status")
+    public ResponseEntity<?> updateStatus(
+            @PathVariable(name = "deviceId") Integer deviceId,
+            @RequestBody DeviceStatusRequest request
+    ) {
+        try {
+        	Integer result = deviceService.updateStatus(deviceId, request);
+    	
+	        return handleSuccess(Map.of("deviceId", result), HttpStatus.OK);
+	    } catch (IllegalArgumentException e) {
+	        return handleFail(e, HttpStatus.BAD_REQUEST);
+	    } catch (Exception e) {
+	        return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+	    }
+    }
 }
