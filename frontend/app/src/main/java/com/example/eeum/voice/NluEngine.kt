@@ -27,8 +27,11 @@ class NluEngine(
     }
 
     fun parseUtterance(utterance: String): List<IntentResult> {
-        val TAG = "EEUM_NluEngine"
         val spaceNorm = "\\s+".toRegex()
+
+        val rxNumMention   = Regex("\\b(\\d{1,2})\\s*번\\b")
+        val rxDeviceMention= Regex("\\b(에어컨|선풍기|전등|프로젝터|빔프로젝터|빔|조명|불|냉방기|팬)\\b")
+        val rxPlaceMention = Regex("\\b(방|거실|주방|부엌|침실|베란다|발코니|서재|작업실|화장실|홀)\\b")
 
         // 0) 공백 정규화
         val text0 = utterance.trim().replace(spaceNorm, " ")
@@ -57,6 +60,14 @@ class NluEngine(
                 return@forEachIndexed
             }
 
+            Log.d(TAG, "RAW@seg$idx intent=${r.intent} rawSlots=${r.slots} text='$clauseText'")
+
+            // ★ 관측 로그 ②: 트리거 감지(숫자+번/기기/장소 언급)
+            val trgNum    = rxNumMention.containsMatchIn(clauseText)
+            val trgDevice = rxDeviceMention.containsMatchIn(clauseText)
+            val trgPlace  = rxPlaceMention.containsMatchIn(clauseText)
+            Log.d(TAG, "TRG@seg$idx num=$trgNum device=$trgDevice place=$trgPlace")
+
             // 상속 베이스 = 컨텍스트 키만 유지
             val base = inherit.filterKeys { it in CONTEXT_KEYS }.toMutableMap()
 
@@ -66,6 +77,14 @@ class NluEngine(
             // 장소가 새로 말해졌는데 num이 없으면 num 리셋(방 번호는 장소 종속)
             if ("place" in r.slots && "num" !in r.slots) {
                 base.remove("num")
+            }
+
+            if (trgNum && "num" !in r.slots && base.remove("num") != null) {
+                Log.d(TAG, "GUARD@seg$idx drop inherited num (num-mention without slot)")
+            }
+
+            if (trgDevice && "device" !in r.slots && base.remove("device") != null) {
+                Log.d(TAG, "GUARD@seg$idx drop inherited device (device-mention without slot)")
             }
 
             // 다음 절을 위한 상속 업데이트

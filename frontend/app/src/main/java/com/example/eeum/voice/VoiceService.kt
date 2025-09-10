@@ -22,13 +22,19 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.example.eeum.R
+import com.example.eeum.core.AppEffect
+import com.example.eeum.core.VoiceUseCase
 import com.example.eeum.data.model.dto.voice.IntentResult
 import com.example.eeum.data.model.dto.voice.NluUpdate
+import com.example.eeum.data.remote.RetrofitUtil
+import com.example.eeum.data.remote.repository.DeviceRepository
 import com.example.eeum.util.ResourceUtils
 import com.example.eeum.util.RuleCompiler
 import com.example.eeum.util.VoiceBus
+import com.example.eeum.util.VoiceDeps
 import kotlinx.coroutines.launch
 
+private const val TAG = "EEUM_VoiceService"
 class VoiceService : Service() {
 
     companion object {
@@ -51,19 +57,28 @@ class VoiceService : Service() {
     // NLU
     private lateinit var nlu: NluEngine
 
+    private lateinit var useCase: VoiceUseCase
+    @Volatile private var isListening = false
+
     override fun onCreate() {
         super.onCreate()
         startAsForeground()
         initEarcon()
         tts = TtsHelper(this)
 
-        // 1) YAML 로드 → 컴파일
         val grammar = ResourceUtils.loadFromAssets(this, "grammar.yml")
         val compiled = RuleCompiler.compile(grammar)
         val connectors = grammar.context.macros["연결하다"] ?: listOf("그리고","하고","그 다음에","다음에","한 다음에","이어서","켜고","끄고")
         nlu = NluEngine(compiled, connectors)
 
-        // 2) 안내
+        VoiceDeps.directory?.let { dir ->
+            val repo = DeviceRepository(RetrofitUtil.deviceService, dir)
+            useCase = VoiceUseCase(repo)
+            Log.d(TAG, "UseCase ready with directory cache")
+        } ?: run {
+            Log.d(TAG, "Directory cache not ready yet; will lazy-init on first command")
+        }
+
         Handler(Looper.getMainLooper()).postDelayed({
             tts?.say("음성 명령을 말씀해 주세요.")
         }, 600)
@@ -86,39 +101,37 @@ class VoiceService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    // ────────────────────────────
     // STT
-    // ────────────────────────────
     private fun startListening() {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            Log.e("VoiceService", "SpeechRecognizer not available")
-            return
+            Log.e("VoiceService", "SpeechRecognizer not available"); return
         }
-        if (recognizer == null) {
-            recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
-                setRecognitionListener(object : RecognitionListener {
-                    override fun onResults(results: Bundle) {
-                        val text = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-                        Log.i("VoiceService", "ASR: $text")
-                        playEarcon()
-                        handleUtterance(text)
-                        // ⚠️ 더 이상 재시작하지 않음 (단발성)
-                        stopListening()
-                    }
-                    override fun onError(error: Int) {
-                        Log.e("VoiceService", "ASR error: $error")
-                        // ⚠️ 오류 후에도 재시작하지 않음 (단발성)
-                        stopListening()
-                    }
-                    override fun onReadyForSpeech(p0: Bundle?) {}
-                    override fun onBeginningOfSpeech() {}
-                    override fun onRmsChanged(p0: Float) {}
-                    override fun onBufferReceived(p0: ByteArray?) {}
-                    override fun onEndOfSpeech() {}
-                    override fun onPartialResults(p0: Bundle?) {}
-                    override fun onEvent(p0: Int, p1: Bundle?) {}
-                })
-            }
+        if (isListening) { Log.d("VoiceService", "already listening"); return }  // ★
+        isListening = true                                                        // ★
+
+        recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+            setRecognitionListener(object : RecognitionListener {
+                override fun onResults(results: Bundle) {
+                    val text = results.getStringArrayList(
+                        SpeechRecognizer.RESULTS_RECOGNITION
+                    )?.firstOrNull().orEmpty()
+                    Log.i("VoiceService", "ASR: $text")
+                    playEarcon()
+                    handleUtterance(text)
+                    shutdownRecognizer()
+                }
+                override fun onError(error: Int) {
+                    Log.e("VoiceService", "ASR error: $error")
+                    shutdownRecognizer()
+                }
+                override fun onReadyForSpeech(p0: Bundle?) {}
+                override fun onBeginningOfSpeech() {}
+                override fun onRmsChanged(p0: Float) {}
+                override fun onBufferReceived(p0: ByteArray?) {}
+                override fun onEndOfSpeech() {}
+                override fun onPartialResults(p0: Bundle?) {}
+                override fun onEvent(p0: Int, p1: Bundle?) {}
+            })
         }
 
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -130,37 +143,59 @@ class VoiceService : Service() {
         recognizer?.startListening(intent)
     }
 
-
-    private fun stopListening() {
-        recognizer?.stopListening()
-        recognizer?.cancel()
-        recognizer?.destroy()
-        recognizer = null
-    }
+    private fun stopListening() { shutdownRecognizer() }
 
     private fun handleUtterance(text: String) {
         val intents = nlu.parseUtterance(text)
         if (intents.isEmpty()) {
             tts?.say("이해하지 못했어요.")
-            // UI에도 실패 결과 흘려보내기
             ProcessLifecycleOwner.get().lifecycleScope.launch {
                 VoiceBus.updates.emit(NluUpdate(text, emptyList()))
             }
             return
         }
 
-        // 라우팅: 예시로 로그 + TTS
-        intents.forEach { r ->
-            Log.i("VoiceService", "Intent=${r.intent}, slots=${r.slots}")
+        // ★ 지연 초기화: 캐시가 이제 준비됐으면 여기서 UseCase 구성
+        if (!::useCase.isInitialized) {
+            val dir = VoiceDeps.directory
+            if (dir == null) {
+                tts?.say("아직 디바이스 준비 중이에요.")
+                Log.w("VoiceService", "UseCase init skipped: directory cache is null")
+                return
+            } else {
+                val repo = DeviceRepository(RetrofitUtil.deviceService, dir)
+                useCase = VoiceUseCase(repo)
+                Log.i("VoiceService", "UseCase lazily initialized")
+            }
         }
 
-        val summary = intents.joinToString(" 그리고 ") { r ->
-            val target = makeRoomKey(r.slots)?.let { "[$it]" } ?: ""
-            "${r.intent}${if (target.isNotEmpty()) " $target" else ""}"
+        // ★ 실제 라우팅 → UseCase 실행 → AppEffect 소비
+        ProcessLifecycleOwner.get().lifecycleScope.launch {
+            try {
+                val effects = useCase.run(intents) // ← 여기서 API까지 타는지 스모크 확인
+                effects.forEach { eff ->
+                    when (eff) {
+                        is AppEffect.Speak -> {
+                            Log.i("VoiceService", "Speak: ${eff.text}") // 로그
+                            tts?.say(eff.text)                           // 실제 발화
+                        }
+                        is AppEffect.Navigate -> {
+                            Log.i("VoiceService", "Navigate(route=${eff.route}, params=${eff.params})")
+                            // 스모크 단계: 네비는 일단 로그만. (나중에 AppEventBus 또는 알림 딥링크)
+                        }
+                        is AppEffect.Toast -> {
+                            Log.i("VoiceService", "Toast: ${eff.text}")
+                            // 스모크 단계: 토스트/알림은 추후
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("VoiceService", "UseCase run failed", e)
+                tts?.say("처리에 실패했어요.")
+            }
         }
-        tts?.say("$summary 실행할게요.")
 
-        // UI로 결과 emit
+        // (선택) UI로 NLU 결과 흘리기 – 기존 유지
         ProcessLifecycleOwner.get().lifecycleScope.launch {
             VoiceBus.updates.emit(
                 NluUpdate(
@@ -169,15 +204,14 @@ class VoiceService : Service() {
                 )
             )
         }
-
-        // TODO: 실제 디바이스 API 호출로 연결
     }
 
-    private fun makeRoomKey(slots: Map<String,String>): String? {
-        val name = slots["이름"] ?: return null
-        val kin  = slots["호칭"] ?: return null
-        val place= slots["장소"] ?: return null
-        return "${name}_${kin}_${place}"
+    private fun shutdownRecognizer() {
+        val r = recognizer
+        recognizer = null
+        try { r?.setRecognitionListener(null) } catch (_: Throwable) {}
+        try { r?.destroy() } catch (_: Throwable) {}
+        isListening = false
     }
 
     // ────────────────────────────

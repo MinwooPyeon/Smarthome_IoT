@@ -1,4 +1,4 @@
-package com.example.mon_fit.base
+package com.example.eeum.base
 
 import android.os.Bundle
 import android.os.Looper
