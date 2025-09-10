@@ -1,68 +1,31 @@
-package com.example.eeum.voice
+package com.example.eeum.core
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.eeum.base.DeviceDirectoryCache
 import com.example.eeum.data.model.dto.voice.IntentResult
-import com.example.eeum.data.model.response.common.ApiResponse
-import com.example.eeum.data.model.response.device.DeviceResponse
 import com.example.eeum.data.remote.repository.DeviceRepository
-import com.example.eeum.data.remote.service.DeviceService
-import com.google.gson.JsonObject
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import retrofit2.Response
 
-class VoiceViewModel(
-    private val repo: DeviceRepository,
-    private val deviceService: DeviceService,
-    private val directory: DeviceDirectoryCache
-) : ViewModel() {
+class VoiceUseCase(
+    private val repo: DeviceRepository
+) {
+    suspend fun run(intents: List<IntentResult>): List<AppEffect> {
+        if (intents.isEmpty()) return emptyList()
 
-    // ---- UI State ----
-    data class UiState(
-        val isProcessing: Boolean = false,
-        val lastSummary: String? = null
-    )
-
-    private val _uiState = MutableLiveData(UiState())
-    val uiState: LiveData<UiState> = _uiState
-
-    // ---- One-shot Effects (TTS/Toast 등) ----
-    sealed class Effect {
-        data class Say(val text: String) : Effect()
-        data class Toast(val text: String) : Effect()
-    }
-    class Event<out T>(val content: T) { private var handled=false; fun get(): T? = if (handled) null else { handled=true; content } }
-
-    private val _effect = MutableLiveData<Event<Effect>>()
-    val effect: LiveData<Event<Effect>> = _effect
-
-    /** NLU 결과 실행: 절(클라우즈) 순차 처리 + 같은 타깃은 복합으로 병합 */
-    fun execute(intents: List<IntentResult>) {
-        if (intents.isEmpty()) return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value?.copy(isProcessing = true, lastSummary = null)
-
-            val summaries = mutableListOf<String>()
-            for (block in coalesceControlBlocks(intents)) {
-                val s = when (block) {
-                    is ControlBlock -> applyComposite(block)
-                    is QueryItem    -> handleQuery(block.intent)
+        val effects = mutableListOf<AppEffect>()
+        for (block in coalesceControlBlocks(intents)) {
+            when (block) {
+                is ControlBlock -> {
+                    val speech = applyComposite(block)
+                    if (speech.isNotBlank()) effects += AppEffect.Speak(speech)
                 }
-                if (s.isNotBlank()) summaries += s
+                is QueryItem -> {
+                    val speech = handleQuery(block.intent)
+                    if (speech.isNotBlank()) effects += AppEffect.Speak(speech)
+                }
             }
-
-            val summary = summaries.joinToString(" 그리고 ").ifBlank { null }
-            summary?.let { _effect.value = Event(Effect.Say(it)) }
-            _uiState.value = UiState(isProcessing = false, lastSummary = summary)
         }
+        return effects
     }
 
-    // ───────────── Control path ─────────────
+    // ───────────────────────── Control path ─────────────────────────
     private suspend fun applyComposite(b: ControlBlock): String {
         if (b.roomName.isNullOrBlank() || b.deviceType.isNullOrBlank()) {
             return "대상 기기를 특정할 수 없어요."
@@ -86,37 +49,33 @@ class VoiceViewModel(
         return if (parts.isEmpty()) "완료했어요." else parts.joinToString(" 그리고 ")
     }
 
-    // ───────────── Query path ─────────────
-    private suspend fun handleQuery(nlu: IntentResult): String = withContext(Dispatchers.IO) {
+    // ───────────────────────── Query path ─────────────────────────
+    private suspend fun handleQuery(nlu: IntentResult): String {
         val place  = nlu.slots["place"]
         val device = canonicalDevice(nlu.slots["device"])
         val number = nlu.slots["num"]?.toIntOrNull()
 
-        val id = directory.findDeviceId(place, number, device) ?: return@withContext "대상 기기를 찾을 수 없어요."
-        val res: Response<ApiResponse<DeviceResponse>> = deviceService.readDevice(id)
-        if (!res.isSuccessful) return@withContext "조회에 실패했어요(HTTP ${res.code()})."
-        val api = res.body() ?: return@withContext "조회 응답이 비었어요."
-        if (api.status != "SUCCES") return@withContext "조회에 실패했어요."
+        if (place.isNullOrBlank() || device.isNullOrBlank()) return "대상 기기를 특정할 수 없어요."
 
-        val detail: JsonObject = api.data.deviceDetail
-        return@withContext when (nlu.intent) {
+        return when (nlu.intent) {
             "QUERY_IS_ON" -> {
-                val on = detail.optBool("power") ?: return@withContext "전원 상태를 알 수 없어요."
-                if (on) "켜져 있어요." else "꺼져 있어요."
+                val r = repo.queryIsOn(place, number, device)
+                if (r.isSuccess) if (r.getOrNull() == true) "켜져 있어요." else "꺼져 있어요."
+                else "전원 상태를 알 수 없어요."
             }
             "QUERY_TEMPERATURE" -> {
-                val t = detail.optInt("temperature") ?: return@withContext "온도를 알 수 없어요."
-                "현재 온도는 ${t}도예요."
+                val r = repo.queryTemperature(place, number, device)
+                if (r.isSuccess) "현재 온도는 ${r.getOrNull()}도예요." else "온도를 알 수 없어요."
             }
             "QUERY_FAN_LEVEL" -> {
-                val lv = detail.optInt("level") ?: return@withContext "바람 세기를 알 수 없어요."
-                "바람은 ${lv}단이에요."
+                val r = repo.queryFanLevel(place, number, device)
+                if (r.isSuccess) "바람은 ${r.getOrNull()}단이에요." else "바람 세기를 알 수 없어요."
             }
             else -> "아직 지원하지 않는 질의예요."
         }
     }
 
-    // ───────────── Coalesce control intents ─────────────
+    // ───────────────────────── Coalesce control intents ─────────────────────────
     private fun coalesceControlBlocks(input: List<IntentResult>): List<ExecItem> {
         val out = mutableListOf<ExecItem>()
         var cur: ControlBlock? = null
@@ -162,7 +121,7 @@ class VoiceViewModel(
         else -> false
     }
 
-    // ───────────── Helpers ─────────────
+    // ───────────────────────── Helpers ─────────────────────────
     private fun canonicalDevice(raw: String?): String? {
         val t = raw?.trim().orEmpty()
         if (t.isEmpty()) return null
@@ -188,13 +147,7 @@ class VoiceViewModel(
         }
     }
 
-    private fun JsonObject.optBool(key: String): Boolean? =
-        if (has(key) && !get(key).isJsonNull) runCatching { get(key).asBoolean }.getOrNull() else null
-
-    private fun JsonObject.optInt(key: String): Int? =
-        if (has(key) && !get(key).isJsonNull) runCatching { get(key).asInt }.getOrNull() else null
-
-    // ───────────── Internal exec model ─────────────
+    // ───────────────────────── Internal exec model ─────────────────────────
     private sealed interface ExecItem
     private data class ControlBlock(
         val roomName: String?,

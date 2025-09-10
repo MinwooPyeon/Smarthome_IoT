@@ -72,7 +72,7 @@ class DeviceDirectoryCache(
             .replace("번", "")                // "번" 제거
 
         // 방 + 숫자 붙이기: "방 01", "방1", "방 1 " → "방1 "
-        t = Regex("""^([가-힣A-Za-z]+)\s*0*([0-9]+)\s+""")
+        t = Regex("""^([가-힣A-Za-z]+)\s*0*([0-9]+)\s*""")
             .replace(t) { mr -> "${mr.groupValues[1]}${mr.groupValues[2]} " }
 
         // 동의어 최소 정규화(서버/클라 간 표현 차이 대비)
@@ -88,5 +88,21 @@ class DeviceDirectoryCache(
             .replace("팬", "선풍기")
 
         return t
+    }
+
+    companion object {
+        /**
+         * 디버그용 시드로 바로 캐시를 만든다.
+         */
+        fun withSeed(deviceService: DeviceService, seed: Map<String, Int>): DeviceDirectoryCache {
+            val c = DeviceDirectoryCache(deviceService)
+            val map = HashMap<String, Int>(seed.size)
+            seed.forEach { (name, id) ->
+                val key = c.normalizeName(name)
+                if (key.isNotEmpty()) map[key] = id
+            }
+            c.byName = map
+            return c
+        }
     }
 }
