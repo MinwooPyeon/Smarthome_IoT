@@ -23,22 +23,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.eeum.R
 
-@Preview
 @Composable
 fun HomeScreen() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Image(
-            painter = painterResource(id = R.drawable.background),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 24.dp)
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 24.dp)
+    ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -65,6 +56,13 @@ fun HomeScreen() {
             FloorplanCard() // 내부 비워둠 (향후 평면도 삽입)
             Spacer(Modifier.height(16.dp))
         }
+    }
+
+@Preview
+@Composable
+private fun HomeScreenPreview() {
+    com.example.eeum.ui.theme.EeumTheme(dynamicColor = false) {
+        HomeScreen()
     }
 }
 

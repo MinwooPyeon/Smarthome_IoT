@@ -38,27 +38,17 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.navigation.NavController
 
-@Preview
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MenuScreen(
     navController: NavController? = null,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier.fillMaxSize()) {
-        Image(
-            painter = painterResource(id = R.drawable.background),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 60.dp)
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 60.dp)
+    ) {
         // Header
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -110,7 +100,9 @@ fun MenuScreen(
                 painter = painterResource(id = R.drawable.ic_page_move),
                 contentDescription = "이동",
                 colorFilter = ColorFilter.tint(Gray300),
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier
+                    .size(18.dp)
+                    .clickable { navController?.navigate("user_information") }
             )
         }
 
@@ -240,9 +232,12 @@ fun MenuScreen(
         }
     }
 
-    return
-
-
+@Preview
+@Composable
+private fun MenuScreenPreview() {
+    EeumTheme(dynamicColor = false) {
+        MenuScreen()
+    }
 }
 
 @Composable

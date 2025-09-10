@@ -79,15 +79,7 @@ fun CreateRoutineFirstScreen(navController: NavController) {
             navController.currentBackStackEntry?.savedStateHandle?.remove<NewActionResult>("new_action")
         }
 
-    Box(Modifier.fillMaxSize()) {
-        Image(
-            painter = painterResource(id = R.drawable.background),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-
-        Scaffold(
+    Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 Row(
@@ -307,7 +299,6 @@ fun CreateRoutineFirstScreen(navController: NavController) {
             )
         }
     }
-}
 
 @Composable
 private fun ActionCard(
@@ -344,6 +335,15 @@ private fun ActionCard(
                 Icon(imageVector = Icons.Filled.Delete, contentDescription = "delete", tint = Color(0xFFDD4B39))
             }
         }
+    }
+}
+
+@Preview
+@Composable
+private fun CreateRoutineFirstScreenPreview() {
+    val nav = androidx.navigation.compose.rememberNavController()
+    com.example.eeum.ui.theme.EeumTheme(dynamicColor = false) {
+        CreateRoutineFirstScreen(nav)
     }
 }
 

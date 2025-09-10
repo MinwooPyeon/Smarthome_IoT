@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
 fun EnergyScreen() {
@@ -32,5 +33,13 @@ fun EnergyScreen() {
                 color = Color.Gray
             )
         }
+    }
+}
+
+@Preview
+@Composable
+private fun EnergyScreenPreview() {
+    com.example.eeum.ui.theme.EeumTheme(dynamicColor = false) {
+        EnergyScreen()
     }
 }

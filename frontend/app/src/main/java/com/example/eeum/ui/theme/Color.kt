@@ -28,3 +28,4 @@ val Gray900 = Color(0xFF111827)
 // Surfaces
 val SurfaceBase = Color(0xFFFFFFFF)
 val SurfaceAlt  = Color(0xFFF8FAFF)
+val BackgroundColor = Color(0xFFDBF2FD) // 배경 색상

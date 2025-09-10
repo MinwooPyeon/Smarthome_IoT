@@ -45,24 +45,18 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.Font
 import com.example.eeum.ui.components.CustomButton
 
-@Preview
 @Composable
 fun LoginScreen(modifier: Modifier = Modifier) {
     var idText by remember { mutableStateOf("") }
     var passwordText by remember { mutableStateOf("") }
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.horizontalGradient(colors = listOf(Color(0xFFB4E3FD), Color(0xFFCCFCFF))))
+            .padding(horizontal = 16.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
         // 로고 이미지
         Image(
             painter = painterResource(id = R.drawable.ic_mainlogo),
@@ -163,5 +157,12 @@ fun LoginScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth()
         )
         }
+    }
+
+@Preview
+@Composable
+private fun LoginScreenPreview() {
+    com.example.eeum.ui.theme.EeumTheme(dynamicColor = false) {
+        LoginScreen()
     }
 }

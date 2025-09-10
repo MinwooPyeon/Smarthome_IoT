@@ -55,7 +55,6 @@ data class LogRecord(
     val status: String
 )
 
-@Preview
 @Composable
 fun LogManageScreen(
     navController: NavController? = null,
@@ -111,15 +110,7 @@ fun LogManageScreen(
         )
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        Image(
-            painter = painterResource(id = R.drawable.background),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-
-        Column(
+    Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 60.dp)
@@ -235,6 +226,13 @@ fun LogManageScreen(
                 }
             }
         }
+    }
+
+@Preview
+@Composable
+private fun LogManageScreenPreview() {
+    EeumTheme(dynamicColor = false) {
+        LogManageScreen()
     }
 }
 

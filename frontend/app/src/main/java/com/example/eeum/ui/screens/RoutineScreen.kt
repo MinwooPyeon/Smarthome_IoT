@@ -58,19 +58,11 @@ fun RoutineScreen(navController: NavController) {
     val coroutineScope = rememberCoroutineScope()
     val tabs = listOf("내 루틴", "AI 추천 루틴")
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Image(
-            painter = painterResource(id = R.drawable.background),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 40.dp)
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 40.dp)
+    ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -121,7 +113,6 @@ fun RoutineScreen(navController: NavController) {
             }
         }
     }
-}
 
 @Composable
 private fun SegmentedTabRow(
@@ -230,7 +221,11 @@ private fun SegmentedTabRow(
 
 @Preview
 @Composable
-fun RoutineScreenPreview() {
-    RoutineScreen(navController = rememberNavController())
+private fun RoutineScreenPreview() {
+    val nav = androidx.navigation.compose.rememberNavController()
+    com.example.eeum.ui.theme.EeumTheme(dynamicColor = false) {
+        RoutineScreen(nav)
+    }
 }
+
 

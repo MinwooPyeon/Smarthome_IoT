@@ -26,6 +26,7 @@ import com.example.eeum.ui.screens.CreateRoutineSecondScreen
 import com.example.eeum.ui.screens.LoginScreen
 import com.example.eeum.ui.screens.LogManageScreen
 import com.example.eeum.ui.screens.AlarmManageScreen
+import com.example.eeum.ui.screens.UserInformationScreen
 
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
@@ -41,24 +42,17 @@ private const val ALARM_MANAGE_ROUTE = "alarm_manage"
 private const val ROUTINE_ROUTE = "routine"
 private const val ROUTE_CREATE_ROUTINE_FIRST = "createRoutineFirst"
 private const val ROUTE_CREATE_ROUTINE_SECOND = "createRoutineSecond"
+private const val USER_INFORMATION_ROUTE = "user_information"
 
 @Composable
 fun EeumApp() {
     val navController = rememberNavController()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .paint(
-                painterResource(id = R.drawable.background),
-                contentScale = ContentScale.Crop
-            )
+    // 메인 NavHost - BottomNavigation 유무를 결정하는 최상위 네비게이션
+    NavHost(
+        navController = navController,
+        startDestination = MAIN_TABS_ROUTE  // 임시로 메인탭부터 시작 (나중에 LOGIN_ROUTE로 변경 가능)
     ) {
-        // 메인 NavHost - BottomNavigation 유무를 결정하는 최상위 네비게이션
-        NavHost(
-            navController = navController,
-            startDestination = MAIN_TABS_ROUTE  // 임시로 메인탭부터 시작 (나중에 LOGIN_ROUTE로 변경 가능)
-        ) {
             // 1️⃣ BottomNavigation이 포함된 화면들 (메인 앱 화면)
             composable(MAIN_TABS_ROUTE) {
                 MainTabsScreen(navController)
@@ -92,8 +86,11 @@ fun EeumApp() {
             composable(ROUTE_CREATE_ROUTINE_SECOND) {
                 CreateRoutineSecondScreen(navController)
             }
+            
+            composable(USER_INFORMATION_ROUTE) {
+                UserInformationScreen(navController)
+            }
         }
-    }
 }
 
 // BottomNavigation이 포함된 메인 탭 화면들을 관리하는 컴포저블
