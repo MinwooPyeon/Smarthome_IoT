@@ -64,7 +64,8 @@ class MainActivity : ComponentActivity() {
                                 "방1 에어컨" to 10,
                                 "거실 전등" to 20,
                                 "거실2 선풍기" to 30,
-                                "방2 선풍기" to 40
+                                "방2 선풍기" to 40,
+                                "방1 선풍기" to 50
                             )
                             val seeded = DeviceDirectoryCache.withSeed(
                                 RetrofitUtil.deviceService, seed

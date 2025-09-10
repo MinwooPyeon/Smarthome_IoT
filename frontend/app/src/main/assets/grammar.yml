@@ -18,9 +18,9 @@ context:
       - (좀) @끄다
 
     SET_TEMPERATURE:
-      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) ($기기:device) (온도)
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device (온도)
         $pv.TwoDigitInteger:tmp [도씨,도] (로) @설정하다
-      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) ($기기:device) (온도)
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (온도)
         $pv.TwoDigitInteger:tmp [도씨,도] (로) @설정하다
       - $장소:place (@위치_조사) ($기기:device) (온도)
         $pv.TwoDigitInteger:tmp [도씨,도] (로) @설정하다
@@ -33,16 +33,16 @@ context:
         (으로,로) @설정하다
       - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (@바람) $세기:level
         (으로,로) @설정하다
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device (@바람)
+        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (@바람)
+        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
       - $장소:place (@위치_조사) $기기:device (@바람) $세기:level (으로,로) @설정하다
+      - $장소:place (@위치_조사) $기기:device (@바람)
+        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
       - $기기:device (@바람) $세기:level (으로,로) @설정하다
-      - (@바람) $세기:level (으로,로) @설정하다
-      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) ($기기:device) (@바람)
-        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
-      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) ($기기:device) (@바람)
-        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
-      - $장소:place (@위치_조사) ($기기:device) (@바람)
-        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
       - $기기:device (@바람) $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
+      - (@바람) $세기:level (으로,로) @설정하다
       - $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
 
     QUERY_IS_ON:
@@ -192,6 +192,7 @@ context:
       - 바람
       - 세기
       - 풍량
+      - 바람 세기
     전원_켜짐:
       - 켜져
       - 켜진

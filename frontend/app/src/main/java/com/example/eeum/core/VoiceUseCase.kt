@@ -85,6 +85,7 @@ class VoiceUseCase(
                 val room   = r.slots["place"]
                 val num    = r.slots["num"]?.toIntOrNull()
                 val device = canonicalDevice(r.slots["device"])
+                val mention = targetMention(r)
 
                 val (pwr, tmp, lvl) = when (r.intent) {
                     "SET_TURN_ON",  "TURN_ON_DEVICE"   -> Triple(true, null, null)
@@ -94,15 +95,31 @@ class VoiceUseCase(
                     else -> Triple(null, null, null)
                 }
 
-                if (cur != null && cur.sameTarget(room, num, device)) {
+                val sameTarget = cur?.sameTarget(room, num, device) == true
+
+                val someTargetPresent = (room != null) || (device != null) || (num != null)
+                val shouldSplit = when {
+                    cur == null -> false
+                    mention.any && !sameTarget -> true
+                    !sameTarget && someTargetPresent -> true
+                    (room == null && device == null) -> true
+                    else -> false
+                }
+
+                if (shouldSplit) {
+                    out += cur!!
+                    cur = null
+                }
+
+                if (cur == null) {
+                    cur = ControlBlock(room, num, device, pwr, tmp, lvl)
+                } else {
+
                     cur = cur.copy(
                         power = pwr ?: cur.power,
                         temperature = tmp ?: cur.temperature,
                         level = lvl ?: cur.level
                     )
-                } else {
-                    if (cur != null) out += cur
-                    cur = ControlBlock(room, num, device, pwr, tmp, lvl)
                 }
             } else {
                 if (cur != null) { out += cur; cur = null }
@@ -146,6 +163,15 @@ class VoiceUseCase(
             else -> null
         }
     }
+
+    private data class TargetMention(val place: Boolean, val device: Boolean, val num: Boolean) {
+        val any get() = place || device || num
+    }
+    private fun targetMention(r: IntentResult) = TargetMention(
+        place  = "place"  in r.slots,
+        device = "device" in r.slots,
+        num    = "num"    in r.slots
+    )
 
     // ───────────────────────── Internal exec model ─────────────────────────
     private sealed interface ExecItem
