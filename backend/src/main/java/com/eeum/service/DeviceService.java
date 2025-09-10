@@ -5,12 +5,15 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 import org.springframework.stereotype.Service;
 
 import com.eeum.dto.request.DeviceStatusRequest;
 import com.eeum.dto.request.RegisterDeviceRequest;
+import com.eeum.dto.request.UpdateDeviceLocationRequest;
 import com.eeum.dto.response.DeviceItemResponse;
+import com.eeum.dto.response.DeviceLocationResponse;
 import com.eeum.dto.response.DeviceResponse;
 import com.eeum.entity.Device;
 import com.eeum.entity.IrDevice;
@@ -149,7 +152,7 @@ public class DeviceService {
                 .brand(r.getBrand())
                 .model(r.getModel())
                 .deviceName(r.getDeviceName())
-                .type(r.getType())
+                .deviceType(r.getDeviceType())
                 .registeredAt(r.getRegisteredAt())
                 .deviceDetail(detailMap)
                 .build();
@@ -217,4 +220,79 @@ public class DeviceService {
 	    });
 	    return baseObj;
 	}
+	
+	// 디바이스 삭제
+    @Transactional
+    public void deleteDevice(Integer userId, Integer deviceId) {
+        if (userId == null)   throw new IllegalArgumentException("userId는 필수입니다.");
+        if (deviceId == null) throw new IllegalArgumentException("deviceId는 필수입니다.");
+
+        boolean owns = deviceRepository.userOwnsDevice(userId, deviceId);
+        if (!owns) {
+            throw new IllegalArgumentException("디바이스가 없거나 접근 권한이 없습니다. deviceId=" + deviceId);
+        }
+        
+        deviceRepository.deleteRoutineDetails(deviceId);
+        deviceRepository.deleteCommands(deviceId);
+        deviceRepository.deletePositions(deviceId);
+        int deleted = deviceRepository.deleteDeviceHard(deviceId);
+
+        if (deleted == 0) {
+            throw new IllegalStateException("디바이스 삭제에 실패했습니다. deviceId=" + deviceId);
+        }
+    }
+    
+    // 디바이스 평면도 좌표 위치 수정
+    @Transactional
+    public Integer updateLocation(Integer userId, Integer deviceId, UpdateDeviceLocationRequest req) {
+        if (userId == null)   throw new IllegalArgumentException("userId는 필수입니다.");
+        if (deviceId == null) throw new IllegalArgumentException("deviceId는 필수입니다.");
+        if (req == null)      throw new IllegalArgumentException("요청 바디가 비었습니다.");
+
+        // 소유권 확인
+        if (!deviceRepository.userOwnsDevice(userId, deviceId)) {
+            throw new NoSuchElementException("디바이스가 없거나 권한이 없습니다. deviceId=" + deviceId);
+        }
+        
+        Integer userHomeId = deviceRepository.findUserHomeId(userId, req.getHomeId())
+        	    .orElseThrow(() -> new IllegalArgumentException(
+        	        "사용자가 home(" + req.getHomeId() + ")에 소속되어 있지 않습니다."));
+        
+        if (!deviceRepository.existsRoomInHome(req.getHomeId(), req.getRoomId())) {
+            throw new IllegalArgumentException("room(" + req.getRoomId() + ")은 home(" + req.getHomeId() + ")에 속하지 않습니다.");
+        }
+    
+        int updated = deviceRepository.updateDevicePosition(
+                deviceId, req.getHomeId(), req.getRoomId(), req.getX(), req.getY());
+
+        if (updated == 0) {
+            throw new NoSuchElementException("디바이스의 위치 변경을 실패했습니다. deviceId=" + deviceId);
+        }
+        return deviceId;
+    }
+
+
+    // 디바이스 평면도 좌표 목록 조회
+    public List<DeviceLocationResponse> listDeviceLocations(Integer userId, Integer homeId) {
+        if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
+        if (homeId == null) throw new IllegalArgumentException("homeId는 필수입니다.");
+
+        if (deviceRepository.findUserHomeId(userId, homeId).isEmpty()) {
+            throw new IllegalArgumentException("사용자가 home(" + homeId + ")에 소속되어 있지 않습니다.");
+        }
+
+        List<DeviceRepository.DeviceLocationRow> rows =
+                deviceRepository.findDeviceLocationsInHome(userId, homeId);
+
+        return rows.stream()
+                .map(r -> DeviceLocationResponse.builder()
+                        .positionId(r.getPositionId())
+                        .deviceId(r.getDeviceId())
+                        .homeId(r.getHomeId())
+                        .roomId(r.getRoomId())
+                        .x(r.getX())
+                        .y(r.getY())
+                        .build())
+                .toList();
+    }
 }

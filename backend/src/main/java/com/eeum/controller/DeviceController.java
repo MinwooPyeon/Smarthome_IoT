@@ -2,12 +2,15 @@ package com.eeum.controller;
 
 import com.eeum.dto.request.DeviceStatusRequest;
 import com.eeum.dto.request.RegisterDeviceRequest;
+import com.eeum.dto.request.UpdateDeviceLocationRequest;
+import com.eeum.dto.response.DeviceLocationResponse;
 import com.eeum.service.DeviceService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -49,14 +52,14 @@ public class DeviceController implements ControllerHelper {
     	)
     @GetMapping
     public ResponseEntity<?> listDevices(
-            @RequestParam(name = "active",     required = false) Boolean active,
+            @RequestParam(name = "power",     required = false) Boolean power,
             @RequestParam(name = "type",       required = false) String type,
             @RequestParam(name = "roomName",   required = false) String roomName,
             @RequestParam(name = "deviceName", required = false) String deviceName
     ) {
         try {
             Integer userId = 1;
-            var list = deviceService.findDevices(userId, active, type, roomName, deviceName);
+            var list = deviceService.findDevices(userId, power, type, roomName, deviceName);
             return handleSuccess(list, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
             return handleFail(e, HttpStatus.BAD_REQUEST);
@@ -108,4 +111,60 @@ public class DeviceController implements ControllerHelper {
 	        return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
 	    }
     }
+    
+    @Operation(
+            summary = "디바이스 삭제",
+            description = "사용자가 소유한 디바이스를 삭제합니다. 관련된 device_positions, command, routine_detail 레코드도 함께 삭제됩니다.")
+    @DeleteMapping("/{deviceId}")
+    public ResponseEntity<?> deleteDevice(@PathVariable("deviceId") Integer deviceId) {
+        try {
+            Integer userId = 1;
+            deviceService.deleteDevice(userId, deviceId);
+            return handleSuccess(Map.of("deviceId", deviceId, "deleted", true), HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    
+    
+    @PutMapping("/{deviceId}/location")
+    @Operation(summary = "디바이스 위치 수정", description = "평면도에서 디바이스 위치를 수정합니다.")
+    public ResponseEntity<?> updateLocation(@PathVariable(name = "deviceId") Integer deviceId,
+                                            @RequestBody UpdateDeviceLocationRequest request) {
+        try {
+            Integer userId = 1;
+            Integer resultId = deviceService.updateLocation(userId, deviceId, request);
+            return handleSuccess(java.util.Map.of("deviceId", resultId, "updated", true), HttpStatus.OK);
+        } catch (java.util.NoSuchElementException e) {
+            return handleFail(e, HttpStatus.NOT_FOUND);
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    
+    
+    @Operation(
+            summary = "디바이스 위치 목록 조회",
+            description = """
+                사용자가 현재 선택한 홈에 속한 모든 디바이스의 위치를 반환합니다.
+                """
+        )
+        @GetMapping("/locations")
+        public ResponseEntity<?> listDeviceLocations(
+                @RequestParam("homeId") Integer homeId
+        ) {
+            try {
+                Integer userId = 1;
+                List<DeviceLocationResponse> list = deviceService.listDeviceLocations(userId, homeId);
+                return handleSuccess(list, HttpStatus.OK);
+            } catch (IllegalArgumentException e) {
+                return handleFail(e, HttpStatus.BAD_REQUEST);
+            } catch (Exception e) {
+                return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        }
 }
