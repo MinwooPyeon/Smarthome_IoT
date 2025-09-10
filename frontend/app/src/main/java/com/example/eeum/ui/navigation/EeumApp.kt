@@ -100,7 +100,7 @@ fun EeumApp() {
 @Composable
 private fun MainTabsScreen(mainNavController: androidx.navigation.NavController) {
     val tabNavController = rememberNavController()
-    
+
     M2Scaffold(
         isFloatingActionButtonDocked = true,
         floatingActionButtonPosition = M2FabPosition.Center,
@@ -108,7 +108,6 @@ private fun MainTabsScreen(mainNavController: androidx.navigation.NavController)
         floatingActionButton = {
             EeumFloatingActionButton(
                 onClick = {
-                    // 메인 NavController를 사용해서 음성 화면으로 이동 (BottomNavigation 없음)
                     mainNavController.navigate(VOICE_ROUTE) {
                         launchSingleTop = true
                     }
@@ -116,24 +115,29 @@ private fun MainTabsScreen(mainNavController: androidx.navigation.NavController)
             )
         },
         bottomBar = {
-            val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
-            val currentDestination = navBackStackEntry?.destination
+            //BottomAppBar 자체 높이는 그대로 두고,
+            //아래에 시스템 내비게이션 바 높이만큼 빈 공간을 추가
+            Column {
+                val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
 
-            EeumBottomAppBar(
-                currentDestination = currentDestination,
-                onTabClick = { route ->
-                    tabNavController.navigate(route) {
-                        launchSingleTop = true
-                        restoreState = true
-                        popUpTo(tabNavController.graph.startDestinationId) {
-                            saveState = true
+                EeumBottomAppBar(
+                    currentDestination = currentDestination,
+                    onTabClick = { route ->
+                        tabNavController.navigate(route) {
+                            launchSingleTop = true
+                            restoreState = true
+                            popUpTo(tabNavController.graph.startDestinationId) {
+                                saveState = true
+                            }
                         }
                     }
-                }
-            )
+                )
+                //Spacer가 '밖에' 생기는 여백이라 cutoutShape가 늘어나지 않습니다.
+                Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+            }
         }
     ) { innerPadding ->
-        // 탭 전용 NavHost - BottomNavigation이 있는 화면들만 포함
         NavHost(
             navController = tabNavController,
             startDestination = Tab.Home.route,
@@ -142,9 +146,7 @@ private fun MainTabsScreen(mainNavController: androidx.navigation.NavController)
             composable(Tab.Home.route) { HomeScreen() }
             composable(Tab.Device.route) { DeviceScreen() }
             composable(Tab.Use.route) { EnergyScreen() }
-            composable(Tab.Menu.route) { 
-                MenuScreen(mainNavController) // 메인 NavController 전달 (다른 화면 이동 시)
-            }
+            composable(Tab.Menu.route) { MenuScreen(mainNavController) }
         }
     }
 }
