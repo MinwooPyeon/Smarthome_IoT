@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.tooling.preview.Preview
 import com.example.eeum.data.model.dto.voice.NluUpdate
 import com.example.eeum.util.VoiceBus
 import com.example.eeum.voice.VoiceService
@@ -148,5 +149,13 @@ private fun IntentCard(intent: String, slots: Map<String, String>) {
                 }
             }
         }
+    }
+}
+
+@Preview
+@Composable
+private fun VoiceScreenPreview() {
+    com.example.eeum.ui.theme.EeumTheme(dynamicColor = false) {
+        VoiceScreen()
     }
 }

@@ -69,8 +69,7 @@ fun CreateRoutineSecondScreen(navController: NavController) {
     val showWind = selectedDeviceTitle == "선풍기"
     val showAcTemp = selectedDeviceTitle == "에어컨"
 
-    Box(modifier = Modifier.fillMaxSize().background(PageBg)) {
-        Scaffold(
+    Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 Row(
@@ -193,7 +192,6 @@ fun CreateRoutineSecondScreen(navController: NavController) {
             }
         }
     }
-}
 
 private data class RowItem(val icon: ImageVector, val title: String)
 private data class StateItem(val chip: String, val title: String)
@@ -208,6 +206,15 @@ private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Un
             Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Column(content = content)
         }
+    }
+}
+
+@Preview
+@Composable
+private fun CreateRoutineSecondScreenPreview() {
+    val nav = androidx.navigation.compose.rememberNavController()
+    com.example.eeum.ui.theme.EeumTheme(dynamicColor = false) {
+        CreateRoutineSecondScreen(nav)
     }
 }
 

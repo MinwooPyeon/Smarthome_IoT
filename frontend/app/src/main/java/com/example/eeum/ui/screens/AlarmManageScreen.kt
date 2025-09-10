@@ -52,7 +52,6 @@ private data class AlarmItem(
     val timeMillis: Long // 절대 시간 (epoch millis)
 )
 
-@Preview
 @Composable
 fun AlarmManageScreen(
     navController: NavController? = null,
@@ -67,15 +66,7 @@ fun AlarmManageScreen(
         )
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        Image(
-            painter = painterResource(id = R.drawable.background),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-
-        Column(
+    Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 60.dp)
@@ -129,6 +120,13 @@ fun AlarmManageScreen(
                 }
             }
         }
+    }
+
+@Preview
+@Composable
+private fun AlarmManageScreenPreview() {
+    EeumTheme(dynamicColor = false) {
+        AlarmManageScreen()
     }
 }
 
