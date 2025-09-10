@@ -177,7 +177,7 @@ CREATE TABLE "command" (
 	"command"	TEXT		NULL,
 	"device_id"	INTEGER		NOT NULL,
 	"user_id"	INTEGER		NOT NULL,
-	"model"	text		NULL
+	"model"	text		NOT NULL
 );
 
 CREATE TABLE "addresses" (
@@ -208,7 +208,7 @@ CREATE TABLE "ir_signal" (
 	"tolerance_us"	int		NULL,
 	"protocol_id"	int		NOT NULL,
 	"button_id"	int		NOT NULL,
-	"model"	text		NULL
+	"model"	text		NOT NULL
 );
 
 CREATE TABLE "ir_protocol" (
@@ -338,13 +338,6 @@ REFERENCES "device" (
 	"device_id"
 );
 
-ALTER TABLE "routine_detail" ADD CONSTRAINT "FK_device_TO_routine_detail_2" FOREIGN KEY (
-	"model"
-)
-REFERENCES "device" (
-	"model"
-);
-
 ALTER TABLE "routine_detail" ADD CONSTRAINT "FK_routine_TO_routine_detail_1" FOREIGN KEY (
 	"routine_id"
 )
@@ -373,12 +366,6 @@ REFERENCES "device" (
 	"device_id"
 );
 
-ALTER TABLE "device_positions" ADD CONSTRAINT "FK_device_TO_device_positions_2" FOREIGN KEY (
-	"model"
-)
-REFERENCES "device" (
-	"model"
-);
 
 ALTER TABLE "device_positions" ADD CONSTRAINT "FK_room_TO_device_positions_1" FOREIGN KEY (
 	"room_id"
@@ -422,12 +409,6 @@ REFERENCES "ir_tx_queue" (
 	"tx_id"
 );
 
-ALTER TABLE "ir_event_log" ADD CONSTRAINT "FK_ir_tx_queue_TO_ir_event_log_2" FOREIGN KEY (
-	"model"
-)
-REFERENCES "ir_tx_queue" (
-	"model"
-);
 
 ALTER TABLE "eupmyeondong" ADD CONSTRAINT "FK_gungu_TO_eupmyeondong_1" FOREIGN KEY (
 	"sgg_code"
@@ -513,13 +494,6 @@ REFERENCES "ir_signal" (
 	"signal_id"
 );
 
-ALTER TABLE "ir_tx_queue" ADD CONSTRAINT "FK_ir_signal_TO_ir_tx_queue_2" FOREIGN KEY (
-	"model"
-)
-REFERENCES "ir_signal" (
-	"model"
-);
-
 ALTER TABLE "ir_tx_queue" ADD CONSTRAINT "FK_ir_device_TO_ir_tx_queue_1" FOREIGN KEY (
 	"ir_device_id"
 )
@@ -534,12 +508,6 @@ REFERENCES "ir_button" (
 	"button_id"
 );
 
-ALTER TABLE "command" ADD CONSTRAINT "FK_ir_button_TO_command_2" FOREIGN KEY (
-	"model"
-)
-REFERENCES "ir_button" (
-	"model"
-);
 
 ALTER TABLE "command" ADD CONSTRAINT "FK_device_TO_command_1" FOREIGN KEY (
 	"device_id"
@@ -590,12 +558,6 @@ REFERENCES "ir_button" (
 	"button_id"
 );
 
-ALTER TABLE "ir_signal" ADD CONSTRAINT "FK_ir_button_TO_ir_signal_2" FOREIGN KEY (
-	"model"
-)
-REFERENCES "ir_button" (
-	"model"
-);
 
 ALTER TABLE "ai_routine" ADD CONSTRAINT "FK_routine_icon_TO_ai_routine_1" FOREIGN KEY (
 	"icon_id"
