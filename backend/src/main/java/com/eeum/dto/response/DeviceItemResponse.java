@@ -15,7 +15,7 @@ public class DeviceItemResponse {
     private Integer irDeviceId;
     private String  brand;
     private String  model;
-    private String  type;
+    private String  deviceType;
     private String  deviceName;
     private Instant registeredAt;
     private Map<String, Object> deviceDetail;

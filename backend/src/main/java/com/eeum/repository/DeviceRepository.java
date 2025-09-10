@@ -58,6 +58,8 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
 		);
 	
 
+	
+
     // user_home + 같은 방(room) + 같은 모델(model) 기기 존재 여부
     @Query(value = """
         SELECT EXISTS (
@@ -148,19 +150,98 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
     	        @Param("deviceId") Integer deviceId
     	);
     
+    // 디바이스가 사용자의 소유인지 확인
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1
+                  FROM eeum.device d
+                  JOIN eeum.user_home uh ON uh.user_home_id = d.user_home_id
+                 WHERE d.device_id = :deviceId
+                   AND uh.user_id   = :userId
+            )
+            """, nativeQuery = true)
+        boolean userOwnsDevice(@Param("userId") Integer userId,
+                               @Param("deviceId") Integer deviceId);
     
+    // 디바이스 삭제
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "DELETE FROM eeum.routine_detail WHERE device_id = :deviceId", nativeQuery = true)
+    int deleteRoutineDetails(@Param("deviceId") Integer deviceId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "DELETE FROM eeum.command WHERE device_id = :deviceId", nativeQuery = true)
+    int deleteCommands(@Param("deviceId") Integer deviceId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "DELETE FROM eeum.device_positions WHERE device_id = :deviceId", nativeQuery = true)
+    int deletePositions(@Param("deviceId") Integer deviceId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "DELETE FROM eeum.device WHERE device_id = :deviceId", nativeQuery = true)
+    int deleteDeviceHard(@Param("deviceId") Integer deviceId);
     
 
+    // 디바이스 평면도 위치 수정
+    @Query(value = "SELECT position_id FROM eeum.device_positions WHERE device_id = :deviceId", nativeQuery = true)
+    Optional<Integer> findPositionId(@Param("deviceId") Integer deviceId);
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE eeum.device_positions
+           SET x_coordinate = :x,
+               y_coordinate = :y,
+               room_id      = :roomId,
+               home_id      = :homeId
+         WHERE device_id    = :deviceId
+        """, nativeQuery = true)
+    int updateDevicePosition(@Param("deviceId") Integer deviceId,
+                             @Param("homeId") Integer homeId,
+                             @Param("roomId") Integer roomId,
+                             @Param("x") Double x,
+                             @Param("y") Double y);
+    
+    
+    // 유저 집의 디바이스 위치 목록 조회
+    @Query(value = """
+            SELECT dp.position_id   AS positionId,
+                   dp.device_id     AS deviceId,
+                   uh.home_id       AS homeId,
+                   dp.room_id       AS roomId,
+                   dp.x_coordinate  AS x,
+                   dp.y_coordinate  AS y
+              FROM eeum.device_positions dp
+              JOIN eeum.device d
+                ON d.device_id = dp.device_id
+              JOIN eeum.user_home uh
+                ON uh.user_home_id = d.user_home_id
+             WHERE uh.user_id = :userId
+               AND uh.home_id = :homeId
+             ORDER BY dp.position_id
+            """, nativeQuery = true)
+        List<DeviceLocationRow> findDeviceLocationsInHome(@Param("userId") Integer userId,
+                                                          @Param("homeId") Integer homeId);
+
+    
     interface DeviceRow {
         Integer getDeviceId();
         Integer getRoomId();
         Integer getIrDeviceId();
         String  getBrand();
         String  getModel();
-        String  getType();
+        String  getDeviceType();
         String  getDeviceName();
         Instant getRegisteredAt();
         String  getDeviceDetail(); 
     }
+    
+    
+    interface DeviceLocationRow {
+        Integer getPositionId();
+        Integer getDeviceId();
+        Integer getHomeId();
+        Integer getRoomId();
+        Double  getX();
+        Double  getY();
+    }
+    
 }
