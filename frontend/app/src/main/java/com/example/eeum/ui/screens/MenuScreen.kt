@@ -32,6 +32,7 @@ import com.example.eeum.R
 import com.example.eeum.ui.theme.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.navigation.NavController
@@ -44,14 +45,18 @@ fun MenuScreen(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Brush.horizontalGradient(colors = listOf(Color(0xFFB4E3FD), Color(0xFFCCFCFF))))
-    ) {
+        modifier = modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 40.dp)
+                .padding(horizontal = 16.dp, vertical = 60.dp)
         ) {
         // Header
         Row(
@@ -88,9 +93,9 @@ fun MenuScreen(
                 painter = painterResource(id = R.drawable.ic_user_photo),
                 contentDescription = "프로필",
                 modifier = Modifier
-                    .size(80.dp)
+                    .size(50.dp)
             )
-
+            Spacer(Modifier.width(12.dp))
             Text(
                 text = "태훈태훈",
                 style = TextStyle(
@@ -108,7 +113,7 @@ fun MenuScreen(
             )
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(15.dp))
 
         // Membership pill
         Surface(
@@ -158,7 +163,7 @@ fun MenuScreen(
             text = "서비스",
             color = Gray600,
             style = TextStyle(
-                fontSize = 18.sp,
+                fontSize = 16.sp,
                 fontFamily = FontFamily(Font(R.font.goormsansmedium)),
             ),
         )
@@ -173,7 +178,7 @@ fun MenuScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 20.dp),
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -207,7 +212,7 @@ fun MenuScreen(
             text = "추가 기능",
             color = Gray600,
             style = TextStyle(
-                fontSize = 18.sp,
+                fontSize = 16.sp,
                 fontFamily = FontFamily(Font(R.font.goormsansmedium))
             )
         )
@@ -272,7 +277,7 @@ private fun MenuListItem(icon: Int, tint: Color, text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Image(
@@ -286,7 +291,7 @@ private fun MenuListItem(icon: Int, tint: Color, text: String) {
             text = text,
             color = Gray800,
             style = TextStyle(
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 fontFamily = FontFamily(Font(R.font.goormsansmedium))
             )
         )

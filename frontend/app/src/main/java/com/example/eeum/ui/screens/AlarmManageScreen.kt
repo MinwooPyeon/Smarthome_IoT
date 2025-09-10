@@ -35,6 +35,7 @@ import java.util.Locale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -66,15 +67,19 @@ fun AlarmManageScreen(
         )
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                Brush.horizontalGradient(colors = listOf(Color(0xFFB4E3FD), Color(0xFFCCFCFF)))
-            )
-            .padding(horizontal = 16.dp, vertical = 40.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 60.dp)
+        ) {
             // 헤더
             Box(modifier = Modifier.fillMaxWidth()) {
                 Image(
@@ -169,7 +174,7 @@ private fun AlarmRow(item: AlarmItem) {
                     text = item.title,
                     color = Gray800,
                     style = TextStyle(
-                        fontSize = 20.sp,
+                        fontSize = 16.sp,
                         fontFamily = FontFamily(Font(R.font.goormsansbold))
                     )
                 )
@@ -178,7 +183,7 @@ private fun AlarmRow(item: AlarmItem) {
                     text = relativeTime,
                     color = Gray500,
                     style = TextStyle(
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontFamily = FontFamily(Font(R.font.goormsansmedium))
                     )
                 )
