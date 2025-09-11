@@ -2,7 +2,8 @@ package com.eeum.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.OffsetDateTime;
+
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,10 +25,10 @@ public class Routine {
     private Boolean triggerType;
 
     @Column(name = "created_at")
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at")
-    private OffsetDateTime updatedAt;
+    private Instant updatedAt;
 
     @Column(name = "routine_weekday")
     private Integer routineWeekday;
@@ -39,11 +40,13 @@ public class Routine {
     private Integer userId;
 
     @Column(name = "act_time")
-    private OffsetDateTime actTime;
+    private Instant actTime;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "icon_id", nullable = false)
-    private RoutineIcon icon;
+    @Column(name = "icon_id", nullable = false)
+    private Integer iconId;
+    
+    @Column(name = "is_ai")
+    private Boolean isAi;
 
     @OneToMany(mappedBy = "routine", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RoutineDetail> details = new ArrayList<>();

@@ -26,9 +26,10 @@ public class RoutineController implements ControllerHelper {
 
     // 루틴 생성
     @Operation(summary = "루틴 생성", description = "유저의 루틴을 생성합니다.")
-    @PostMapping("/users/{userId}/routines")
-    public ResponseEntity<?> create(@PathVariable(name = "userId") Integer userId,
-                                    @RequestBody RoutineCreateRequest req) {
+    @PostMapping("/routines")
+    public ResponseEntity<?> create(@RequestBody RoutineCreateRequest req) {
+    	
+    	Integer userId = 1;
         try {
             Integer id = routineService.create(userId, req);
             return handleSuccess(Map.of("routineId", id), HttpStatus.CREATED);
@@ -41,10 +42,10 @@ public class RoutineController implements ControllerHelper {
 
     // 루틴 수정
     @Operation(summary = "루틴 수정", description = "유저의 루틴을 수정합니다.")
-    @PutMapping("/users/{userId}/routines/{routineId}")
-    public ResponseEntity<?> update(@PathVariable(name = "userId") Integer userId,
-                                    @PathVariable(name = "routineId") Integer routineId,
+    @PutMapping("/routines/{routineId}")
+    public ResponseEntity<?> update(@PathVariable(name = "routineId") Integer routineId,
                                     @RequestBody RoutineUpdateRequest req) {
+    	Integer userId = 1;
         try {
             routineService.update(userId, routineId, req);
             return handleSuccess(Map.of("message", "수정 완료"), HttpStatus.OK);
@@ -57,9 +58,10 @@ public class RoutineController implements ControllerHelper {
 
     // 루틴 삭제
     @Operation(summary = "루틴 삭제", description = "유저의 루틴을 삭제합니다.")
-    @DeleteMapping("/users/{userId}/routines/{routineId}")
-    public ResponseEntity<?> delete(@PathVariable(name = "userId") Integer userId,
-                                    @PathVariable(name = "routineId") Integer routineId) {
+    @DeleteMapping("/routines/{routineId}")
+    public ResponseEntity<?> delete(@PathVariable(name = "routineId") Integer routineId) {
+    	Integer userId = 1;
+    	
         try {
             routineService.delete(userId, routineId);
             return handleSuccess(Map.of("message", "삭제 완료"), HttpStatus.OK);
@@ -79,14 +81,15 @@ public class RoutineController implements ControllerHelper {
     	                  - 필터 없으면 전체 반환
     	                  """
     	)
-    	@GetMapping("/users/{userId}/routines")
+    	@GetMapping("/routines")
     	public ResponseEntity<?> list(
-    	        @PathVariable(name = "userId") Integer userId,
     	        @Parameter(description = "요일 비트마스크(월=1<<0,…,일=1<<6). 예: 월=1, 화=2, 월+수=5", example = "5")
-    	        @RequestParam(name = "mask", required = false) Integer mask
+    	        @RequestParam(name = "weekday", required = false) Integer weekday
     	) {
+    	Integer userId = 1;
+    	
     	    try {
-    	        List<RoutineResponse> list = routineService.list(userId, mask);
+    	        List<RoutineResponse> list = routineService.list(userId, weekday);
     	        return handleSuccess(list, HttpStatus.OK);
     	    } catch (IllegalArgumentException e) {
     	        return handleFail(e, HttpStatus.BAD_REQUEST);
@@ -97,9 +100,10 @@ public class RoutineController implements ControllerHelper {
 
     // 루틴 단건 조회
     @Operation(summary = "루틴 단건 조회", description = "유저의 루틴을 조회합니다.")
-    @GetMapping("/users/{userId}/routines/{routineId}")
-    public ResponseEntity<?> get(@PathVariable(name = "userId") Integer userId,
-                                 @PathVariable(name = "routineId") Integer routineId) {
+    @GetMapping("/routines/{routineId}")
+    public ResponseEntity<?> get(@PathVariable(name = "routineId") Integer routineId) {
+    	
+    	Integer userId = 1;
         try {
             RoutineResponse res = routineService.get(userId, routineId);
             return handleSuccess(res, HttpStatus.OK);

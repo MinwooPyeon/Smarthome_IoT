@@ -13,9 +13,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -27,21 +27,16 @@ public class RoutineService {
 
     private final RoutineRepository routineRepository;
     private final ObjectMapper objectMapper;
-    
-    // actTime에서 '하루 중 시간'만 비교
-    private LocalTime timeOfDayOrMax(OffsetDateTime odt) {
-        return (odt == null) ? LocalTime.MAX : odt.toLocalTime();
-    }
 
     // 루틴 생성
     @Transactional
     public Integer create(Integer userId, RoutineCreateRequest req) {
-        if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
+        if (userId == null) {
+            throw new IllegalArgumentException("userId는 필수입니다.");
+        }
         if (req == null || req.getName() == null || req.getName().isBlank()) {
             throw new IllegalArgumentException("name은 필수입니다.");
         }
-
-        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
 
         Routine routine = Routine.builder()
                 .userId(userId)
@@ -50,8 +45,10 @@ public class RoutineService {
                 .routineWeekday(req.getRoutineWeekday())
                 .routineDescription(req.getRoutineDescription())
                 .actTime(req.getActTime())
-                .createdAt(now)
-                .updatedAt(now)
+                .iconId(req.getIconId())  
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .isAi(true)
                 .build();
 
         // 요청 detail -> 엔티티 변환
@@ -92,7 +89,7 @@ public class RoutineService {
             entity.getDetails().addAll(newDetails);
         }
 
-        entity.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        entity.setUpdatedAt(Instant.now());
     }
 
     // 루틴 삭제
@@ -110,23 +107,24 @@ public class RoutineService {
 
     // 루틴 목록 조회 (요일 비트마스크로 필터 → 시간순 정렬)
     @Transactional(readOnly = true)
-    public List<RoutineResponse> list(Integer userId, Integer mask) {
+    public List<RoutineResponse> list(Integer userId, Integer weekday) {
         if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
 
-        // actTime의 '하루 시간' 기준 오름차순
-        Comparator<Routine> cmp = Comparator
-                .comparing((Routine r) -> timeOfDayOrMax(r.getActTime()))
+        Comparator<Routine> cmp = Comparator.<Routine, LocalTime>comparing(r -> {
+            Instant actTime = r.getActTime();
+            return (actTime == null)
+                    ? LocalTime.MAX
+                    : actTime.atZone(ZoneId.of("Asia/Seoul")).toLocalTime();
+        })
                 .thenComparing(r -> r.getRoutineId() == null ? Integer.MAX_VALUE : r.getRoutineId());
 
-        // 요일 적용하여 조회
-            return routineRepository.findAllWithDetailsByUserId(userId).stream()
-                .filter(r -> mask == null || mask == 0
-                      || (r.getRoutineWeekday() != null && ((r.getRoutineWeekday() & mask) != 0)))
+        return routineRepository.findAllWithDetailsByUserId(userId).stream()
+                .filter(r -> weekday == null || weekday == 0
+                        || (r.getRoutineWeekday() != null && ((r.getRoutineWeekday() & weekday) != 0)))
                 .sorted(cmp)
                 .map(this::toResponseWithDetails)
                 .toList();
-        }
-    
+    }
 
     // 루틴 단건 조회
     @Transactional(readOnly = true)
@@ -177,7 +175,7 @@ public class RoutineService {
                         .map(d -> new RoutineDetailResponse(
                                 d.getRoutineDetailId(),
                                 d.getDeviceId(),
-                                d.getRoutine().getRoutineId(),
+                                e.getRoutineId(),
                                 d.getDeviceDetail()
                         ))
                         .toList());
@@ -191,6 +189,8 @@ public class RoutineService {
                 e.getActTime(),
                 e.getCreatedAt(),
                 e.getUpdatedAt(),
+                e.getIconId(),
+                e.getIsAi(),
                 detailDtos
         );
     }
