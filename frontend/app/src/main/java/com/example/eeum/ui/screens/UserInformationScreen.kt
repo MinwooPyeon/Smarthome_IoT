@@ -138,7 +138,7 @@ NicknameField(value = "캐리좀", onClickChange = { _ /* newNickname */ -> /* T
             Spacer(Modifier.height(40.dp))
 
             // 주요 버튼들
-            PrimaryWideButton(text = "비밀번호 변경", onClick = { /* TODO */ })
+            PrimaryWideButton(text = "비밀번호 변경", onClick = { navController?.navigate("password_change") })
             Spacer(Modifier.height(24.dp))
             SecondaryWideButton(text = "로그아웃", onClick = { /* TODO */ })
 
