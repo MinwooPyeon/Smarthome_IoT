@@ -32,6 +32,20 @@ services:
     volumes:
       - eeum-redis-data:/data
 
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: always
+    networks:
+      - eeum-net
+    volumes:
+      - /srv/eeum/mosquitto/config:/mosquitto/config
+      - /srv/eeum/mosquitto/data:/mosquitto/data
+      - /srv/eeum/mosquitto/log:/mosquitto/log
+    ports:
+      - "1883:1883"
+      # - "9001:9001"
+
   eeum:
     build:
       context: .
@@ -44,6 +58,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mosquitto:
+        condition: service_started
     networks:
       - eeum-net
     environment:
@@ -54,6 +70,9 @@ services:
       DB_PASSWORD: eeum
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      MQTT_BROKER: tcp://mosquitto:1883
+      MQTT_USERNAME: eeum
+      MQTT_PASSWORD: ssafy2086eeum
     expose:
       - "8081"
 
