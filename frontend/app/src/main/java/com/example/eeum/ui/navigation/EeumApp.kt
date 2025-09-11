@@ -26,6 +26,7 @@ import com.example.eeum.ui.screens.CreateRoutineSecondScreen
 import com.example.eeum.ui.screens.LoginScreen
 import com.example.eeum.ui.screens.LogManageScreen
 import com.example.eeum.ui.screens.AlarmManageScreen
+import com.example.eeum.ui.screens.MapScreen
 import com.example.eeum.ui.screens.UserInformationScreen
 
 import androidx.compose.material.Scaffold as M2Scaffold
@@ -43,6 +44,8 @@ private const val ROUTINE_ROUTE = "routine"
 private const val ROUTE_CREATE_ROUTINE_FIRST = "createRoutineFirst"
 private const val ROUTE_CREATE_ROUTINE_SECOND = "createRoutineSecond"
 private const val USER_INFORMATION_ROUTE = "user_information"
+
+private const val MAP_ROUTE = "map"
 
 @Composable
 fun EeumApp() {
@@ -89,6 +92,12 @@ fun EeumApp() {
             
             composable(USER_INFORMATION_ROUTE) {
                 UserInformationScreen(navController)
+            }
+
+            composable(MAP_ROUTE) {
+                MapScreen(
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
 }
@@ -144,6 +153,11 @@ private fun MainTabsScreen(mainNavController: androidx.navigation.NavController)
             composable(Tab.Device.route) { DeviceScreen() }
             composable(Tab.Use.route) { EnergyScreen() }
             composable(Tab.Menu.route) { MenuScreen(mainNavController) }
+            composable(Tab.Home.route) {
+                HomeScreen(
+                    onOpenMap = { mainNavController.navigate(MAP_ROUTE) }
+                )
+            }
         }
     }
 }

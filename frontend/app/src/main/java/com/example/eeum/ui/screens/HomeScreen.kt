@@ -1,8 +1,5 @@
 package com.example.eeum.ui.screens
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,23 +12,24 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.example.eeum.R
+import com.example.eeum.ui.theme.EeumTheme
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onOpenMap: () -> Unit = {}
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 24.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 60.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -62,26 +60,18 @@ fun HomeScreen() {
                 }
             }
         }
-            Spacer(Modifier.height(12.dp))
-            StatsRow()
-            Spacer(Modifier.height(24.dp))
-            FloorplanHeader(
-                title = "우리 집 평면도",
-                onAddClick = { /* TODO */ }
-            )
-            Spacer(Modifier.height(12.dp))
-            FloorplanCard(
-                onCardClick = { /* TODO */ }
-            )
-            Spacer(Modifier.height(16.dp))
-        }
-    }
-
-@Preview
-@Composable
-private fun HomeScreenPreview() {
-    com.example.eeum.ui.theme.EeumTheme(dynamicColor = false) {
-        HomeScreen()
+        Spacer(Modifier.height(12.dp))
+        StatsRow()
+        Spacer(Modifier.height(24.dp))
+        FloorplanHeader(
+            title = "우리 집 평면도",
+            onAddClick = { /* TODO */ }
+        )
+        Spacer(Modifier.height(12.dp))
+        FloorplanCard(
+            onCardClick = onOpenMap
+        )
+        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -234,5 +224,13 @@ private fun FloorplanCard(onCardClick: () -> Unit) {
                 modifier = Modifier.size(32.dp)
             )
         }
+    }
+}
+
+@Composable
+@Preview(showBackground = true)
+private fun HomeScreenPreview() {
+    EeumTheme(dynamicColor = false) {
+        HomeScreen()
     }
 }
