@@ -3,9 +3,12 @@ package com.example.eeum.ui.screens
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
@@ -30,21 +33,35 @@ fun HomeScreen() {
             .fillMaxSize()
             .padding(horizontal = 16.dp, vertical = 24.dp)
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Greeting("제니님!")
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy((-5).dp)
             ) {
-                Greeting("제니님!")
+                IconButton(onClick = { /* TODO: settings */ }) {
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = "설정",
+                        modifier = Modifier.size(24.dp),
+                        tint = Color(0xFF475569)
+                    )
+                }
                 IconButton(onClick = { /* TODO: notifications */ }) {
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_alarm),
+                        imageVector = Icons.Filled.Notifications,
                         contentDescription = "알림",
-                        tint = Color(0xFF475569),
-                        modifier = Modifier.size(width = 15.dp, height = 18.dp)
+                        modifier = Modifier.size(24.dp),
+                        tint = Color(0xFF475569)
                     )
                 }
             }
+        }
             Spacer(Modifier.height(12.dp))
             StatsRow()
             Spacer(Modifier.height(24.dp))
@@ -53,7 +70,9 @@ fun HomeScreen() {
                 onAddClick = { /* TODO */ }
             )
             Spacer(Modifier.height(12.dp))
-            FloorplanCard() // 내부 비워둠 (향후 평면도 삽입)
+            FloorplanCard(
+                onCardClick = { /* TODO */ }
+            )
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -185,20 +204,35 @@ private fun FloorplanHeader(title: String, onAddClick: () -> Unit) {
             fontWeight = FontWeight.Medium,
             color = Color(0xFF0F172A)
         )
-        Icon(Icons.Outlined.Add, contentDescription = "추가", tint = Color(0xFF0F172A))
+        Icon(
+            painter = painterResource(id = R.drawable.ic_move),
+            contentDescription = "이동",
+            tint = Color(0xFF0F172A)
+        )
     }
 }
 
 @Composable
-private fun FloorplanCard() {
+private fun FloorplanCard(onCardClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(520.dp),
+            .height(350.dp)
+            .clickable { onCardClick() },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF7FBFF)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Add,
+                contentDescription = "추가",
+                tint = Color(0xFF64748B),
+                modifier = Modifier.size(32.dp)
+            )
+        }
     }
 }

@@ -108,4 +108,6 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
+
+    implementation("com.naver.maps:map-sdk:3.17.0")
 }
