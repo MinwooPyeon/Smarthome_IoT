@@ -27,6 +27,7 @@ import com.example.eeum.ui.screens.LoginScreen
 import com.example.eeum.ui.screens.LogManageScreen
 import com.example.eeum.ui.screens.AlarmManageScreen
 import com.example.eeum.ui.screens.UserInformationScreen
+import com.example.eeum.ui.screens.PasswordChangeScreen
 
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
@@ -43,6 +44,7 @@ private const val ROUTINE_ROUTE = "routine"
 private const val ROUTE_CREATE_ROUTINE_FIRST = "createRoutineFirst"
 private const val ROUTE_CREATE_ROUTINE_SECOND = "createRoutineSecond"
 private const val USER_INFORMATION_ROUTE = "user_information"
+private const val PASSWORD_CHANGE_ROUTE = "password_change"
 
 @Composable
 fun EeumApp() {
@@ -89,6 +91,10 @@ fun EeumApp() {
             
             composable(USER_INFORMATION_ROUTE) {
                 UserInformationScreen(navController)
+            }
+
+            composable(PASSWORD_CHANGE_ROUTE) {
+                PasswordChangeScreen(navController)
             }
         }
 }
