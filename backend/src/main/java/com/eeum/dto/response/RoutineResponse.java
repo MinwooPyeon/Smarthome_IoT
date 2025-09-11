@@ -2,19 +2,22 @@ package com.eeum.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import java.time.OffsetDateTime;
+
+import java.time.Instant;
 import java.util.List;
 
 @Getter
 @AllArgsConstructor
 public class RoutineResponse {
     private Integer routineId;
-    private String  name;
+    private String name;
     private Boolean triggerType;
     private Integer routineWeekday;
-    private String  routineDescription;
-    private OffsetDateTime actTime;
-    private OffsetDateTime createdAt;
-    private OffsetDateTime updatedAt;
+    private String routineDescription;
+    private Instant actTime;
+    private Instant createdAt;
+    private Instant updatedAt;
+    private Integer iconId;
+    private Boolean isAi;
     private List<RoutineDetailResponse> details;
 }
