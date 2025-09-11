@@ -10,24 +10,39 @@ import com.eeum.entity.Floorplan;
 
 public interface FloorplanRepository extends JpaRepository<Floorplan, Integer> {
 	
-	// homeId 기준으로 평면도 목록 조회
-	List<Floorplan> findByHomeId(Integer homeId);
-	
-    @Query(value = """
-        select
-          fp.floorplan_id as floorplanId,
-          fp.image_url    as imageUrl
-        from floorplans fp
-        join user_home uh
-          on uh.floorplan_id = fp.floorplan_id
-        where uh.user_id = :userId
-          and uh.floorplan_id is not null
-        order by fp.floorplan_id
-        """, nativeQuery = true)
-    List<FloorplanSummary> findUserSelectedFloorplans(@Param("userId") Integer userId);
-
-    interface FloorplanSummary {
-        Integer getFloorplanId();
-        String  getImageUrl();
-    }
+	// 주소로 평면도 조회
+    @Query("""
+            select f
+            from Floorplan f
+            join Home h on h.homeId = f.homeId
+            join UserHome uh on uh.homeId = h.homeId
+            where uh.userId = :userId
+              and (:addressId is null or h.addressId = :addressId)
+            order by f.createdAt desc
+        """)
+        List<Floorplan> findAllByUserIdAndAddressId(@Param("userId") Integer userId,
+                                                    @Param("addressId") Integer addressId);
+    
+    
+    // 특정 homeId의 평면도
+    @Query("""
+            select f
+            from Floorplan f
+            where f.homeId = :homeId
+            order by f.createdAt desc
+        """)
+        List<Floorplan> findAllByHomeId(@Param("homeId") Integer homeId);
+    
+    
+    // 사용자가 소속된 집들의 평면도 전체 조회
+//    @Query("""
+//            select f
+//            from Floorplan f
+//            join Home h on h.homeId = f.homeId
+//            join UserHome uh on uh.homeId = h.homeId
+//            where uh.userId = :userId
+//            order by f.createdAt desc
+//        """)
+//        List<Floorplan> findAllByUserHomes(@Param("userId") Integer userId);
+    
 }
