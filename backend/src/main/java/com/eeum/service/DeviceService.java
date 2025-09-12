@@ -159,67 +159,81 @@ public class DeviceService {
     }
 
     // 디바이스 상태 변경
-	public Integer updateStatus(Integer deviceId, DeviceStatusRequest request) {
-		
-	    if (deviceId == null) {
-	        throw new IllegalArgumentException("deviceId는 필수입니다.");
-	    }
-	    if (request == null || request.getDeviceDetail() == null) {
-	        throw new IllegalArgumentException("deviceDetail은 필수입니다.");
-	    }
+    @Transactional
+    public Integer updateStatus(Integer deviceId, DeviceStatusRequest request) {
+        if (deviceId == null) {
+            throw new IllegalArgumentException("deviceId는 필수입니다.");
+        }
+        if (request == null || request.getDeviceDetail() == null) {
+            throw new IllegalArgumentException("deviceDetail은 필수입니다.");
+        }
 
-	    Device device = deviceRepository.findById(deviceId)
-	            .orElseThrow(() -> new IllegalArgumentException("Device not found: " + deviceId));
+        Device device = deviceRepository.findById(deviceId)
+            .orElseThrow(() -> new IllegalArgumentException("Device not found: " + deviceId));
 
-	    // 기존 deviceDetail 읽기
-	    JsonNode current = toObjectNodeOrEmpty(device.getDeviceDetail());
+        // 1) 기존 값(Map) -> JsonNode로
+        JsonNode currentNode = toObjectNodeOrEmpty(device.getDeviceDetail());
 
-	    // 새로 들어온 JSON
-	    JsonNode patch = request.getDeviceDetail();
+        // 2) 들어온 패치(JsonNode)
+        JsonNode patchNode = request.getDeviceDetail();
+        if (!patchNode.isObject()) {
+            throw new IllegalArgumentException("deviceDetail은 JSON object여야 합니다.");
+        }
 
-	    // 기존 JSON과 병합
-	    JsonNode merged = deepMerge(current, patch);
+        // 3) 깊은 병합
+        JsonNode mergedNode = deepMerge(currentNode, patchNode);
 
-	    Map<String, Object> mergedMap = objectMapper.convertValue(
-	            merged, new TypeReference<Map<String, Object>>() {}
-	    );
-	    device.setDeviceDetail(mergedMap);
+        // 4) 다시 Map으로 변환하여 엔티티에 저장
+        Map<String, Object> mergedMap = objectMapper.convertValue(
+            mergedNode, new TypeReference<Map<String, Object>>() {}
+        );
 
-	    deviceRepository.save(device);
-	    return device.getDeviceId();
-	}
-	
-	// 기존 Map<String,Object>를 ObjectNode로 변환 (null이면 빈 객체)
-	private ObjectNode toObjectNodeOrEmpty(Map<String, Object> src) {
-	    if (src == null) {
-	        return objectMapper.createObjectNode();
-	    }
-	    JsonNode node = objectMapper.valueToTree(src);
-	    if (node != null && node.isObject()) {
-	        return (ObjectNode) node;
-	    }
+        device.setDeviceDetail(mergedMap);
+        deviceRepository.save(device);
+        return device.getDeviceId();
+    }
 
-	    return objectMapper.createObjectNode();
-	}
+    /**
+     * 기존 Map<String, Object>를 ObjectNode로 바꿔준다.
+     */
+    private ObjectNode toObjectNodeOrEmpty(Map<String, Object> source) {
+        if (source == null) {
+            return objectMapper.createObjectNode();
+        }
+        JsonNode node = objectMapper.valueToTree(source);
+        if (node != null && node.isObject()) {
+            return (ObjectNode) node;
+        }
+        
+        ObjectNode wrapper = objectMapper.createObjectNode();
+        wrapper.set("value", node == null ? objectMapper.nullNode() : node);
+        return wrapper;
+    }
 
-	/** 깊은 병합: 객체는 키 단위로 병합, 배열/스칼라는 통째 교체 */
-	private JsonNode deepMerge(JsonNode base, JsonNode patch) {
-	    if (patch == null || patch.isNull()) return base;
-	    if (!base.isObject() || !patch.isObject()) return patch;
+    /**
+     * JSON 깊은 병합 (ObjectNode 기준)
+     * - 같은 key가 Object/Object면 재귀 병합
+     * - 배열은 들어온 값으로 대체
+     */
+    private ObjectNode deepMerge(JsonNode current, JsonNode patch) {
+        ObjectNode result = current.isObject()
+            ? ((ObjectNode) current).deepCopy()
+            : objectMapper.createObjectNode();
 
-	    ObjectNode baseObj = (ObjectNode) base;
-	    patch.fieldNames().forEachRemaining(field -> {
-	        JsonNode patchValue = patch.get(field);
-	        JsonNode baseValue  = baseObj.get(field);
+        patch.fields().forEachRemaining(entry -> {
+            String field = entry.getKey();
+            JsonNode patchValue = entry.getValue();
+            JsonNode currentValue = result.get(field);
 
-	        if (baseValue != null && baseValue.isObject() && patchValue.isObject()) {
-	            deepMerge(baseValue, patchValue);
-	        } else {
-	            baseObj.set(field, patchValue);
-	        }
-	    });
-	    return baseObj;
-	}
+            if (currentValue != null && currentValue.isObject() && patchValue.isObject()) {
+                result.set(field, deepMerge(currentValue, patchValue));
+            } else {
+                result.set(field, patchValue);
+            }
+        });
+        return result;
+    }
+
 	
 	// 디바이스 삭제
     @Transactional
