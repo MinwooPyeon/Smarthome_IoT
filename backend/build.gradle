@@ -43,7 +43,7 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.12")
 	implementation "com.vladmihalcea:hibernate-types-60:2.21.1"
-	
+	implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
 	
 }
 
