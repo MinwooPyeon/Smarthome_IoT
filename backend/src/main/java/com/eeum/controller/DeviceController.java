@@ -94,6 +94,7 @@ public class DeviceController implements ControllerHelper {
     	    device_detail을 부분 갱신합니다.
     	    - 요청 JSON은 **부분 파라미터**만 포함해도 됩니다.
     	    - 예) { "power": true }만 보내면 기존 level 등 다른 필드는 유지됩니다.
+    	    - power, temperature, level만 입력 가능합니다.
     	    """
     	)
     @PutMapping("/{deviceId}/status")
