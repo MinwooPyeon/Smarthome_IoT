@@ -12,3 +12,4 @@ backend/.gradle/buildOutputCleanup/buildOutputCleanup.lock
 backend/.gradle/buildOutputCleanup/cache.properties
 backend/.gradle/vcs-1/gc.properties
 backend/.settings/org.eclipse.buildship.core.prefs
+esp-idf/

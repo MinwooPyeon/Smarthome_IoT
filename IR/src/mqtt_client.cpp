@@ -120,7 +120,7 @@ bool MqttClient::subscribe(const std::string& topic) {
     if (!mosq || !connected) {
         return false;
     }
-    
+
     int result = mosquitto_subscribe(mosq, nullptr, topic.c_str(), 0);
     return result == MOSQ_ERR_SUCCESS;
 #endif
@@ -132,7 +132,6 @@ void MqttClient::setMessageCallback(std::function<void(const std::string&, const
 
 void MqttClient::loop() {
 #ifdef _WIN32
-    // Windows에서는 아무것도 하지 않음
 #else
     if (mosq) {
         mosquitto_loop(mosq, 0, 1);

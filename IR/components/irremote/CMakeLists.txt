@@ -2,10 +2,9 @@
 idf_component_register(
     SRCS 
         "src/config.cpp"
-        "src/ir_receiver.cpp"
         "src/irsend.cpp"
-        "src/appliance_controller.cpp"
         "src/mqtt_client.cpp"
+        "src/serial_controller.cpp"
     INCLUDE_DIRS 
         "header"
     REQUIRES 
@@ -14,10 +13,8 @@ idf_component_register(
         esp_netif
         esp_event
         nvs_flash
-        esp_http_client
         json
-        fatfs
-        spiffs
         esp_timer
         freertos
+        mqtt
 )
