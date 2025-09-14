@@ -1,6 +1,6 @@
-
 package com.example.eeum
 
+import com.example.eeum.BuildConfig // ← 여기 확인!
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val TAG = "EEUM_MainActivity"
+
 class MainActivity : ComponentActivity() {
 
     private val perms by lazy { PermissionRequester.from(this) }
@@ -36,22 +37,27 @@ class MainActivity : ComponentActivity() {
                 EeumApp()
             }
         }
-        requestStartupPermissions()
+        requestStartupPermissions() // 앱 시작 시 모든 권한(마이크+알림+위치) 요청
     }
 
     private fun requestStartupPermissions() {
         val toRequest = buildList {
+            // 음성
             add(android.Manifest.permission.RECORD_AUDIO)
-
+            // 알림 (T+)
             if (Build.VERSION.SDK_INT >= 33) {
                 add(android.Manifest.permission.POST_NOTIFICATIONS)
             }
+            // 지도용 위치 권한(포그라운드) — 배경 위치는 여기서 요청하지 않음
+            add(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+            add(android.Manifest.permission.ACCESS_FINE_LOCATION)
         }.toTypedArray()
 
         perms.ensurePermissions(
             context = this,
             *toRequest,
             onGranted = {
+                // 권한 OK → 기존 로직 유지
                 lifecycleScope.launch {
                     try {
                         val dir = DeviceDirectoryCache(RetrofitUtil.deviceService)
@@ -78,7 +84,8 @@ class MainActivity : ComponentActivity() {
                         }
 
                         ContextCompat.startForegroundService(
-                            this@MainActivity, Intent(this@MainActivity, VoiceService::class.java)
+                            this@MainActivity,
+                            Intent(this@MainActivity, VoiceService::class.java)
                         )
                     } catch (e: Exception) {
                         Log.d(TAG, "requestStartupPermissions: ERROR - ${e.message}")
@@ -89,7 +96,7 @@ class MainActivity : ComponentActivity() {
                 if (permanentlyDenied.isNotEmpty()) {
                     showGoToSettingsDialog()
                 } else {
-                    Toast.makeText(this, "권한이 필요합니다.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "필수 권한이 거부되어 일부 기능이 제한됩니다.", Toast.LENGTH_SHORT).show()
                 }
             }
         )
@@ -98,7 +105,7 @@ class MainActivity : ComponentActivity() {
     private fun showGoToSettingsDialog() {
         AlertDialog.Builder(this)
             .setTitle("권한이 필요합니다")
-            .setMessage("음성 인식을 사용하려면 마이크 권한이 필요합니다. 설정에서 허용해 주세요.")
+            .setMessage("마이크/알림/위치 권한을 허용해야 전체 기능을 사용할 수 있습니다. 설정에서 허용해 주세요.")
             .setPositiveButton("설정 열기") { d, _ ->
                 d.dismiss()
                 PermissionRequester.openAppSettings(this)
@@ -107,4 +114,3 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 }
-

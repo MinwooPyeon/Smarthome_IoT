@@ -5,7 +5,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.PackageManager
-import android.os.Build
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
@@ -38,8 +37,6 @@ import androidx.core.app.ActivityCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.eeum.ui.theme.EeumTheme
-import com.example.eeum.util.LocalPermissionRequester
-import com.example.eeum.util.PermissionRequester
 import com.google.android.gms.location.LocationServices
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.map.CameraPosition
@@ -151,9 +148,8 @@ fun MapScreen(
 private fun NaverMapViewComposable() {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val permissionRequester = LocalPermissionRequester.current
 
-    // SDK Client 보장 주입 (Manifest 메타데이터에서 읽어 MapView 생성 전에 1회 설정)
+    // MapView 생성 전에 Client ID 주입 보장
     remember {
         runCatching {
             val ai = context.packageManager.getApplicationInfo(
@@ -165,13 +161,10 @@ private fun NaverMapViewComposable() {
             NaverMapSdk.getInstance(context).client =
                 NaverMapSdk.NaverCloudPlatformClient(cid!!)
             Log.d("NaverMap", "CLIENT_ID set from Manifest: $cid")
-        }.onFailure {
-            Log.e("NaverMap", "Failed to set CLIENT_ID", it)
-        }
+        }.onFailure { Log.e("NaverMap", "Failed to set CLIENT_ID", it) }
         true
     }
 
-    // MapView는 한 번만 생성
     val mapView = remember { MapView(context) }
 
     // 수명주기 연결
@@ -196,11 +189,7 @@ private fun NaverMapViewComposable() {
         factory = {
             mapView.apply {
                 getMapAsync { naverMap ->
-                    setupNaverMap(
-                        naverMap = naverMap,
-                        context = context,
-                        permissionRequester = permissionRequester
-                    )
+                    setupNaverMap(naverMap, context)
                 }
             }
         },
@@ -212,8 +201,7 @@ private fun NaverMapViewComposable() {
 
 private fun setupNaverMap(
     naverMap: NaverMap,
-    context: Context,
-    permissionRequester: PermissionRequester?
+    context: Context
 ) {
     // 기본 카메라(서울시청)
     val defaultPos = CameraPosition(
@@ -224,45 +212,27 @@ private fun setupNaverMap(
 
     // UI 설정
     naverMap.uiSettings.apply {
-        isLocationButtonEnabled = true
         isCompassEnabled = true
         isScaleBarEnabled = true
         isZoomControlEnabled = true
+        // 현위치 버튼은 권한 있을 때만 켭니다(없으면 클릭 시 권한요청 로직이 붙어버리므로 꺼둠)
+        isLocationButtonEnabled = hasAnyLocationPermission(context)
     }
 
-    val activity = context.findComponentActivity() ?: run {
-        naverMap.uiSettings.isLocationButtonEnabled = false
-        return
-    }
+    val activity = context.findComponentActivity() ?: return
 
-    // Google Play Services Location API 가용성 (누락/미탑재 기기 방지)
+    // Google Play Services Location API 가용성 확인
     val hasGmsLocation = try {
         Class.forName("com.google.android.gms.location.LocationCallback"); true
-    } catch (_: ClassNotFoundException) {
-        false
-    }
-    if (!hasGmsLocation) {
-        naverMap.uiSettings.isLocationButtonEnabled = false
-        return
-    }
+    } catch (_: ClassNotFoundException) { false }
+    if (!hasGmsLocation) return
 
-    val permissions = arrayOf(
-        Manifest.permission.ACCESS_COARSE_LOCATION,
-        Manifest.permission.ACCESS_FINE_LOCATION
-    )
-
-    // 주입된 PermissionRequester 사용
-    if (permissionRequester?.hasPermissions(activity, *permissions) == true) {
+    if (hasAnyLocationPermission(context)) {
         enableLocationTracking(naverMap, activity)
     } else {
-        permissionRequester?.ensurePermissions(
-            context = activity,
-            permissions = permissions,
-            onGranted = { enableLocationTracking(naverMap, activity) },
-            onDenied = { _, _ -> naverMap.uiSettings.isLocationButtonEnabled = false }
-        ) ?: run {
-            naverMap.uiSettings.isLocationButtonEnabled = false
-        }
+        // 권한 없으면 위치 기능만 비활성화(요청은 MainActivity에서만 수행)
+        naverMap.locationSource = null
+        naverMap.locationTrackingMode = LocationTrackingMode.None
     }
 }
 
@@ -295,11 +265,22 @@ private fun enableLocationTracking(naverMap: NaverMap, activity: Activity) {
     }
 }
 
+private fun hasAnyLocationPermission(ctx: Context): Boolean {
+    val fine = ActivityCompat.checkSelfPermission(
+        ctx, Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    val coarse = ActivityCompat.checkSelfPermission(
+        ctx, Manifest.permission.ACCESS_COARSE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    return fine || coarse
+}
+
+// Context → ComponentActivity 안전 추출
 private fun Context.findComponentActivity(): ComponentActivity? {
-    var ctx: Context? = this
-    while (ctx is ContextWrapper) {
-        if (ctx is ComponentActivity) return ctx
-        ctx = ctx.baseContext
+    var c: Context? = this
+    while (c is ContextWrapper) {
+        if (c is ComponentActivity) return c
+        c = c.baseContext
     }
     return null
 }
@@ -307,7 +288,5 @@ private fun Context.findComponentActivity(): ComponentActivity? {
 @Preview(showBackground = true)
 @Composable
 private fun MapScreenPreview() {
-    EeumTheme(dynamicColor = false) {
-        MapScreen()
-    }
+    EeumTheme(dynamicColor = false) { MapScreen() }
 }
