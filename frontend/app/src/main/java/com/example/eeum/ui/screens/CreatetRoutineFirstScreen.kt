@@ -1,6 +1,10 @@
 package com.example.eeum.ui.screens
 
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.widget.NumberPicker
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -14,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -22,8 +27,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -114,8 +122,13 @@ fun CreateRoutineFirstScreen(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
+                            // 이미지 선택 영역 (아바타 + 카메라 버튼)
+                            RoutineImagePicker(
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+
                             Text("루틴 이름", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                             OutlinedTextField(
                                 value = title,
@@ -283,7 +296,7 @@ fun CreateRoutineFirstScreen(navController: NavController) {
                     ) { Text("완료", fontSize = 16.sp, fontWeight = FontWeight.Medium) }
                 }
             }
-        }
+    }
 
         //시간 휠 다이얼로그
         if (showTimePicker) {
@@ -299,6 +312,76 @@ fun CreateRoutineFirstScreen(navController: NavController) {
             )
         }
     }
+
+// 프로필/루틴 이미지 업로드 영역
+@Composable
+private fun RoutineImagePicker(modifier: Modifier = Modifier) {
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        selectedImageUri = uri
+    }
+    val context = LocalContext.current
+    val imageBitmap = remember(selectedImageUri) {
+        selectedImageUri?.let { uri ->
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                }
+            }.getOrNull()
+        }
+    }
+
+    val corner = 12.dp
+
+    Box(modifier = modifier.size(120.dp)) {
+        // 외곽 Surface도 12dp 라운드로!
+        Surface(
+            shape = RoundedCornerShape(corner),
+            color = Color.White,
+            border = BorderStroke(1.dp, BorderGray),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (imageBitmap != null) {
+                Image(
+                    bitmap = imageBitmap,
+                    contentDescription = "routine image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(corner))  // 내부 이미지도 동일 반경으로 클립
+                )
+            } else {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_mainlogo),
+                    contentDescription = "placeholder",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(corner))  // 플레이스홀더도 동일
+                )
+            }
+        }
+
+        // 카메라(추가) 버튼
+        Surface(
+            shape = CircleShape,
+            color = TextBlue,
+            shadowElevation = 4.dp,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .size(36.dp)
+                .clickable { launcher.launch("image/*") }
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = "이미지 추가",
+                tint = Color.White,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
+    }
+}
+
 
 @Composable
 private fun ActionCard(
@@ -532,11 +615,4 @@ private fun WheelPicker(
             picker.value = value
         }
     )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun Preview_CreatetRoutineFirstScreen() {
-    val nav = rememberNavController()
-    CreateRoutineFirstScreen(navController = nav)
 }
