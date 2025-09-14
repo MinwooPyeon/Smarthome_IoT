@@ -29,6 +29,7 @@ import com.example.eeum.data.model.dto.voice.IntentResult
 import com.example.eeum.data.model.dto.voice.NluUpdate
 import com.example.eeum.data.remote.RetrofitUtil
 import com.example.eeum.data.remote.repository.DeviceRepository
+import com.example.eeum.data.remote.repository.RoutineRepository
 import com.example.eeum.util.ResourceUtils
 import com.example.eeum.util.RuleCompiler
 import com.example.eeum.util.VoiceBus
@@ -107,8 +108,8 @@ class VoiceService : Service() {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             Log.e(TAG, "SpeechRecognizer not available"); return
         }
-        if (isListening) { Log.d(TAG, "already listening"); return }  // ★
-        isListening = true                                                        // ★
+        if (isListening) { Log.d(TAG, "already listening"); return }
+        isListening = true
 
         recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
             setRecognitionListener(object : RecognitionListener {
@@ -156,7 +157,6 @@ class VoiceService : Service() {
             return
         }
 
-        // ★ 지연 초기화: 캐시가 이제 준비됐으면 여기서 UseCase 구성
         if (!::useCase.isInitialized) {
             val dir = VoiceDeps.directory
             if (dir == null) {
@@ -165,14 +165,15 @@ class VoiceService : Service() {
                 return
             } else {
                 val repo = DeviceRepository(RetrofitUtil.deviceService, dir)
-                useCase = VoiceUseCase(repo)
+                val routineRepo = RoutineRepository(RetrofitUtil.routineService)
+                useCase = VoiceUseCase(repo, routineRepo)
                 Log.d(TAG, "UseCase lazily initialized")
             }
         }
 
         ProcessLifecycleOwner.get().lifecycleScope.launch {
             try {
-                val effects = useCase.run(intents) // ← 여기서 API까지 포함 실행
+                val effects = useCase.run(intents, text)
                 effects.forEach { eff ->
                     when (eff) {
                         is AppEffect.Speak -> {

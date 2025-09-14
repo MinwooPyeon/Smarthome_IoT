@@ -83,6 +83,32 @@ class DeviceRepository(
         Result.success(ok)
     }
 
+    suspend fun bulkSetPowerRoomFamily(
+        baseRoom: String,         // 예: "침실"
+        deviceType: String?,      // null이면 해당 계열의 모든 기기
+        on: Boolean
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        // 전체(or 타입별) 가져와서 클라이언트 측에서 계열 필터링
+        val res = deviceService.readDevices(type = deviceType)
+        if (!res.isSuccessful) return@withContext fail(httpMsg(res))
+        val api = res.body() ?: return@withContext fail("빈 응답")
+        if (api.status != "SUCCESS") return@withContext fail(apiError(res, "API status=${api.status}"))
+
+        val rx = Regex("^${Regex.escape(baseRoom)}\\d+$") // 침실1, 침실2, …
+        val items = api.data.items.filter { d ->
+            val roomKey = d.deviceName.substringBefore(' ').trim()
+            rx.matches(roomKey)
+        }
+
+        var ok = 0
+        val body = JsonObject().apply { add("deviceDetail", Payload.deviceDetail(power = on)) }
+        for (d in items) {
+            val up = deviceService.updateDeviceStatus(d.deviceId, body)
+            if (up.isSuccessful && up.body()?.status == "SUCCESS") ok++
+        }
+        Result.success(ok)
+    }
+
     // ───────── 조회: 단건 + WHERE 목록 ─────────
     /** 슬롯(장소/번호/기기)로 deviceId 찾고 단건 조회 */
     suspend fun readDeviceBySlots(

@@ -1,14 +1,34 @@
 package com.example.eeum.core
 
+import com.example.eeum.data.model.dto.routine.RoutineDetailRequest
+import com.example.eeum.data.model.dto.routine.RoutineRequest
 import com.example.eeum.data.model.dto.voice.IntentResult
 import com.example.eeum.data.remote.repository.DeviceRepository
+import com.example.eeum.data.remote.repository.RoutineRepository
+import com.example.eeum.util.Payload
+import com.example.eeum.util.ResourceUtils.friendlyFail
+import com.example.eeum.util.ResourceUtils.optBool
+import com.example.eeum.util.ResourceUtils.optInt
+import com.example.eeum.util.ResourceUtils.parseTime
+import com.example.eeum.util.ResourceUtils.parseWeekdays
 import com.google.gson.JsonObject
 
 class VoiceUseCase(
-    private val repo: DeviceRepository
+    private val repo: DeviceRepository,
+    private val routineRepo: RoutineRepository
 ) {
-    suspend fun run(intents: List<IntentResult>): List<AppEffect> {
+    suspend fun run(intents: List<IntentResult>, raw: String): List<AppEffect> {
         if (intents.isEmpty()) return emptyList()
+
+        intents.firstOrNull { it.intent == "ROUTINE_CREATE_START" }?.let {
+            routineSession = RoutineSession() // 세션 초기화
+            return listOf(AppEffect.Speak("루틴 생성을 시작할게요. 루틴 이름을 말씀해 주세요."))
+        }
+
+        routineSession?.let { sess ->
+            val say = handleRoutineFlow(sess, intents, raw)
+            return listOf(AppEffect.Speak(say))
+        }
 
         val effects = mutableListOf<AppEffect>()
         for (block in coalesceControlBlocks(intents)) {
@@ -29,6 +49,7 @@ class VoiceUseCase(
         }
         return effects
     }
+
 
     // ───────────────────────── Control path ─────────────────────────
     private suspend fun applyComposite(b: ControlBlock): String {
@@ -51,7 +72,23 @@ class VoiceUseCase(
 
     /** 범위 제어: 전체/타입별 또는 방(번호)+타입별 모두 켜/꺼 */
     private suspend fun applyScope(b: ScopeBlock): String {
-        // 방(+번호) 단위 일괄 제어
+        if (!b.roomName.isNullOrBlank() && b.number == null) {
+            val r = repo.bulkSetPowerRoomFamily(
+                baseRoom = b.roomName!!,
+                deviceType = b.deviceType,
+                on = b.power
+            )
+            return r.fold(
+                onSuccess = { cnt ->
+                    val what = b.deviceType ?: "모든 기기"
+                    val act  = if (b.power) "켰어요" else "껐어요"
+                    if (cnt > 0) "${b.roomName} 계열의 $what ${cnt}대 $act." else "대상이 없어요."
+                },
+                onFailure = { e -> friendlyFail(e) }
+            )
+        }
+
+        // 방+번호가 명시되면 → 정확 일치 스코프
         if (!b.roomName.isNullOrBlank()) {
             val r = repo.bulkSetPower(
                 roomName = b.roomName!!,
@@ -63,14 +100,14 @@ class VoiceUseCase(
                 onSuccess = { cnt ->
                     val what = b.deviceType ?: "모든 기기"
                     val act  = if (b.power) "켰어요" else "껐어요"
-                    if (cnt > 0) "${buildRoomKey(b.roomName, b.number)}의 $what ${cnt}대 $act."
-                    else "대상이 없어요."
+                    val room = buildRoomKey(b.roomName, b.number)
+                    if (cnt > 0) "${room}의 $what ${cnt}대 $act." else "대상이 없어요."
                 },
                 onFailure = { e -> friendlyFail(e) }
             )
         }
 
-        // 전체/타입별 일괄 제어
+        // 방 지정이 없으면 → 전체/타입 일괄
         val r = repo.bulkSetPower(deviceType = b.deviceType, on = b.power)
         return r.fold(
             onSuccess = { cnt ->
@@ -88,6 +125,108 @@ class VoiceUseCase(
         b.temperature?.let { parts += "온도 ${it}도로 맞췄어요" }
         b.level?.let { parts += "바람 ${it}단으로 바꿨어요" }
         return if (parts.isEmpty()) "완료했어요." else parts.joinToString(" 그리고 ")
+    }
+
+    private suspend fun handleRoutineFlow(
+        sess: RoutineSession,
+        intents: List<IntentResult>,
+        raw: String
+    ): String {
+        fun next(step: RoutineStep, prompt: String): String { sess.step = step; return prompt }
+
+        when (sess.step) {
+            RoutineStep.NAME -> {
+                val name = raw.trim()
+                if (name.isEmpty()) return "루틴 이름을 다시 말씀해 주세요."
+                sess.name = name
+                return next(RoutineStep.DESCRIPTION, "루틴 설명을 말씀해 주세요. 생략하시려면 '건너뛰기'라고 말해 주세요.")
+            }
+
+            RoutineStep.DESCRIPTION -> {
+                val txt = raw.trim()
+                if (txt.contains("건너뛰", ignoreCase = true)) {
+                    sess.description = null
+                } else {
+                    sess.description = txt
+                }
+                return next(RoutineStep.WEEKDAY, "요일을 말씀해 주세요. 예: 월 화 수, 또는 평일, 주말.")
+            }
+
+            RoutineStep.WEEKDAY -> {
+                val mask = parseWeekdays(raw)
+                if (mask == null || mask == 0) return "요일을 이해하지 못했어요. 예: 월 화, 평일, 주말."
+                sess.weekdayMask = mask
+                return next(RoutineStep.TIME, "시간을 말씀해 주세요. 예: 오전 7시 30분, 밤 10시.")
+            }
+
+            RoutineStep.TIME -> {
+                val hhmm = parseTime(raw)
+                if (hhmm == null) return "시간을 이해하지 못했어요. 예: 오전 7시, 오후 9시 15분."
+                sess.actTime = hhmm
+                sess.step = RoutineStep.ACTIONS
+                return "이제 동작을 말씀해 주세요. 예: 거실 전등 켜줘. 끝내려면 '저장'이라고 말해 주세요."
+            }
+
+            RoutineStep.ACTIONS -> {
+                // 종료 의사?
+                if (raw.contains("저장", ignoreCase = true) ||
+                    raw.contains("완료", ignoreCase = true) ||
+                    raw.contains("끝", ignoreCase = true)
+                ) {
+                    // 저장 가능 여부 체크
+                    val n = sess.name
+                    val w = sess.weekdayMask
+                    val t = sess.actTime
+                    if (n.isNullOrBlank() || w == null || t.isNullOrBlank() || sess.details.isEmpty()) {
+                        return "입력이 부족해요. 동작을 최소 1개 이상 추가해 주세요."
+                    }
+
+                    val req = RoutineRequest(
+                        name = n,
+                        routineWeekday = w,
+                        routineDescription = sess.description,
+                        actTime = t,
+                        details = sess.details.toList()
+                    )
+                    val r = routineRepo.createRoutine(req)
+                    routineSession = null // 세션 종료
+                    return r.fold(
+                        onSuccess = { "루틴이 등록되었어요." },
+                        onFailure = { friendlyFail(it) }
+                    )
+                }
+
+                // 이번 발화에서 '제어 인텐트'들을 동작으로 수집
+                val controls = coalesceControlBlocks(intents).filterIsInstance<ControlBlock>()
+                if (controls.isEmpty()) return "동작을 이해하지 못했어요. 다른 표현으로 말씀해 주세요. 저장하려면 '저장'이라고 말해 주세요."
+
+                var added = 0
+                for (b in controls) {
+                    val device = canonicalDevice(b.deviceType)
+                    if (b.roomName.isNullOrBlank() || device.isNullOrBlank()) continue
+                    // deviceId 조회
+                    val devRes = repo.readDeviceBySlots(b.roomName, b.number, device)
+                    if (!devRes.isSuccess) continue
+                    val dev = devRes.getOrNull() ?: continue
+
+                    val detail = Payload.deviceDetail(
+                        power = b.power,
+                        temperature = b.temperature,
+                        level = b.level
+                    )
+                    sess.details += RoutineDetailRequest(
+                        deviceId = dev.deviceId,
+                        deviceDetail = detail
+                    )
+                    added++
+                }
+                return if (added > 0) {
+                    "동작 ${added}개를 추가했어요. 더 추가하시겠어요? 아니면 '저장'이라고 말해 주세요."
+                } else {
+                    "동작을 이해하지 못했어요. 예: 침실1 에어컨 24도로 맞춰줘."
+                }
+            }
+        }
     }
 
     // ───────────────────────── Query path ─────────────────────────
@@ -331,17 +470,6 @@ class VoiceUseCase(
         return if (nn.isEmpty()) rn else rn + nn
     }
 
-    private fun friendlyFail(e: Throwable): String {
-        val msg = e.message?.trim().orEmpty()
-        return if (msg.isNotEmpty()) msg else "요청을 처리하지 못했어요."
-    }
-
-    private fun JsonObject.optBool(key: String): Boolean? =
-        if (has(key) && !get(key).isJsonNull) runCatching { get(key).asBoolean }.getOrNull() else null
-
-    private fun JsonObject.optInt(key: String): Int? =
-        if (has(key) && !get(key).isJsonNull) runCatching { get(key).asInt }.getOrNull() else null
-
     // ───────────────────────── Internal exec model ─────────────────────────
     private sealed interface ExecItem
 
@@ -365,4 +493,17 @@ class VoiceUseCase(
     ) : ExecItem
 
     private data class QueryItem(val intent: IntentResult) : ExecItem
+
+    private var routineSession: RoutineSession? = null
+
+    private enum class RoutineStep { NAME, DESCRIPTION, WEEKDAY, TIME, ACTIONS }
+
+    private data class RoutineSession(
+        var step: RoutineStep = RoutineStep.NAME,
+        var name: String? = null,
+        var description: String? = null,
+        var weekdayMask: Int? = null,
+        var actTime: String? = null,                 // "HH:mm"
+        val details: MutableList<RoutineDetailRequest> = mutableListOf()
+    )
 }

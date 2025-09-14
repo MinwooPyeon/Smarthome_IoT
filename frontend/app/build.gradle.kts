@@ -2,10 +2,10 @@ import java.io.FileInputStream
 import java.util.Properties
 
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.parcelize)
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.parcelize")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 val localProperties = Properties().apply {
@@ -48,7 +48,6 @@ android {
         compose = true
         buildConfig = true
     }
-
     dataBinding {
         enable = true
     }
@@ -79,8 +78,6 @@ dependencies {
     // 음성 인식용
     implementation("ai.picovoice:picovoice-android:3.0.2")
     implementation("ai.picovoice:porcupine-android:3.0.3")
-    implementation("ai.picovoice:rhino-android:3.0.2")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     // XML 테마용 (필수)
@@ -96,7 +93,7 @@ dependencies {
     implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
 
     // okhttp3
-    implementation ("com.squareup.okhttp3:okhttp:4.9.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation ("com.squareup.okhttp3:logging-interceptor:4.9.0")
 
     // Glide
