@@ -26,7 +26,7 @@ interface DeviceService {
     // 디바이스 조회
     @GET("api/devices")
     suspend fun readDevices(
-        @Query("active") active: Boolean? = null,
+        @Query("power") power: Boolean? = null,
         @Query("type") type: String? = null,
         @Query("roomName") roomName: String? = null,
         @Query("deviceName") deviceName: String? = null

@@ -30,7 +30,7 @@ class NluEngine(
         val spaceNorm = "\\s+".toRegex()
 
         val rxNumMention   = Regex("\\b(\\d{1,2})\\s*번\\b")
-        val rxDeviceMention= Regex("\\b(에어컨|선풍기|전등|프로젝터|빔프로젝터|빔|조명|불|냉방기|팬)\\b")
+        val rxDeviceMention= Regex("\\b(에어컨|선풍기|전등|프로젝터|빔프로젝터|빔|조명|불|냉방기|팬|스탠드|텔레비젼)\\b")
         val rxPlaceMention = Regex("\\b(방|거실|주방|부엌|침실|베란다|발코니|서재|작업실|화장실|홀)\\b")
 
         // 0) 공백 정규화

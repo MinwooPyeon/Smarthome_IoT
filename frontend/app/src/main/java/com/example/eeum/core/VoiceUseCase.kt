@@ -2,6 +2,7 @@ package com.example.eeum.core
 
 import com.example.eeum.data.model.dto.voice.IntentResult
 import com.example.eeum.data.remote.repository.DeviceRepository
+import com.google.gson.JsonObject
 
 class VoiceUseCase(
     private val repo: DeviceRepository
@@ -55,22 +56,107 @@ class VoiceUseCase(
         val device = canonicalDevice(nlu.slots["device"])
         val number = nlu.slots["num"]?.toIntOrNull()
 
-        if (place.isNullOrBlank() || device.isNullOrBlank()) return "대상 기기를 특정할 수 없어요."
-
         return when (nlu.intent) {
+
+            // 전원 켜짐/꺼짐 묻기: power만 보고 응답
             "QUERY_IS_ON" -> {
-                val r = repo.queryIsOn(place, number, device)
-                if (r.isSuccess) if (r.getOrNull() == true) "켜져 있어요." else "꺼져 있어요."
-                else "전원 상태를 알 수 없어요."
+                if (place.isNullOrBlank() || device.isNullOrBlank()) return "대상 기기를 특정할 수 없어요."
+                val r = repo.readDeviceBySlots(place, number, device)
+                r.fold(
+                    onSuccess = { dev ->
+                        when (dev.deviceDetail.optBool("power")) {
+                            true  -> "${dev.deviceName}은 켜져 있습니다."
+                            false -> "${dev.deviceName}은 꺼져 있습니다."
+                            null  -> "전원 상태를 알 수 없어요."
+                        }
+                    },
+                    onFailure = { e -> friendlyFail(e) }
+                )
             }
+
+            // 상태 요약(타입별)
+            "QUERY_IS_STATE" -> {
+                if (place.isNullOrBlank() || device.isNullOrBlank()) return "대상 기기를 특정할 수 없어요."
+                val r = repo.readDeviceBySlots(place, number, device)
+                r.fold(
+                    onSuccess = { dev ->
+                        val type = canonicalDevice(dev.type) ?: device
+                        val on   = dev.deviceDetail.optBool("power")
+                        val t    = dev.deviceDetail.optInt("temperature")
+                        val lv   = dev.deviceDetail.optInt("level")
+
+                        when (on) {
+                            false -> "${dev.deviceName}은 꺼져 있습니다."
+                            true  -> when (type) {
+                                "에어컨" -> {
+                                    val tempPart = t?.let { "온도는 ${it}도" }
+                                    val lvlPart  = lv?.let { "바람은 ${it}단" }
+                                    val extra = listOfNotNull(tempPart, lvlPart).joinToString(", ")
+                                    if (extra.isBlank()) "${dev.deviceName}은 켜져 있습니다."
+                                    else "${dev.deviceName}은 켜져 있고, $extra 입니다."
+                                }
+                                "선풍기" -> {
+                                    val lvlPart = lv?.let { "바람은 ${it}단" }
+                                    if (lvlPart == null) "${dev.deviceName}은 켜져 있습니다."
+                                    else "${dev.deviceName}은 켜져 있고, $lvlPart 입니다."
+                                }
+                                else -> "${dev.deviceName}은 켜져 있습니다."
+                            }
+                            null  -> "전원 상태를 알 수 없어요."
+                        }
+                    },
+                    onFailure = { e -> friendlyFail(e) }
+                )
+            }
+
+            // 어디가 켜/꺼져 있나: 서버 power 필터 사용 (방 이름만)
+            "QUERY_WHERE_ON" -> {
+                val devType = device ?: return "어떤 기기를 말해줄래요?"
+                val r = repo.listRoomsByActiveAndType(active = true, deviceType = devType)
+                r.fold(
+                    onSuccess = { rooms -> speakRoomsOnly(devType, on = true, rooms) },
+                    onFailure = { e -> friendlyFail(e) }
+                )
+            }
+            "QUERY_WHERE_OFF" -> {
+                val devType = device ?: return "어떤 기기를 말해줄래요?"
+                val r = repo.listRoomsByActiveAndType(active = false, deviceType = devType)
+                r.fold(
+                    onSuccess = { rooms -> speakRoomsOnly(devType, on = false, rooms) },
+                    onFailure = { e -> friendlyFail(e) }
+                )
+            }
+
+            // 온도: OFF면 수치 차단
             "QUERY_TEMPERATURE" -> {
-                val r = repo.queryTemperature(place, number, device)
-                if (r.isSuccess) "현재 온도는 ${r.getOrNull()}도예요." else "온도를 알 수 없어요."
+                if (place.isNullOrBlank() || device.isNullOrBlank()) return "대상 기기를 특정할 수 없어요."
+                val r = repo.readDeviceBySlots(place, number, device)
+                r.fold(
+                    onSuccess = { dev ->
+                        val on = dev.deviceDetail.optBool("power")
+                        if (on == false) return@fold "${dev.deviceName}은 꺼져 있어서 온도를 알 수 없어요."
+                        val t  = dev.deviceDetail.optInt("temperature")
+                        if (t != null) "${dev.deviceName}의 온도는 ${t}도입니다." else "온도를 알 수 없어요."
+                    },
+                    onFailure = { e -> friendlyFail(e) }
+                )
             }
+
+            // 바람세기: OFF면 수치 차단
             "QUERY_FAN_LEVEL" -> {
-                val r = repo.queryFanLevel(place, number, device)
-                if (r.isSuccess) "바람은 ${r.getOrNull()}단이에요." else "바람 세기를 알 수 없어요."
+                if (place.isNullOrBlank() || device.isNullOrBlank()) return "대상 기기를 특정할 수 없어요."
+                val r = repo.readDeviceBySlots(place, number, device)
+                r.fold(
+                    onSuccess = { dev ->
+                        val on = dev.deviceDetail.optBool("power")
+                        if (on == false) return@fold "${dev.deviceName}은 꺼져 있어서 바람 세기를 알 수 없어요."
+                        val lv = dev.deviceDetail.optInt("level")
+                        if (lv != null) "${dev.deviceName}의 바람 세기는 ${lv}단입니다." else "바람 세기를 알 수 없어요."
+                    },
+                    onFailure = { e -> friendlyFail(e) }
+                )
             }
+
             else -> "아직 지원하지 않는 질의예요."
         }
     }
@@ -172,6 +258,27 @@ class VoiceUseCase(
         device = "device" in r.slots,
         num    = "num"    in r.slots
     )
+
+    private fun speakRoomsOnly(deviceType: String, on: Boolean, rooms: List<String>): String {
+        if (rooms.isEmpty()) return if (on) "$deviceType 이(가) 켜져 있는 곳은 없어요." else "$deviceType 이(가) 꺼져 있는 곳은 없어요."
+        val shown = rooms.take(5)
+        val rest  = rooms.size - shown.size
+        val head  = if (on) "$deviceType 이(가) 켜져 있는 곳은" else "$deviceType 이(가) 꺼져 있는 곳은"
+        return if (rest > 0) "$head ${shown.joinToString(", ")} 외 ${rest}곳입니다."
+        else "$head ${shown.joinToString(", ")}입니다."
+    }
+
+
+    private fun friendlyFail(e: Throwable): String {
+        val msg = e.message?.trim().orEmpty()
+        return if (msg.isNotEmpty()) msg else "요청을 처리하지 못했어요."
+    }
+
+    private fun JsonObject.optBool(key: String): Boolean? =
+        if (has(key) && !get(key).isJsonNull) runCatching { get(key).asBoolean }.getOrNull() else null
+
+    private fun JsonObject.optInt(key: String): Int? =
+        if (has(key) && !get(key).isJsonNull) runCatching { get(key).asInt }.getOrNull() else null
 
     // ───────────────────────── Internal exec model ─────────────────────────
     private sealed interface ExecItem

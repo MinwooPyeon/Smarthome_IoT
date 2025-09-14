@@ -45,31 +45,29 @@ context:
       - (@바람) $세기:level (으로,로) @설정하다
       - $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
 
+    QUERY_IS_STATE:
+      - (지금) $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device 상태
+        [@알려줘,@얼마야,@상태_어때]
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device 상태
+        [@알려줘,@얼마야,@상태_어때]
+      - $장소:place (@위치_조사) $기기:device 상태 [@알려줘,@얼마야,@상태_어때 ]
+
     QUERY_IS_ON:
-      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device @전원_꺼짐 @존재_의문
+      - (지금) $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device @전원_꺼짐 @존재_의문
       - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device @전원_꺼짐 @존재_의문
       - $장소:place (@위치_조사) $기기:device @전원_꺼짐 @존재_의문
-      - ($pv.TwoDigitInteger:num)(번) $장소:place (@위치_조사) $기기:device 전원 (상태,상황)
-        [@알려줘,@얼마야,@상태_어때]
-      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device 전원 (상태,상황)
-        [@알려줘,@얼마야,@상태_어때]
-      - ($pv.TwoDigitInteger:num)(번) $장소:place (@위치_조사) $기기:device @전원_켜짐 @존재_의문
+      - (지금) $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device @전원_켜짐 @존재_의문
       - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device @전원_켜짐 @존재_의문
+      - $장소:place (@위치_조사) $기기:device @전원_켜짐 @존재_의문
 
     QUERY_WHERE_ON:
       - (여기서) @장소_의문 $기기:device (이,가) @전원_켜짐 [있는,있는지] [@알려줘,@얼마야,@상태_어때]
 
-    QUERY_WHERE_ON_LOCATION:
-      - $기기:device [중,들] (지금) @전원_켜짐 [있는,있는지] [곳,방,위치] [@알려줘,@얼마야,@상태_어때]
-
     QUERY_WHERE_OFF:
       - (여기서) @장소_의문 $기기:device (이,가) @전원_꺼짐 [있는,있는지] [@알려줘,@얼마야,@상태_어때]
 
-    QUERY_WHERE_OFF_LOCATION:
-      - $기기:device [중,들] (지금) @전원_꺼짐 [있는,있는지] [곳,방,위치] [@알려줘,@얼마야,@상태_어때]
-
     QUERY_TEMPERATURE:
-      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device [현재 온도, 온도]
+      - (지금) $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device [현재 온도, 온도]
         [@온도_의문,@상태_어때,@얼마야,@알려줘]
       - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device [현재 온도, 온도]
         [@온도_의문,@상태_어때,@얼마야,@알려줘]
@@ -77,11 +75,11 @@ context:
         [@온도_의문,@상태_어때,@얼마야,@알려줘]
 
     QUERY_FAN_LEVEL:
-      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device (@바람) [세기,단계]
+      - (지금) $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device @바람 [세기,단계]
         [@정체_의문,@상태_어때,@얼마야]
-      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (@바람) [세기,단계]
+      - $장소:place $pv.TwoDigitInteger:num 번 (@위치_조사) $기기:device @바람 [세기,단계]
         [@정체_의문,@상태_어때,@얼마야]
-      - $장소:place (@위치_조사) $기기:device (@바람) [세기,단계]
+      - $장소:place (@위치_조사) $기기:device @바람 [세기,단계]
         [@정체_의문,@상태_어때,@얼마야]
 
     QUERY_ENERGY_USAGE:
@@ -140,6 +138,8 @@ context:
       - 불
       - 전등
       - 조명
+      - 스탠드
+      - 텔레비젼
     기간:
       - 올해
       - 어제
@@ -180,6 +180,7 @@ context:
       - 설정해줘
       - 설정
       - 설정하고
+      - 하고
     연결하다:
       - 하면서
       - 다음에

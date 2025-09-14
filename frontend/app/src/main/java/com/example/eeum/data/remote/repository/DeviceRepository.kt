@@ -1,8 +1,6 @@
 package com.example.eeum.data.remote.repository
 
 import com.example.eeum.base.DeviceDirectoryCache
-import com.example.eeum.data.model.response.common.ApiResponse
-import com.example.eeum.data.model.response.common.BaseResponse
 import com.example.eeum.data.model.response.device.DeviceResponse
 import com.example.eeum.data.remote.service.DeviceService
 import com.example.eeum.util.Payload
@@ -15,31 +13,8 @@ class DeviceRepository(
     private val deviceService: DeviceService,
     private val directory: DeviceDirectoryCache
 ) {
-    // ───────── 제어 (이미 있던 것 + 유지) ─────────
-    suspend fun setPower(roomName: String, number: Int?, deviceType: String, on: Boolean): Result<Unit> =
-        execute(roomName, number, deviceType, power = on)
-
-    suspend fun setTemperature(roomName: String, number: Int?, deviceType: String, temperature: Int): Result<Unit> =
-        execute(roomName, number, deviceType, temperature = temperature.coerceIn(16, 30))
-
-    suspend fun setFanLevel(roomName: String, number: Int?, deviceType: String, level: Int): Result<Unit> =
-        execute(roomName, number, deviceType, level = level.coerceIn(1, 5))
-
+    // ───────── 제어: 합성만 ─────────
     suspend fun applyComposite(
-        roomName: String,
-        number: Int?,
-        deviceType: String,
-        power: Boolean? = null,
-        temperature: Int? = null,
-        level: Int? = null
-    ): Result<Unit> = execute(
-        roomName, number, deviceType,
-        power = power,
-        temperature = temperature?.coerceIn(16, 30),
-        level = level?.coerceIn(1, 5)
-    )
-
-    private suspend fun execute(
         roomName: String,
         number: Int?,
         deviceType: String,
@@ -48,55 +23,72 @@ class DeviceRepository(
         level: Int? = null
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val deviceId = directory.findDeviceId(roomName, number, deviceType)
-            ?: return@withContext Result.failure(IllegalArgumentException("대상 기기를 찾을 수 없습니다: ${directory.buildName(roomName, number, deviceType)}"))
+            ?: return@withContext fail("대상 기기를 찾을 수 없습니다: ${directory.buildName(roomName, number, deviceType)}")
 
-        val body: JsonObject = Payload.deviceDetail(
+        val detail = Payload.deviceDetail(
             power = power,
-            temperature = temperature,
-            level = level
+            temperature = temperature?.coerceIn(16, 30),
+            level = level?.coerceIn(1, 5)
         )
+        val body = JsonObject().apply { add("deviceDetail", detail) }
 
-        val res: Response<ApiResponse<BaseResponse>> = deviceService.updateDeviceStatus(deviceId, body)
-        if (!res.isSuccessful) return@withContext Result.failure(IllegalStateException("HTTP ${res.code()}"))
-        val api = res.body() ?: return@withContext Result.failure(IllegalStateException("빈 응답"))
-        if (api.status != "SUCCES") return@withContext Result.failure(IllegalStateException("API status=${api.status}"))
+        val res = deviceService.updateDeviceStatus(deviceId, body)
+        if (!res.isSuccessful) return@withContext fail(httpMsg(res))
+        val api = res.body() ?: return@withContext fail("빈 응답")
+        if (api.status != "SUCCESS") return@withContext fail(apiError(res, "API status=${api.status}"))
 
         Result.success(Unit)
     }
 
-    // ───────── 조회 (QUERY_*) ─────────
-    suspend fun queryIsOn(roomName: String, number: Int?, deviceType: String): Result<Boolean> =
-        readDetail(roomName, number, deviceType).mapCatching { detail ->
-            detail.optBool("power") ?: error("power 없음")
-        }
+    // ───────── 조회: 단건 + WHERE 목록 ─────────
+    /** 슬롯(장소/번호/기기)로 deviceId 찾고 단건 조회 */
+    suspend fun readDeviceBySlots(
+        roomName: String,
+        number: Int?,
+        deviceType: String
+    ): Result<DeviceResponse> = withContext(Dispatchers.IO) {
+        val deviceId = directory.findDeviceId(roomName, number, deviceType)
+            ?: return@withContext fail("대상 기기를 찾을 수 없습니다: ${directory.buildName(roomName, number, deviceType)}")
 
-    suspend fun queryTemperature(roomName: String, number: Int?, deviceType: String): Result<Int> =
-        readDetail(roomName, number, deviceType).mapCatching { detail ->
-            detail.optInt("temperature") ?: error("temperature 없음")
-        }
+        val res = deviceService.readDevice(deviceId)
+        if (!res.isSuccessful) return@withContext fail(httpMsg(res))
+        val api = res.body() ?: return@withContext fail("빈 응답")
+        if (api.status != "SUCCESS") return@withContext fail(apiError(res, "API status=${api.status}"))
 
-    suspend fun queryFanLevel(roomName: String, number: Int?, deviceType: String): Result<Int> =
-        readDetail(roomName, number, deviceType).mapCatching { detail ->
-            detail.optInt("level") ?: error("level 없음")
-        }
+        Result.success(api.data)
+    }
 
-    private suspend fun readDetail(roomName: String, number: Int?, deviceType: String): Result<JsonObject> =
-        withContext(Dispatchers.IO) {
-            val deviceId = directory.findDeviceId(roomName, number, deviceType)
-                ?: return@withContext Result.failure(IllegalArgumentException("대상 기기를 찾을 수 없습니다: ${directory.buildName(roomName, number, deviceType)}"))
+    /** active(on/off) + type으로 조회해 '방 이름'만 추출(중복 제거) */
+    suspend fun listRoomsByActiveAndType(
+        active: Boolean,
+        deviceType: String
+    ): Result<List<String>> = withContext(Dispatchers.IO) {
+        val res = deviceService.readDevices(power = active, type = deviceType)
+        if (!res.isSuccessful) return@withContext fail(httpMsg(res))
+        val api = res.body() ?: return@withContext fail("빈 응답")
+        if (api.status != "SUCCESS") return@withContext fail(apiError(res, "API status=${api.status}"))
 
-            val res: Response<ApiResponse<DeviceResponse>> = deviceService.readDevice(deviceId)
-            if (!res.isSuccessful) return@withContext Result.failure(IllegalStateException("HTTP ${res.code()}"))
-            val api = res.body() ?: return@withContext Result.failure(IllegalStateException("빈 응답"))
-            if (api.status != "SUCCES") return@withContext Result.failure(IllegalStateException("API status=${api.status}"))
+        val rooms = api.data.items
+            .mapNotNull { it.deviceName?.trim() }
+            .map { name -> name.substringBefore(' ').trim() } // "방1 에어컨" -> "방1"
+            .filter { it.isNotEmpty() }
+            .distinct()
 
-            Result.success(api.data.deviceDetail)
-        }
+        Result.success(rooms)
+    }
 
-    // ───────── JsonObject helpers ─────────
-    private fun JsonObject.optBool(key: String): Boolean? =
-        if (has(key) && !get(key).isJsonNull) runCatching { get(key).asBoolean }.getOrNull() else null
+    // ───────── helpers ─────────
+    private fun <T> fail(msg: String): Result<T> = Result.failure(IllegalStateException(msg))
 
-    private fun JsonObject.optInt(key: String): Int? =
-        if (has(key) && !get(key).isJsonNull) runCatching { get(key).asInt }.getOrNull() else null
+    private fun httpMsg(res: Response<*>): String =
+        "HTTP ${res.code()} ${res.message().orEmpty()} ${apiError(res, "")}".trim()
+
+    /** 서버가 {"status":"FAIL","error":"..."} 를 내려줄 때 error 메시지 뽑기 */
+    private fun apiError(res: Response<*>, fallback: String): String {
+        val raw = res.errorBody()?.string().orEmpty()
+        return try {
+            val err = org.json.JSONObject(raw).optString("error")
+            if (err.isNullOrBlank()) fallback else err
+        } catch (_: Exception) { fallback }
+    }
 }
