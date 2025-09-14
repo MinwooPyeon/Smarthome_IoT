@@ -40,6 +40,49 @@ class DeviceRepository(
         Result.success(Unit)
     }
 
+    // ───────── 일괄 제어: 전체/타입별 ─────────
+    suspend fun bulkSetPower(
+        deviceType: String?,   // null → 전체 기기
+        on: Boolean
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        val res = deviceService.readDevices(type = deviceType)
+        if (!res.isSuccessful) return@withContext fail(httpMsg(res))
+        val api = res.body() ?: return@withContext fail("빈 응답")
+        if (api.status != "SUCCESS") return@withContext fail(apiError(res, "API status=${api.status}"))
+
+        val items = api.data.items
+        var ok = 0
+        val body = JsonObject().apply { add("deviceDetail", Payload.deviceDetail(power = on)) }
+        for (d in items) {
+            val up = deviceService.updateDeviceStatus(d.deviceId, body)
+            if (up.isSuccessful && up.body()?.status == "SUCCESS") ok++
+        }
+        Result.success(ok)
+    }
+
+    // ───────── 일괄 제어: 방(+번호) / 타입별 ─────────
+    suspend fun bulkSetPower(
+        roomName: String,
+        number: Int?,
+        deviceType: String?,   // null → 해당 방의 모든 기기
+        on: Boolean
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        val roomKey = number?.let { "$roomName$it" } ?: roomName
+        val res = deviceService.readDevices(type = deviceType, roomName = roomKey)
+        if (!res.isSuccessful) return@withContext fail(httpMsg(res))
+        val api = res.body() ?: return@withContext fail("빈 응답")
+        if (api.status != "SUCCESS") return@withContext fail(apiError(res, "API status=${api.status}"))
+
+        val items = api.data.items
+        var ok = 0
+        val body = JsonObject().apply { add("deviceDetail", Payload.deviceDetail(power = on)) }
+        for (d in items) {
+            val up = deviceService.updateDeviceStatus(d.deviceId, body)
+            if (up.isSuccessful && up.body()?.status == "SUCCESS") ok++
+        }
+        Result.success(ok)
+    }
+
     // ───────── 조회: 단건 + WHERE 목록 ─────────
     /** 슬롯(장소/번호/기기)로 deviceId 찾고 단건 조회 */
     suspend fun readDeviceBySlots(
@@ -58,7 +101,7 @@ class DeviceRepository(
         Result.success(api.data)
     }
 
-    /** active(on/off) + type으로 조회해 '방 이름'만 추출(중복 제거) */
+    /** power(on/off) + type으로 조회해 '방 이름'만 추출(중복 제거) */
     suspend fun listRoomsByActiveAndType(
         active: Boolean,
         deviceType: String
@@ -81,7 +124,13 @@ class DeviceRepository(
     private fun <T> fail(msg: String): Result<T> = Result.failure(IllegalStateException(msg))
 
     private fun httpMsg(res: Response<*>): String =
-        "HTTP ${res.code()} ${res.message().orEmpty()} ${apiError(res, "")}".trim()
+        buildString {
+            append("HTTP ").append(res.code())
+            val m = res.message().orEmpty()
+            if (m.isNotBlank()) append(" ").append(m)
+            val apiErr = apiError(res, "")
+            if (apiErr.isNotBlank()) append(" - ").append(apiErr)
+        }
 
     /** 서버가 {"status":"FAIL","error":"..."} 를 내려줄 때 error 메시지 뽑기 */
     private fun apiError(res: Response<*>, fallback: String): String {

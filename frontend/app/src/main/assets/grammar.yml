@@ -4,7 +4,11 @@ context:
       - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device (좀) @켜다
       - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (좀) @켜다
       - $장소:place (@위치_조사) $기기:device (좀) @켜다
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $범위:scope (좀) @켜다
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $범위:scope (좀) @켜다
+      - $장소:place (@위치_조사) $범위:scope @켜다
       - $범위:scope $기기:device (좀) @켜다
+      - $범위:scope (좀) @켜다
       - $기기:device (좀) @켜다
       - (좀) @켜다
 
@@ -12,6 +16,9 @@ context:
       - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device (좀) @끄다
       - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (좀) @끄다
       - $장소:place (@위치_조사) $기기:device (좀) @끄다
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $범위:scope (좀) @끄다
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $범위:scope (좀) @끄다
+      - $장소:place (@위치_조사) $범위:scope @끄다
       - $범위:scope $기기:device (좀) @끄다
       - $범위:scope (좀) @끄다
       - $기기:device (좀) @끄다

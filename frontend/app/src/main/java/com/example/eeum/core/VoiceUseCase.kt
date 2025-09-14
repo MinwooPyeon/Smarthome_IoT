@@ -17,6 +17,10 @@ class VoiceUseCase(
                     val speech = applyComposite(block)
                     if (speech.isNotBlank()) effects += AppEffect.Speak(speech)
                 }
+                is ScopeBlock -> {
+                    val speech = applyScope(block)
+                    if (speech.isNotBlank()) effects += AppEffect.Speak(speech)
+                }
                 is QueryItem -> {
                     val speech = handleQuery(block.intent)
                     if (speech.isNotBlank()) effects += AppEffect.Speak(speech)
@@ -39,7 +43,43 @@ class VoiceUseCase(
             temperature = b.temperature,
             level = b.level
         )
-        return if (r.isSuccess) buildSuccessSpeech(b) else "실패했어요."
+        return r.fold(
+            onSuccess = { buildSuccessSpeech(b) },
+            onFailure = { e -> friendlyFail(e) }
+        )
+    }
+
+    /** 범위 제어: 전체/타입별 또는 방(번호)+타입별 모두 켜/꺼 */
+    private suspend fun applyScope(b: ScopeBlock): String {
+        // 방(+번호) 단위 일괄 제어
+        if (!b.roomName.isNullOrBlank()) {
+            val r = repo.bulkSetPower(
+                roomName = b.roomName!!,
+                number = b.number,
+                deviceType = b.deviceType,
+                on = b.power
+            )
+            return r.fold(
+                onSuccess = { cnt ->
+                    val what = b.deviceType ?: "모든 기기"
+                    val act  = if (b.power) "켰어요" else "껐어요"
+                    if (cnt > 0) "${buildRoomKey(b.roomName, b.number)}의 $what ${cnt}대 $act."
+                    else "대상이 없어요."
+                },
+                onFailure = { e -> friendlyFail(e) }
+            )
+        }
+
+        // 전체/타입별 일괄 제어
+        val r = repo.bulkSetPower(deviceType = b.deviceType, on = b.power)
+        return r.fold(
+            onSuccess = { cnt ->
+                val what = b.deviceType ?: "모든 기기"
+                val verb = if (b.power) "켰어요" else "껐어요"
+                if (cnt > 0) "$what ${cnt}대 $verb." else "대상이 없어요."
+            },
+            onFailure = { e -> friendlyFail(e) }
+        )
     }
 
     private fun buildSuccessSpeech(b: ControlBlock): String {
@@ -58,7 +98,7 @@ class VoiceUseCase(
 
         return when (nlu.intent) {
 
-            // 전원 켜짐/꺼짐 묻기: power만 보고 응답
+            // 전원 켜짐/꺼짐 묻기: deviceDetail.power만 보고 응답
             "QUERY_IS_ON" -> {
                 if (place.isNullOrBlank() || device.isNullOrBlank()) return "대상 기기를 특정할 수 없어요."
                 val r = repo.readDeviceBySlots(place, number, device)
@@ -74,7 +114,7 @@ class VoiceUseCase(
                 )
             }
 
-            // 상태 요약(타입별)
+            // 상태 요약(타입별): 에어컨 → power/temperature/level, 선풍기 → power/level, 기타 → power만
             "QUERY_IS_STATE" -> {
                 if (place.isNullOrBlank() || device.isNullOrBlank()) return "대상 기기를 특정할 수 없어요."
                 val r = repo.readDeviceBySlots(place, number, device)
@@ -109,7 +149,7 @@ class VoiceUseCase(
                 )
             }
 
-            // 어디가 켜/꺼져 있나: 서버 power 필터 사용 (방 이름만)
+            // 어디가 켜/꺼져 있나: 서버 power + type 필터 사용(방 이름만)
             "QUERY_WHERE_ON" -> {
                 val devType = device ?: return "어떤 기기를 말해줄래요?"
                 val r = repo.listRoomsByActiveAndType(active = true, deviceType = devType)
@@ -167,12 +207,22 @@ class VoiceUseCase(
         var cur: ControlBlock? = null
 
         for (r in input) {
+            val hasScope = r.slots.containsKey("scope")
+
             if (isControlIntent(r.intent)) {
                 val room   = r.slots["place"]
                 val num    = r.slots["num"]?.toIntOrNull()
                 val device = canonicalDevice(r.slots["device"])
-                val mention = targetMention(r)
 
+                // ① 범위 명령이면 → 개별 병합 없이 ScopeBlock으로 분리
+                if (hasScope && (r.intent == "SET_TURN_ON" || r.intent == "SET_TURN_OFF")) {
+                    if (cur != null) { out += cur; cur = null }
+                    val power = (r.intent == "SET_TURN_ON")
+                    out += ScopeBlock(roomName = room, number = num, deviceType = device, power = power)
+                    continue
+                }
+
+                // ② 개별 타깃 제어 병합 (기존 로직)
                 val (pwr, tmp, lvl) = when (r.intent) {
                     "SET_TURN_ON",  "TURN_ON_DEVICE"   -> Triple(true, null, null)
                     "SET_TURN_OFF", "TURN_OFF_DEVICE"  -> Triple(false, null, null)
@@ -181,8 +231,8 @@ class VoiceUseCase(
                     else -> Triple(null, null, null)
                 }
 
+                val mention = targetMention(r)
                 val sameTarget = cur?.sameTarget(room, num, device) == true
-
                 val someTargetPresent = (room != null) || (device != null) || (num != null)
                 val shouldSplit = when {
                     cur == null -> false
@@ -200,7 +250,6 @@ class VoiceUseCase(
                 if (cur == null) {
                     cur = ControlBlock(room, num, device, pwr, tmp, lvl)
                 } else {
-
                     cur = cur.copy(
                         power = pwr ?: cur.power,
                         temperature = tmp ?: cur.temperature,
@@ -268,6 +317,19 @@ class VoiceUseCase(
         else "$head ${shown.joinToString(", ")}입니다."
     }
 
+    private fun buildDeviceName(place: String?, number: Int?, device: String?): String {
+        val rn = place?.trim().orEmpty()
+        val dn = device?.trim().orEmpty()
+        val nn = number?.toString().orEmpty()
+        return if (rn.isEmpty() || dn.isEmpty()) "해당 기기"
+        else if (nn.isEmpty()) "$rn $dn" else "$rn$nn $dn"
+    }
+
+    private fun buildRoomKey(place: String?, number: Int?): String {
+        val rn = place?.trim().orEmpty()
+        val nn = number?.toString().orEmpty()
+        return if (nn.isEmpty()) rn else rn + nn
+    }
 
     private fun friendlyFail(e: Throwable): String {
         val msg = e.message?.trim().orEmpty()
@@ -282,6 +344,7 @@ class VoiceUseCase(
 
     // ───────────────────────── Internal exec model ─────────────────────────
     private sealed interface ExecItem
+
     private data class ControlBlock(
         val roomName: String?,
         val number: Int?,
@@ -293,5 +356,13 @@ class VoiceUseCase(
         fun sameTarget(room: String?, num: Int?, device: String?) =
             roomName == room && number == num && deviceType == device
     }
+
+    private data class ScopeBlock(
+        val roomName: String?,   // null이면 전체/타입별
+        val number: Int?,        // 방 번호(있으면 roomName과 합쳐서 필터)
+        val deviceType: String?, // null이면 해당 범위 내 모든 기기
+        val power: Boolean
+    ) : ExecItem
+
     private data class QueryItem(val intent: IntentResult) : ExecItem
 }
