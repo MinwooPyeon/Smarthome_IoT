@@ -9,7 +9,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,14 +18,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
 import com.example.eeum.R
 import com.example.eeum.ui.theme.EeumTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenMap: () -> Unit = {}
+    onOpenMap: () -> Unit = {},
+    onAddHome: () -> Unit = {}
 ) {
+    // 더미 집 목록
+    val homes = listOf(
+        "서울시 성동구 00아파트 101동 1203호",
+        "경북 구미시 인동 OO아파트 102동 904호"
+    )
+    var selectedHome by remember { mutableStateOf(homes.first()) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -63,15 +71,98 @@ fun HomeScreen(
         Spacer(Modifier.height(12.dp))
         StatsRow()
         Spacer(Modifier.height(24.dp))
+
+        // 헤더 텍스트
         FloorplanHeader(
             title = "우리 집 평면도",
             onAddClick = { /* TODO */ }
         )
+
+        // ‘집 선택’
+        Spacer(Modifier.height(8.dp))
+        HomeDropdown(
+            selected = selectedHome,
+            items = homes,
+            onSelect = { selectedHome = it },
+            onAddNew = onAddHome
+        )
+        // ▲▲ 드롭박스 끝 ▲▲
+
         Spacer(Modifier.height(12.dp))
         FloorplanCard(
             onCardClick = onOpenMap
         )
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeDropdown(
+    selected: String,
+    items: List<String>,
+    onSelect: (String) -> Unit,
+    onAddNew: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        TextField(
+            value = selected,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("집 선택") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                disabledContainerColor = Color.White,
+                focusedIndicatorColor = Color.Transparent,   // 밑줄 제거
+                unfocusedIndicatorColor = Color.Transparent, // 밑줄 제거
+                disabledIndicatorColor = Color.Transparent   // 밑줄 제거
+            )
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            items.forEach { home ->
+                DropdownMenuItem(
+                    text = { Text(home, fontSize = 14.sp) },
+                    onClick = {
+                        onSelect(home)
+                        expanded = false
+                    }
+                )
+            }
+
+            Divider()
+
+            DropdownMenuItem(
+                leadingIcon = {
+                    Icon(Icons.Outlined.Add, contentDescription = null)
+                },
+                text = {
+                    Text(
+                        text = "새 집 추가",
+                        fontSize = 14.sp,
+                        color = Color(0xFF007AFF)
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onAddNew()
+                }
+            )
+        }
     }
 }
 
@@ -142,8 +233,7 @@ private fun StatCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .height(112.dp),
+        modifier = modifier.height(112.dp),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -170,9 +260,7 @@ private fun StatCard(
                 )
             }
             Spacer(Modifier.height(7.dp))
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF111827))
                 Spacer(Modifier.height(4.dp))
                 Text(subtitle, fontSize = 12.sp, color = Color(0xFF6B7280))
@@ -207,7 +295,7 @@ private fun FloorplanCard(onCardClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(350.dp)
+            .height(300.dp)
             .clickable { onCardClick() },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF7FBFF)),

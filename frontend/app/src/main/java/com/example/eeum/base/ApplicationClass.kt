@@ -3,11 +3,14 @@ package com.example.eeum.base
 import android.app.Activity
 import android.app.Application
 import android.app.Dialog
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import com.example.eeum.data.SharedPreferencesUtil
 import com.example.eeum.data.remote.service.AuthService
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.naver.maps.map.NaverMapSdk
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -38,7 +41,6 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
 
         fun isLoading(): Boolean = loadingDialog?.isShowing == true
 
-
         //401(토큰 만료 시)
         @Volatile private var navigatingToLogin = false
 
@@ -50,28 +52,11 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
             sharedPreferencesUtil.clearAuthSession()
 
             val activity = currentActivity ?: run {
-                // 포그라운드 Activity 없으면 다음에 복귀 시 MainActivity의 세션검사에서 걸리게 함
                 navigatingToLogin = false
                 return
             }
 
-            // 이미 로그인 화면이면 무시
-//            if (activity is com.example.mon_fit.ui.login.LoginActivity) {
-//                navigatingToLogin = false
-//                return
-//            }
-
-//            activity.runOnUiThread {
-//                try {
-//                    val intent = android.content.Intent(activity, com.example.mon_fit.ui.login.LoginActivity::class.java).apply {
-//                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
-//                        putExtra("dest", "signin")
-//                    }
-//                    activity.startActivity(intent)
-//                } finally {
-//                    navigatingToLogin = false
-//                }
-//            }
+            // 로그인 이동 로직 필요 시 여기에…
         }
     }
 
@@ -84,6 +69,13 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(this)
+
+        // ✅ 네이버 맵 SDK Client ID를 Manifest 메타데이터에서 읽어 주입
+        initNaverMapClient()
+        val ai = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+        android.util.Log.d("NaverMapCheck", "pkg=" + packageName)
+        android.util.Log.d("NaverMapCheck", "clientId(from Manifest)=" + ai.metaData?.getString("com.naver.maps.map.CLIENT_ID"))
+
 
         // SharedPreferences 초기화
         sharedPreferencesUtil = SharedPreferencesUtil(applicationContext)
@@ -111,7 +103,7 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
         // --- 앱 공용 OkHttpClient (Authorization + 401 재발급 + 로깅) ---
         val okHttpClient = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor())                 // Bearer {accessToken} 자동 첨부
-           // .authenticator(TokenAuthenticator(refreshApi))     // 401 시 refresh 토큰으로 재발급 (서버 지원 시)
+            //.authenticator(TokenAuthenticator(refreshApi))   // 401 시 refresh 토큰 재발급(서버 지원 시)
             .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -123,6 +115,24 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .client(okHttpClient)
             .build()
+    }
+
+    /** Manifest의 <meta-data android:name="com.naver.maps.map.CLIENT_ID"> 값을 읽어 SDK에 주입 */
+    private fun initNaverMapClient() {
+        val clientId = runCatching {
+            val ai = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+            ai.metaData?.getString("com.naver.maps.map.CLIENT_ID")
+        }.getOrNull()
+
+        if (clientId.isNullOrBlank()) {
+            Log.e(TAG, "NaverMap CLIENT_ID not found in Manifest meta-data.")
+            return
+        }
+
+        NaverMapSdk.getInstance(this).client =
+            NaverMapSdk.NaverCloudPlatformClient(clientId)
+
+        Log.d(TAG, "NaverMap CLIENT_ID set: $clientId")
     }
 
     // Activity 생명주기 콜백들

@@ -36,7 +36,7 @@ import androidx.compose.material.FabPosition as M2FabPosition
 private const val MAIN_TABS_ROUTE = "main_tabs"
 private const val VOICE_ROUTE = "voice"
 
-// BottomNavigation이 없는 화면들의 라우트  
+// BottomNavigation이 없는 화면들의 라우트
 private const val LOGIN_ROUTE = "login"
 private const val LOG_MANAGE_ROUTE = "log_manage"
 private const val ALARM_MANAGE_ROUTE = "alarm_manage"
@@ -60,36 +60,36 @@ fun EeumApp() {
             composable(MAIN_TABS_ROUTE) {
                 MainTabsScreen(navController)
             }
-            
-            // 2️⃣ BottomNavigation이 없는 화면들 
+
+            // 2️⃣ BottomNavigation이 없는 화면들
             composable(LOGIN_ROUTE) {
                 LoginScreen()
             }
-            
+
             composable(LOG_MANAGE_ROUTE) {
                 LogManageScreen(navController)
             }
-            
+
             composable(ALARM_MANAGE_ROUTE) {
                 AlarmManageScreen(navController)
             }
-            
+
             composable(VOICE_ROUTE) {
                 VoiceScreen()
             }
-            
+
             composable(ROUTINE_ROUTE) {
                 RoutineScreen(navController)
             }
-            
+
             composable(ROUTE_CREATE_ROUTINE_FIRST) {
                 CreateRoutineFirstScreen(navController)
             }
-            
+
             composable(ROUTE_CREATE_ROUTINE_SECOND) {
                 CreateRoutineSecondScreen(navController)
             }
-            
+
             composable(USER_INFORMATION_ROUTE) {
                 UserInformationScreen(navController)
             }
@@ -149,15 +149,14 @@ private fun MainTabsScreen(mainNavController: androidx.navigation.NavController)
             startDestination = Tab.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Tab.Home.route) { HomeScreen() }
-            composable(Tab.Device.route) { DeviceScreen() }
-            composable(Tab.Use.route) { EnergyScreen() }
-            composable(Tab.Menu.route) { MenuScreen(mainNavController) }
             composable(Tab.Home.route) {
                 HomeScreen(
                     onOpenMap = { mainNavController.navigate(MAP_ROUTE) }
                 )
             }
+            composable(Tab.Device.route) { DeviceScreen() }
+            composable(Tab.Use.route) { EnergyScreen() }
+            composable(Tab.Menu.route) { MenuScreen(mainNavController) }
         }
     }
 }
