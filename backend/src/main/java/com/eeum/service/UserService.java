@@ -3,16 +3,21 @@ package com.eeum.service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.eeum.dto.request.PasswordUpdateRequest;
+import com.eeum.dto.request.UserImageUpdateRequest;
 import com.eeum.dto.response.UpdateNicknameResponse;
+import com.eeum.dto.response.UserResponse;
 import com.eeum.entity.User;
 import com.eeum.repository.UserRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
@@ -47,37 +52,49 @@ public class UserService {
             throw new IllegalArgumentException("닉네임 형식이 올바르지 않습니다. (공백 불가)");
         }
     }
-
-
+    
+    
+    // 유저 정보 조회
+    public UserResponse getUserInfo(Integer userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        return UserResponse.from(user);
+    }
+    
+    // 유저 이미지 변경
+    @Transactional
+    public void updateUserImage(Integer userId, UserImageUpdateRequest req) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        user.setImg(req.getImgUrl());
+    }
+    
     // 비밀번호 변경
-    public void updatePassword(Integer userId, String newPassword) {
+    public void updatePassword(Integer userId, PasswordUpdateRequest req) {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        if (passwordEncoder.matches(newPassword, user.getPassword())) {
-            throw new IllegalArgumentException("새 비밀번호가 기존 비밀번호와 동일합니다.");
+        if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+        }
+        
+        if (!req.getNewPassword().equals(req.getNewPasswordConfirm())) {
+            throw new IllegalArgumentException("새 비밀번호와 확인 비밀번호가 일치하지 않습니다.");
         }
 
-        String encoded = passwordEncoder.encode(newPassword);
+        if (passwordEncoder.matches(req.getNewPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("새 비밀번호가 기존 비밀번호와 동일합니다.");
+        }
+        
+        String encoded = passwordEncoder.encode(req.getNewPassword());
         user.setPassword(encoded);
     }
 
-    private void validateNewPassword(String pw) {
-        if (pw == null || pw.isBlank()) {
-            throw new IllegalArgumentException("새 비밀번호는 비어 있을 수 없습니다.");
-        }
-        if (pw.length() < 8 || pw.length() > 64) {
-            throw new IllegalArgumentException("새 비밀번호는 8~64자여야 합니다.");
-        }
-        if (pw.contains(" ")) {
-            throw new IllegalArgumentException("비밀번호에는 공백을 사용할 수 없습니다.");
-        }
-        // 영문/숫자 각 1개 이상
-        boolean hasLetter = pw.chars().anyMatch(Character::isLetter);
-        boolean hasDigit  = pw.chars().anyMatch(Character::isDigit);
-        if (!(hasLetter && hasDigit)) {
-            throw new IllegalArgumentException("비밀번호는 영문자와 숫자를 각각 1자 이상 포함해야 합니다.");
-        }
+
+    // 회원 탈퇴
+    @Transactional
+    public void deleteUser(Integer userId) {
+        userRepository.deleteById(userId);
     }
 }

@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
@@ -18,10 +19,12 @@ import com.eeum.dto.response.DeviceResponse;
 import com.eeum.entity.Device;
 import com.eeum.entity.IrDevice;
 import com.eeum.entity.IrRemoteir;
+import com.eeum.entity.Room;
 import com.eeum.repository.DeviceRepository;
 import com.eeum.repository.DeviceRepository.DeviceRow;
 import com.eeum.repository.IrDeviceRepository;
 import com.eeum.repository.IrRemoteirRepository;
+import com.eeum.repository.RoomRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,30 +40,41 @@ public class DeviceService {
     private final DeviceRepository deviceRepository;
     private final IrRemoteirRepository irRemoteirRepository;
     private final IrDeviceRepository irDeviceRepository;
+    private final RoomRepository roomRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    
+    private static final Map<String, Set<String>> ALLOWED_KEYS = Map.of(
+    	    "light", Set.of("power"),
+    	    "air conditioner", Set.of("power", "temperature", "level"),
+    	    "air purifier", Set.of("power", "level"),
+    	    "fan", Set.of("power", "level")
+    	);
+
+    
 
     // 디바이스 등록
     @Transactional
     public Boolean registerDevice(Integer userId, RegisterDeviceRequest req) {
         if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
-        if (req == null)    throw new IllegalArgumentException("요청 바디가 비었습니다.");
-        if (req.getIrDeviceId() == null) throw new IllegalArgumentException("irDeviceId(시리얼)는 필수입니다.");
-        if (req.getModel() == null || req.getModel().isBlank()) throw new IllegalArgumentException("model은 필수입니다.");
         if (req.getHomeId() == null) throw new IllegalArgumentException("homeId는 필수입니다.");
-        if (req.getRoomId() == null) throw new IllegalArgumentException("roomId는 필수입니다.");
+        if (req.getRoomColor() == null) throw new IllegalArgumentException("roomColor는 필수입니다.");
+        if (req.getIrDeviceId() == null) throw new IllegalArgumentException("irDeviceId는 필수입니다.");
 
         Integer userHomeId = deviceRepository.findUserHomeId(userId, req.getHomeId())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "user(" + userId + ")가 home(" + req.getHomeId() + ")에 소속되어 있지 않습니다."));
 
-        if (!deviceRepository.existsRoomInHome(req.getHomeId(), req.getRoomId())) {
-            throw new IllegalArgumentException(
-                    "room(" + req.getRoomId() + ")은 home(" + req.getHomeId() + ")에 속하지 않습니다.");
-        }
+        Integer colorInt = parseHexColorToInt(req.getRoomColor());
+        
+        // home_id + room_color 로 방 조회
+        Room room = roomRepository.findByHomeIdAndRoomColor(req.getHomeId(), colorInt)
+                .orElseThrow(() -> new IllegalArgumentException("해당 색상의 방을 찾을 수 없습니다."));
+        
+        Integer roomId = room.getRoomId();
         
         // 사용자가 방에 이미 기기를 등록했는지 검증
-        boolean duplicated = deviceRepository.existsDeviceInRoomByModel(userHomeId, req.getRoomId(), req.getModel());
+        boolean duplicated = deviceRepository.existsDeviceInRoomByModel(userHomeId, roomId, req.getModel());
         if (duplicated) {
             throw new IllegalArgumentException("이미 해당 방에 동일 모델(" + req.getModel() + ") 기기가 등록되어 있습니다.");
         }
@@ -81,30 +95,34 @@ public class DeviceService {
         	        return irRemoteirRepository.save(toSave);
         	    });
         
-        String roomName = deviceRepository.findRoomNameById(req.getRoomId())
-                .orElseThrow(() -> new IllegalArgumentException("room을 찾을 수 없습니다: " + req.getRoomId()));
+        String roomName = deviceRepository.findRoomNameById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("room을 찾을 수 없습니다: " + roomId));
 
         // device 저장 (방이름 + 디바이스 type)
         String deviceName = roomName + " " + req.getDeviceType();
 
-        // device 저장
-        Device device = Device.builder()
-                .deviceName(deviceName)
-                .registeredAt(OffsetDateTime.now())
-                .deviceDetail(new HashMap<>())
-                .model(req.getModel())
-                .irDeviceId(irDevice.getIrDeviceId())
-                .userHomeId(userHomeId)
-                .build();
+        Map<String, Object> defaultDetail = new HashMap<>();
+        defaultDetail.put("power", false);
         
-        Device saved = deviceRepository.save(device);
+        // device 저장
+        Device saved = deviceRepository.save(
+                Device.builder()
+                        .deviceName(deviceName)
+                        .registeredAt(OffsetDateTime.now())
+                        .deviceDetail(defaultDetail)
+                        .model(req.getModel())
+                        .irDeviceId(irDevice.getIrDeviceId())
+                        .userHomeId(userHomeId)
+                        .build()
+        );
 
+        
         // 평면도 좌표 저장
         deviceRepository.insertDevicePosition(
-                req.getX(), 
-                req.getY(),
+                req.getFloorplansX(), 
+                req.getFloorplansY(),
                 saved.getDeviceId(),
-                req.getRoomId(),
+                roomId,
                 req.getHomeId(),
                 req.getModel()
         );
@@ -112,6 +130,16 @@ public class DeviceService {
         return true;
     }
 
+    // 방 색깔 string -> Integer
+    private int parseHexColorToInt(String hex) {
+        String v = hex.trim();
+        if (v.startsWith("#")) v = v.substring(1);
+        if (v.length() != 6 || !v.matches("[0-9a-fA-F]{6}")) {
+            throw new IllegalArgumentException("유효하지 않은 색상값입니다. 기대형식: #RRGGBB 또는 RRGGBB");
+        }
+        return Integer.parseInt(v, 16);
+    }
+    
   
     // device 전체/조건 목록 조회
     public DeviceResponse findDevices(Integer userId, Boolean power, String type, String roomName, String deviceName) {
@@ -171,6 +199,15 @@ public class DeviceService {
         Device device = deviceRepository.findById(deviceId)
             .orElseThrow(() -> new IllegalArgumentException("Device not found: " + deviceId));
 
+        // 디바이스 타입 확인
+        String deviceType = irRemoteirRepository.findById(device.getModel())
+                .map(IrRemoteir::getDeviceType)
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "해당 model(" + device.getModel() + ")에 대한 deviceType을 찾을 수 없습니다."
+                ));
+
+        Set<String> allowed = ALLOWED_KEYS.getOrDefault(deviceType.toLowerCase(), Set.of("power"));
+
         // 1) 기존 값(Map) -> JsonNode로
         JsonNode currentNode = toObjectNodeOrEmpty(device.getDeviceDetail());
 
@@ -184,15 +221,29 @@ public class DeviceService {
         JsonNode mergedNode = deepMerge(currentNode, patchNode);
 
         // 4) 다시 Map으로 변환하여 엔티티에 저장
-        Map<String, Object> mergedMap = objectMapper.convertValue(
-            mergedNode, new TypeReference<Map<String, Object>>() {}
-        );
+        ObjectNode filtered = filterAllowedKeys((ObjectNode) mergedNode, allowed);
 
+        Map<String, Object> mergedMap = objectMapper.convertValue(
+                filtered, new TypeReference<Map<String, Object>>() {}
+            );
+        
         device.setDeviceDetail(mergedMap);
         deviceRepository.save(device);
         return device.getDeviceId();
     }
 
+    // 필터링 함수
+    private ObjectNode filterAllowedKeys(ObjectNode node, Set<String> allowed) {
+        ObjectNode filtered = objectMapper.createObjectNode();
+        node.fieldNames().forEachRemaining(field -> {
+            if (allowed.contains(field)) {
+                filtered.set(field, node.get(field));
+            }
+        });
+        return filtered;
+    }
+
+    
     /**
      * 기존 Map<String, Object>를 ObjectNode로 바꿔준다.
      */

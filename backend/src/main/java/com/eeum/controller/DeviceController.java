@@ -148,12 +148,7 @@ public class DeviceController implements ControllerHelper {
     }
     
     
-    @Operation(
-            summary = "디바이스 위치 목록 조회",
-            description = """
-                사용자가 현재 선택한 홈에 속한 모든 디바이스의 위치를 반환합니다.
-                """
-        )
+    @Operation(summary = "디바이스 위치 목록 조회", description = "사용자가 현재 선택한 홈에 속한 모든 디바이스의 위치를 반환합니다.")
         @GetMapping("/locations")
         public ResponseEntity<?> listDeviceLocations(
                 @RequestParam("homeId") Integer homeId
