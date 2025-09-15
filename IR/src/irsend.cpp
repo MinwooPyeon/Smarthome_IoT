@@ -293,7 +293,7 @@ std::string IRSend::convertControlSignalToIRCode(const std::string& control_sign
     // MQTT로 직접 IR 코드를 받으므로 매핑 테이블 불필요
     // IR 코드 저장소에서만 찾기
     if (code_store_) {
-        return code_store_->getIRCode(control_signal);
+        return code_store_->getIRSignal(control_signal);
     }
     
     return "";

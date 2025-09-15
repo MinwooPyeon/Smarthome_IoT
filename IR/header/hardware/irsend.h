@@ -6,6 +6,7 @@
 #include <chrono>
 #include <mutex>
 #include <atomic>
+#include "core/ir_code_store.h"
 
 enum class IRSendResult {
     SUCCESS,
@@ -19,12 +20,11 @@ struct IRSendStatus {
     IRSendResult result;
     std::string message;
     double duration_ms;
-    
+
     IRSendStatus(IRSendResult r, const std::string& msg, double dur = 0.0)
         : result(r), message(msg), duration_ms(dur) {}
 };
 
-class IRCodeStore; // 전방 선언
 
 class IRSend {
 public:
@@ -32,18 +32,18 @@ public:
     ~IRSend();
     IRSend(IRSend&& other) noexcept;
     IRSend& operator=(IRSend&& other) noexcept;
-    
+
     bool initialize();
     void cleanup();
-    
+
     IRSendStatus sendControlSignal(const std::string& control_signal);
     IRSendStatus sendIRCode(const std::string& ir_code);
     std::vector<IRSendStatus> sendControlSignals(const std::vector<std::string>& control_signals, int delay_ms = 100);
-    
+
     void setCodeStore(IRCodeStore* code_store);
     void setDebugMode(bool enabled);
     std::string getLastError() const;
-    
+
     struct Statistics {
         int total_sent = 0;
         int successful_sends = 0;
@@ -61,14 +61,14 @@ private:
     std::string last_error_;
     mutable std::mutex mutex_;
     mutable std::mutex stats_mutex_;
-    
+
 #ifdef PLATFORM_ESP32
     // RMT 채널은 ESP-IDF에서 관리
 #elif defined(PLATFORM_LINUX)
     int lirc_fd_;
     struct lirc_config* config_;
 #endif
-    
+
     bool checkDevicePermissions();
     bool validateControlSignal(const std::string& control_signal);
     std::string convertControlSignalToIRCode(const std::string& control_signal);
