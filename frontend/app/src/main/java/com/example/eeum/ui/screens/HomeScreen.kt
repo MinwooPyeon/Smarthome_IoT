@@ -1,68 +1,168 @@
 package com.example.eeum.ui.screens
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.eeum.R
+import com.example.eeum.ui.theme.EeumTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onOpenMap: () -> Unit = {},
+    onAddHome: () -> Unit = {}
+) {
+    // 더미 집 목록
+    val homes = listOf(
+        "서울시 성동구 00아파트 101동 1203호",
+        "경북 구미시 인동 OO아파트 102동 904호"
+    )
+    var selectedHome by remember { mutableStateOf(homes.first()) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 24.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 60.dp)
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Greeting("제니님!")
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy((-5).dp)
             ) {
-                Greeting("제니님!")
+                IconButton(onClick = { /* TODO: settings */ }) {
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = "설정",
+                        modifier = Modifier.size(24.dp),
+                        tint = Color(0xFF475569)
+                    )
+                }
                 IconButton(onClick = { /* TODO: notifications */ }) {
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_alarm),
+                        imageVector = Icons.Filled.Notifications,
                         contentDescription = "알림",
-                        tint = Color(0xFF475569),
-                        modifier = Modifier.size(width = 15.dp, height = 18.dp)
+                        modifier = Modifier.size(24.dp),
+                        tint = Color(0xFF475569)
                     )
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            StatsRow()
-            Spacer(Modifier.height(24.dp))
-            FloorplanHeader(
-                title = "우리 집 평면도",
-                onAddClick = { /* TODO */ }
-            )
-            Spacer(Modifier.height(12.dp))
-            FloorplanCard() // 내부 비워둠 (향후 평면도 삽입)
-            Spacer(Modifier.height(16.dp))
         }
-    }
+        Spacer(Modifier.height(12.dp))
+        StatsRow()
+        Spacer(Modifier.height(24.dp))
 
-@Preview
+        // 헤더 텍스트
+        FloorplanHeader(
+            title = "우리 집 평면도",
+            onAddClick = { /* TODO */ }
+        )
+
+        // ‘집 선택’
+        Spacer(Modifier.height(8.dp))
+        HomeDropdown(
+            selected = selectedHome,
+            items = homes,
+            onSelect = { selectedHome = it },
+            onAddNew = onAddHome
+        )
+        // ▲▲ 드롭박스 끝 ▲▲
+
+        Spacer(Modifier.height(12.dp))
+        FloorplanCard(
+            onCardClick = onOpenMap
+        )
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeScreenPreview() {
-    com.example.eeum.ui.theme.EeumTheme(dynamicColor = false) {
-        HomeScreen()
+private fun HomeDropdown(
+    selected: String,
+    items: List<String>,
+    onSelect: (String) -> Unit,
+    onAddNew: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        TextField(
+            value = selected,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("집 선택") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                disabledContainerColor = Color.White,
+                focusedIndicatorColor = Color.Transparent,   // 밑줄 제거
+                unfocusedIndicatorColor = Color.Transparent, // 밑줄 제거
+                disabledIndicatorColor = Color.Transparent   // 밑줄 제거
+            )
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            items.forEach { home ->
+                DropdownMenuItem(
+                    text = { Text(home, fontSize = 14.sp) },
+                    onClick = {
+                        onSelect(home)
+                        expanded = false
+                    }
+                )
+            }
+
+            Divider()
+
+            DropdownMenuItem(
+                leadingIcon = {
+                    Icon(Icons.Outlined.Add, contentDescription = null)
+                },
+                text = {
+                    Text(
+                        text = "새 집 추가",
+                        fontSize = 14.sp,
+                        color = Color(0xFF007AFF)
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onAddNew()
+                }
+            )
+        }
     }
 }
 
@@ -133,8 +233,7 @@ private fun StatCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .height(112.dp),
+        modifier = modifier.height(112.dp),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -161,9 +260,7 @@ private fun StatCard(
                 )
             }
             Spacer(Modifier.height(7.dp))
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF111827))
                 Spacer(Modifier.height(4.dp))
                 Text(subtitle, fontSize = 12.sp, color = Color(0xFF6B7280))
@@ -185,20 +282,43 @@ private fun FloorplanHeader(title: String, onAddClick: () -> Unit) {
             fontWeight = FontWeight.Medium,
             color = Color(0xFF0F172A)
         )
-        Icon(Icons.Outlined.Add, contentDescription = "추가", tint = Color(0xFF0F172A))
+        Icon(
+            painter = painterResource(id = R.drawable.ic_move),
+            contentDescription = "이동",
+            tint = Color(0xFF0F172A)
+        )
     }
 }
 
 @Composable
-private fun FloorplanCard() {
+private fun FloorplanCard(onCardClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(520.dp),
+            .height(300.dp)
+            .clickable { onCardClick() },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF7FBFF)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Add,
+                contentDescription = "추가",
+                tint = Color(0xFF64748B),
+                modifier = Modifier.size(32.dp)
+            )
+        }
+    }
+}
+
+@Composable
+@Preview(showBackground = true)
+private fun HomeScreenPreview() {
+    EeumTheme(dynamicColor = false) {
+        HomeScreen()
     }
 }

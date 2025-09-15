@@ -14,6 +14,11 @@ val localProperties = Properties().apply {
 val PICOVOICE_ACCESS_KEY = localProperties.getProperty("PICOVOICE_ACCESS_KEY")
     ?: error("PICOVOICE_ACCESS_KEY not found in local.properties")
 
+val NAVER_CLIENT_ID: String =
+    localProperties.getProperty("NAVER_CLIENT_ID")
+        ?: error("NAVER_CLIENT_ID not found in local.properties")
+
+
 android {
     namespace = "com.example.eeum"
     compileSdk = 36
@@ -26,6 +31,8 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["PICOVOICE_ACCESS_KEY"] = PICOVOICE_ACCESS_KEY
+        manifestPlaceholders["NAVER_CLIENT_ID"] = NAVER_CLIENT_ID
+        buildConfigField("String", "NAVER_CLIENT_ID", "\"$NAVER_CLIENT_ID\"")
     }
 
     buildTypes {
@@ -67,6 +74,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.appcompat)
+    implementation(libs.play.services.maps)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -84,9 +92,15 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.compose.material3:material3:1.3.0")
-    implementation("androidx.navigation:navigation-compose:2.4.0-alpha10")
     implementation(platform("androidx.compose:compose-bom:2025.06.00"))
     implementation("androidx.compose.material:material")
+
+    // CameraX + MLKit (QR 스캔)
+    implementation("androidx.camera:camera-core:1.3.4")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
 
     // retrofit
     implementation ("com.squareup.retrofit2:retrofit:2.9.0")
@@ -106,4 +120,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
     implementation("com.jakewharton.threetenabp:threetenabp:1.4.6")
+
+    // Naver Map SDK
+    implementation("com.naver.maps:map-sdk:3.22.1")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 }
