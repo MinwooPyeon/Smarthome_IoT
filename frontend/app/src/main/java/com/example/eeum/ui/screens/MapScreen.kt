@@ -1,7 +1,6 @@
 package com.example.eeum.ui.screens
 
 import android.Manifest
-import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.PackageManager
@@ -38,14 +37,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.eeum.ui.theme.EeumTheme
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.naver.maps.geometry.LatLng
-import com.naver.maps.map.CameraPosition
 import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.LocationTrackingMode
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
-import com.naver.maps.map.NaverMapSdk
-import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.util.FusedLocationSource
 
 @Composable
@@ -99,9 +97,7 @@ fun MapScreen(
                     lineHeight = 20.sp,
                     overflow = TextOverflow.Clip,
                     style = LocalTextStyle.current.copy(
-                        platformStyle = PlatformTextStyle(
-                            includeFontPadding = false
-                        )
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
                     )
                 )
             },
@@ -135,9 +131,7 @@ fun MapScreen(
                     .fillMaxHeight()
                     .background(Color(0xFFEDEDED)),
                 contentAlignment = Alignment.Center
-            ) {
-                Text("네이버 지도", color = Color.Gray)
-            }
+            ) { Text("네이버 지도", color = Color.Gray) }
         } else {
             NaverMapViewComposable()
         }
@@ -148,22 +142,6 @@ fun MapScreen(
 private fun NaverMapViewComposable() {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-
-    // MapView 생성 전에 Client ID 주입 보장
-    remember {
-        runCatching {
-            val ai = context.packageManager.getApplicationInfo(
-                context.packageName,
-                PackageManager.GET_META_DATA
-            )
-            val cid = ai.metaData?.getString("com.naver.maps.map.CLIENT_ID")
-            require(!cid.isNullOrBlank()) { "NAVER CLIENT_ID is blank" }
-            NaverMapSdk.getInstance(context).client =
-                NaverMapSdk.NaverCloudPlatformClient(cid!!)
-            Log.d("NaverMap", "CLIENT_ID set from Manifest: $cid")
-        }.onFailure { Log.e("NaverMap", "Failed to set CLIENT_ID", it) }
-        true
-    }
 
     val mapView = remember { MapView(context) }
 
@@ -203,66 +181,94 @@ private fun setupNaverMap(
     naverMap: NaverMap,
     context: Context
 ) {
-    // 기본 카메라(서울시청)
-    val defaultPos = CameraPosition(
-        LatLng(37.5666805, 126.9784147),
-        16.0
-    )
-    naverMap.moveCamera(CameraUpdate.toCameraPosition(defaultPos))
+    // 0) 기본 카메라 위치: 36.107113, 128.416401 (초기 디폴트)
+    val defaultPos = LatLng(36.107113, 128.416401)
+    naverMap.moveCamera(CameraUpdate.scrollTo(defaultPos))
+    naverMap.moveCamera(CameraUpdate.zoomTo(18.0))
 
-    // UI 설정
+    // 1) 경량/심볼 및 UI 설정
+    naverMap.symbolScale = 0f
+    naverMap.isLiteModeEnabled = true
     naverMap.uiSettings.apply {
-        isCompassEnabled = true
-        isScaleBarEnabled = true
-        isZoomControlEnabled = true
-        // 현위치 버튼은 권한 있을 때만 켭니다(없으면 클릭 시 권한요청 로직이 붙어버리므로 꺼둠)
+        isCompassEnabled = false
+        isScaleBarEnabled = false
+        isZoomControlEnabled = false
+        isIndoorLevelPickerEnabled = false
         isLocationButtonEnabled = hasAnyLocationPermission(context)
+        isLogoClickEnabled = false
     }
 
     val activity = context.findComponentActivity() ?: return
 
-    // Google Play Services Location API 가용성 확인
-    val hasGmsLocation = try {
-        Class.forName("com.google.android.gms.location.LocationCallback"); true
-    } catch (_: ClassNotFoundException) { false }
-    if (!hasGmsLocation) return
-
-    if (hasAnyLocationPermission(context)) {
-        enableLocationTracking(naverMap, activity)
-    } else {
-        // 권한 없으면 위치 기능만 비활성화(요청은 MainActivity에서만 수행)
+    // 2) 권한 없으면 기본 위치만 보여주고 끝
+    if (!hasAnyLocationPermission(context)) {
         naverMap.locationSource = null
         naverMap.locationTrackingMode = LocationTrackingMode.None
+        naverMap.locationOverlay.isVisible = false
+        Log.w("NaverMap", "Location permission not granted.")
+        return
     }
-}
 
-private fun enableLocationTracking(naverMap: NaverMap, activity: Activity) {
-    val locationSource = FusedLocationSource(activity, 1000)
+    // 3) 위치 소스/트래킹 모드
+    val locationSource = FusedLocationSource(activity, /*REQUEST_CODE*/ 1000)
     naverMap.locationSource = locationSource
-    naverMap.locationTrackingMode = LocationTrackingMode.NoFollow
+    naverMap.locationTrackingMode = LocationTrackingMode.Face
+    naverMap.locationOverlay.isVisible = true
 
+    // 4) 첫 실제 위치 수신 시 1회만 현재 위치로 이동
+    var cameraInitialized = false
+    naverMap.addOnLocationChangeListener { loc ->
+        if (!cameraInitialized) {
+            val here = LatLng(loc.latitude, loc.longitude)
+            naverMap.moveCamera(CameraUpdate.scrollTo(here))
+            naverMap.moveCamera(CameraUpdate.zoomTo(18.0))
+            cameraInitialized = true
+            naverMap.locationTrackingMode = LocationTrackingMode.Face
+            Log.d("NaverMap", "Camera moved by onLocationChange: $here")
+        }
+    }
+
+    // 5) FusedLocationProvider로 즉시 점프(퍼미션 체크/예외 처리 포함)
     runCatching {
         val fused = LocationServices.getFusedLocationProviderClient(activity)
+        val cts = CancellationTokenSource()
+
         val fineGranted = ActivityCompat.checkSelfPermission(
             activity, Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
         val coarseGranted = ActivityCompat.checkSelfPermission(
             activity, Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-        if (!fineGranted && !coarseGranted) return@runCatching
+        if (!(fineGranted || coarseGranted)) return@runCatching
 
-        fused.lastLocation.addOnSuccessListener { loc ->
-            if (loc != null) {
-                val here = LatLng(loc.latitude, loc.longitude)
-                naverMap.moveCamera(CameraUpdate.scrollTo(here))
-                naverMap.moveCamera(CameraUpdate.zoomTo(16.0))
-                Marker().apply {
-                    position = here
-                    map = naverMap
+        try {
+            fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
+                .addOnSuccessListener { loc ->
+                    if (loc != null && !cameraInitialized) {
+                        val here = LatLng(loc.latitude, loc.longitude)
+                        naverMap.moveCamera(CameraUpdate.scrollTo(here))
+                        naverMap.moveCamera(CameraUpdate.zoomTo(18.0))
+                        cameraInitialized = true
+                        naverMap.locationTrackingMode = LocationTrackingMode.Face
+                        Log.d("NaverMap", "Camera moved by getCurrentLocation: $here")
+                    }
+                }
+                .addOnFailureListener { e -> Log.e("NaverMap", "getCurrentLocation failed", e) }
+
+            fused.lastLocation.addOnSuccessListener { loc ->
+                if (loc != null && !cameraInitialized) {
+                    val here = LatLng(loc.latitude, loc.longitude)
+                    naverMap.moveCamera(CameraUpdate.scrollTo(here))
+                    naverMap.moveCamera(CameraUpdate.zoomTo(18.0))
+                    cameraInitialized = true
+                    naverMap.locationTrackingMode = LocationTrackingMode.Face
+                    Log.d("NaverMap", "Camera moved by lastLocation: $here")
                 }
             }
+        } catch (se: SecurityException) {
+            Log.e("NaverMap", "Location access SecurityException", se)
         }
-    }
+    }.onFailure { Log.e("NaverMap", "FusedLocation init error", it) }
 }
 
 private fun hasAnyLocationPermission(ctx: Context): Boolean {
