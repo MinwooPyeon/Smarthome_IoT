@@ -15,7 +15,7 @@ bool HubApp::init() {
 
     // ---- Sensors
     auto gpio_dht = std::make_shared<GpioPigpio>();
-    SensorConfig dhtCfg{.name="dht11_main", .kind="dht11", .pin=4, .sample_interval_ms=2000};
+    SensorConfig dhtCfg{.name="dht11_main", .kind="dht11", .pin=27, .sample_interval_ms=2000};
     Dht11Sensor::Options dopt; dopt.pin = dhtCfg.pin;
     dht_ = std::make_shared<Dht11Sensor>(gpio_dht, dhtCfg, dopt);
 
