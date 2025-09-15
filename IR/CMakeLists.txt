@@ -48,6 +48,7 @@ set(SOURCES
     src/esp32_ir_receiver.cpp
     src/esp32_ir_store.cpp
     src/esp32_wifi_mqtt.cpp
+    src/security.cpp
 )
 
 # 헤더 파일들
@@ -58,6 +59,7 @@ set(HEADERS
     header/core/ir_system.h
     header/core/platform.h
     header/core/remote.h
+    header/core/security.h
     header/hardware/appliance_controller.h
     header/hardware/esp32_ir_receiver.h
     header/hardware/esp32_ir_store.h
@@ -85,6 +87,12 @@ add_executable(ir_remote_controller
 # Windows에서 필요한 라이브러리
 if(WIN32)
     # Windows에서는 추가 라이브러리가 필요하지 않음 (시뮬레이션 모드)
+    # 보안 기능을 위해 advapi32와 crypt32 라이브러리 링크
+    target_link_libraries(ir_remote_controller advapi32 crypt32)
+else()
+    # Linux에서 OpenSSL 라이브러리 링크
+    find_package(OpenSSL REQUIRED)
+    target_link_libraries(ir_remote_controller OpenSSL::SSL OpenSSL::Crypto)
 endif()
 
 # 테스트 실행 파일 생성 (Google Test 사용)
