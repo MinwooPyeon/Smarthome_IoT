@@ -8,6 +8,7 @@
 #include <atomic>
 #include <thread>
 #include <memory>
+#include <mutex>
 
 struct IRCode {
     std::string code;
@@ -65,6 +66,9 @@ public:
     // IR 수신기 설정
     void setIRReceiver(IRReceiver* ir_receiver);
     IRReceiver* getIRReceiver() const;
+    
+    // IR 코드 수신 처리
+    void onIRCodeReceived(const std::string& ir_code);
 
 private:
     std::atomic<bool> learning_mode_;
