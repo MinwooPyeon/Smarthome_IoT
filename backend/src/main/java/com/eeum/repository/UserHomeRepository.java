@@ -2,9 +2,11 @@ package com.eeum.repository;
 
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;  
 
 import java.util.List;
+import java.util.Optional;
 
 import com.eeum.entity.UserHome;
 
@@ -24,10 +26,11 @@ public interface UserHomeRepository extends JpaRepository<UserHome, Integer> {
                                            @Param("addressId") Integer addressId);
 
     
+    // userId가 homeId에 속해 있는지 여부 확인
     boolean existsByUserIdAndHomeId(Integer userId, Integer homeId);
 
     
-    // userhome 삭제
+    // user_home에서 userId와 homeId 매핑 삭제
     void deleteByUserIdAndHomeId(Integer userId, Integer homeId);
     
     
@@ -48,4 +51,25 @@ public interface UserHomeRepository extends JpaRepository<UserHome, Integer> {
             Integer getHomeId();
             String getHomeName();
         }
+
+        // userId와 homeId로 user_home 엔티티 조회
+        Optional<UserHome> findByUserIdAndHomeId(Integer userId, Integer homeId);
+
+        
+        // 해당 유저의 기존 대표 집(isPrimary=true) 해제
+        @Modifying(clearAutomatically = true, flushAutomatically = true)
+        @Query("""
+            UPDATE UserHome u SET u.isPrimary = false
+             WHERE u.userId = :userId AND u.isPrimary = true
+        """)
+        int resetPrimaryByUserId(@Param("userId") Integer userId);
+
+        
+        // 특정 집을 대표 집으로 설정(isPrimary=true)
+        @Modifying(clearAutomatically = true, flushAutomatically = true)
+        @Query("""
+            UPDATE UserHome u SET u.isPrimary = true
+             WHERE u.userId = :userId AND u.homeId = :homeId
+        """)
+        int setPrimary(@Param("userId") Integer userId, @Param("homeId") Integer homeId);
     }

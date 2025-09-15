@@ -1,14 +1,11 @@
 package com.eeum.controller;
 
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,8 +15,6 @@ import com.eeum.dto.request.UserImageUpdateRequest;
 import com.eeum.dto.request.PasswordUpdateRequest;
 import com.eeum.dto.request.UpdateNicknameRequest;
 import com.eeum.dto.response.UpdateNicknameResponse;
-import com.eeum.dto.response.UserHomeItemResponse;
-import com.eeum.dto.response.UserHomeListResponse;
 import com.eeum.dto.response.UserResponse;
 import com.eeum.service.UserService;
 
@@ -106,19 +101,4 @@ public class UserController implements ControllerHelper {
 //            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
 //        }
 //    }
-    
-    // 유저 집 목록 조회
-    @Operation(summary = "유저 집 목록 조회", description = "유저가 가진 집의 목록을 보여줍니다.")
-    @GetMapping("/api/users/address")
-    public ResponseEntity<?> listMyHomes() {
-        try {
-            Integer userId = 1;
-            List<UserHomeItemResponse> homes = userService.listUserHomes(userId);
-            return handleSuccess(new UserHomeListResponse(homes), HttpStatus.OK);
-        } catch (IllegalArgumentException e) {
-            return handleFail(e, HttpStatus.BAD_REQUEST);
-        } catch (Exception e) {
-            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
 }
