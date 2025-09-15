@@ -35,7 +35,7 @@ IRSend* g_ir_sender = nullptr;
 #define WIFI_PASSWORD "49555412"
 
 // MQTT 설정 - 실제 MQTT 브로커 주소로 변경하세요
-#define MQTT_BROKER "실제_MQTT_브로커_주소"
+#define MQTT_BROKER "test.mosquitto.org"
 #define MQTT_PORT 1883
 #define MQTT_CLIENT_ID "esp32_ir_controller"
 
@@ -140,16 +140,20 @@ void initWiFi() {
     esp_wifi_get_mode(&current_mode);
     ESP_LOGI(TAG, "스캔 전 WiFi 모드: %d", current_mode);
 
-    // WiFi 스캔 재시도 로직
+    // WiFi 스캔 재시도 로직 (더 효율적으로 개선)
     esp_err_t scan_result = ESP_FAIL;
     int scan_retry = 0;
+    const int max_retries = 3;  // 3번으로 줄임
 
-    while (scan_result != ESP_OK && scan_retry < 5) {  // 5번까지 재시도
-        ESP_LOGI(TAG, "WiFi 스캔 시도 %d/5", scan_retry + 1);
+    while (scan_result != ESP_OK && scan_retry < max_retries) {
+        ESP_LOGI(TAG, "WiFi 스캔 시도 %d/%d", scan_retry + 1, max_retries);
         scan_result = esp_wifi_scan_start(&scan_config, true);
         if (scan_result != ESP_OK) {
-            ESP_LOGW(TAG, "WiFi 스캔 시작 실패 (시도 %d/5): %s", scan_retry + 1, esp_err_to_name(scan_result));
-            vTaskDelay(pdMS_TO_TICKS(2000)); // 2초 대기 후 재시도
+            ESP_LOGW(TAG, "WiFi 스캔 시작 실패 (시도 %d/%d): %s", scan_retry + 1, max_retries, esp_err_to_name(scan_result));
+
+            // 재시도 간격을 점진적으로 증가
+            int delay_ms = 1000 + (scan_retry * 1000); // 1초, 2초, 3초
+            vTaskDelay(pdMS_TO_TICKS(delay_ms));
             scan_retry++;
         }
     }
@@ -186,13 +190,37 @@ void initWiFi() {
 
     // 연결 상태 확인
     wifi_ap_record_t ap_info;
-    if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+    esp_err_t ap_info_result = esp_wifi_sta_get_ap_info(&ap_info);
+    if (ap_info_result == ESP_OK) {
         ESP_LOGI(TAG, "WiFi 연결 성공!");
         ESP_LOGI(TAG, "연결된 SSID: %s", ap_info.ssid);
         ESP_LOGI(TAG, "RSSI: %d dBm", ap_info.rssi);
+        ESP_LOGI(TAG, "인증 모드: %d", ap_info.authmode);
+        ESP_LOGI(TAG, "채널: %d", ap_info.primary);
     } else {
-        ESP_LOGW(TAG, "WiFi 연결 실패 - 재시도 중...");
-        esp_wifi_connect();
+        ESP_LOGW(TAG, "WiFi 연결 실패: %s", esp_err_to_name(ap_info_result));
+
+        // 연결 실패 원인 분석
+        wifi_ap_record_t ap_records[10];
+        uint16_t ap_count_check = 10;
+        esp_wifi_scan_get_ap_records(&ap_count_check, ap_records);
+
+        bool target_found = false;
+        for (int i = 0; i < ap_count_check; i++) {
+            if (strcmp((char*)ap_records[i].ssid, WIFI_SSID) == 0) {
+                ESP_LOGI(TAG, "목표 네트워크 발견: %s (RSSI: %d, Auth: %d)",
+                         ap_records[i].ssid, ap_records[i].rssi, ap_records[i].authmode);
+                target_found = true;
+                break;
+            }
+        }
+
+        if (!target_found) {
+            ESP_LOGE(TAG, "목표 네트워크 '%s'를 찾을 수 없습니다!", WIFI_SSID);
+        } else {
+            ESP_LOGW(TAG, "네트워크는 발견되었지만 연결에 실패했습니다. 재시도 중...");
+            esp_wifi_connect();
+        }
     }
 }
 
@@ -274,7 +302,7 @@ std::string onSerialCommand(const std::string& command, const cJSON* params) {
         // IR 송신 상태 반환
         cJSON *ir_status = cJSON_CreateObject();
         cJSON_AddBoolToObject(ir_status, "sending", (g_ir_sender != nullptr));
-        cJSON_AddNumberToObject(ir_status, "tx_pin", 22);
+        cJSON_AddNumberToObject(ir_status, "tx_pin", 23);
 
         char *ir_status_str = cJSON_Print(ir_status);
         std::string result_str = ir_status_str;
@@ -453,19 +481,29 @@ void loop() {
     // WiFi 연결 상태 확인 (재연결 시도 제한)
     static uint32_t last_wifi_check = 0;
     static uint32_t wifi_reconnect_count = 0;
+    static uint32_t last_reconnect_time = 0;
 
     if (millis() - last_wifi_check > 10000) { // 10초마다 확인
         wifi_ap_record_t ap_info;
         if (esp_wifi_sta_get_ap_info(&ap_info) != ESP_OK) {
-            if (wifi_reconnect_count < 3) { // 최대 3번만 재연결 시도
+            if (wifi_reconnect_count < 3 && (millis() - last_reconnect_time > 30000)) { // 30초 간격으로 최대 3번
                 ESP_LOGW(TAG, "WiFi 연결 끊어짐. 재연결 시도 %d/3...", wifi_reconnect_count + 1);
-                esp_wifi_connect(); // initWiFi() 대신 esp_wifi_connect()만 호출
+
+                // WiFi 재시작 후 연결 시도
+                esp_wifi_stop();
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                esp_wifi_start();
+                vTaskDelay(pdMS_TO_TICKS(2000));
+                esp_wifi_connect();
+
                 wifi_reconnect_count++;
-            } else {
+                last_reconnect_time = millis();
+            } else if (wifi_reconnect_count >= 3) {
                 ESP_LOGE(TAG, "WiFi 재연결 시도 횟수 초과. 수동 재시작 필요.");
             }
         } else {
             wifi_reconnect_count = 0; // 연결 성공 시 카운터 리셋
+            last_reconnect_time = 0;
         }
         last_wifi_check = millis();
     }
