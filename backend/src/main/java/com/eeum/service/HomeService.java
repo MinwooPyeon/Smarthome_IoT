@@ -32,7 +32,8 @@ public class HomeService {
                 .map(p -> new AddressItemResponse(
                         p.getAddressId(),
                         p.getLongitude(),
-                        p.getLatitude()
+                        p.getLatitude(),
+                        p.getHomeName()
                 ))
                 .collect(Collectors.toList());
 

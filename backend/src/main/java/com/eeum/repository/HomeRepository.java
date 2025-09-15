@@ -12,37 +12,36 @@ public interface HomeRepository extends JpaRepository<Home, Integer> {
 	
 	//모든 집을 address_id 기준으로 집계하여 목록 반환
     @Query(value = """
-            SELECT
-                h.address_id      AS addressId,
-                AVG(h.longitude)  AS longitude,
-                AVG(h.latitude)   AS latitude
-            FROM eeum.home h
-            GROUP BY h.address_id
-            ORDER BY h.address_id
+            select distinct a.address_id as addressId,
+                            h.longitude  as longitude,
+                            h.latitude   as latitude,
+                            a.home_name  as homeName
+            from eeum.home h
+            join eeum.addresses a on a.address_id = h.address_id
             """, nativeQuery = true)
         List<AddressProjection> findAllAddressDistinct();
 
     
+    // 키워드 검색 (detail 또는 home_name)
     @Query(value = """
-            SELECT
-                a.address_id         AS addressId,
-                AVG(h.longitude)     AS longitude,
-                AVG(h.latitude)      AS latitude
-            FROM eeum.addresses a
-            JOIN eeum.home h ON h.address_id = a.address_id
-            WHERE a.detail ILIKE CONCAT('%', :q, '%')
-            GROUP BY a.address_id
-            ORDER BY a.address_id
+            select distinct a.address_id as addressId,
+                            h.longitude  as longitude,
+                            h.latitude   as latitude,
+                            a.home_name  as homeName
+            from eeum.home h
+            join eeum.addresses a on a.address_id = h.address_id
+            where lower(coalesce(a.detail, ''))    like lower(concat('%', :keyword, '%'))
+               or lower(coalesce(a.home_name, '')) like lower(concat('%', :keyword, '%'))
             """, nativeQuery = true)
-        List<AddressProjection> searchAddressMarkers(
-                @Param("q") String keyword
-        );
+        List<AddressProjection> searchAddressMarkers(@Param("keyword") String keyword);
+ 
     
     
     interface AddressProjection {
         Integer getAddressId();
         Double getLongitude();
         Double getLatitude();
+        String getHomeName();
     }
 }
 
