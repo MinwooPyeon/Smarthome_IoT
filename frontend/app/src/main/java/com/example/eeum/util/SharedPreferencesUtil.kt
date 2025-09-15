@@ -1,4 +1,4 @@
-package com.example.eeum.data
+package com.example.eeum.util
 
 import android.content.Context
 import android.content.SharedPreferences

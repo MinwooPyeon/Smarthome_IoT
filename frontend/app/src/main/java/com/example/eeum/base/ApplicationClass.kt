@@ -69,6 +69,7 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(this)
+        com.jakewharton.threetenabp.AndroidThreeTen.init(this)
 
         // ✅ 네이버 맵 SDK Client ID를 Manifest 메타데이터에서 읽어 주입
         initNaverMapClient()

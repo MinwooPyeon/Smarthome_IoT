@@ -4,6 +4,7 @@ import com.example.eeum.data.model.dto.routine.RoutineRequest
 import com.example.eeum.data.model.response.common.ApiResponse
 import com.example.eeum.data.model.response.common.BaseResponse
 import com.example.eeum.data.model.response.common.Page
+import com.example.eeum.data.model.response.routine.RoutineCreateResponse
 import com.example.eeum.data.model.response.routine.RoutineResponse
 import retrofit2.Response
 import retrofit2.http.Body
@@ -20,7 +21,7 @@ interface RoutineService {
     @POST("api/routines")
     suspend fun createRoutine(
         @Body body: RoutineRequest
-    ): Response<ApiResponse<BaseResponse>>
+    ): Response<ApiResponse<RoutineCreateResponse>>
 
     // 루틴 조회
     @GET("api/routines")

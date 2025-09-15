@@ -14,6 +14,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.eeum.base.DeviceDirectoryCache
+import com.example.eeum.base.RoutineDirectoryCache
 import com.example.eeum.data.remote.RetrofitUtil
 import com.example.eeum.ui.navigation.EeumApp
 import com.example.eeum.ui.theme.EeumTheme
@@ -84,6 +85,13 @@ class MainActivity : ComponentActivity() {
                             VoiceDeps.directory = dir
                             Log.d(TAG, "requestStartupPermissions: 디바이스 $count 개 로드됨")
                         }
+
+                        val routineDir = RoutineDirectoryCache(RetrofitUtil.routineService)
+                        val rCount = withContext(Dispatchers.IO) {
+                            runCatching { routineDir.loadAllRoutines() }.getOrElse { -1 }
+                        }
+                        VoiceDeps.routineDirectory = routineDir
+                        Log.d(TAG, "requestStartupPermissions: 루틴 $rCount 개 로드됨")
 
                         ContextCompat.startForegroundService(
                             this@MainActivity,

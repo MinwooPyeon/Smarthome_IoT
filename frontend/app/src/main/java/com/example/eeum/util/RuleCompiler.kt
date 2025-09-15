@@ -98,6 +98,7 @@ object RuleCompiler {
     private fun pvPatternOf(label: String): String? = when (label) {
         "pv.TwoDigitInteger"    -> """(?:[0-9]{1,2})"""
         "pv.SingleDigitInteger" -> """(?:[0-9])"""
+        "pv.FreeText"           -> """(?:.+)"""
         else -> null
     }
 
