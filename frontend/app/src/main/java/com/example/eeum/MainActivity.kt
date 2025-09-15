@@ -1,3 +1,4 @@
+
 package com.example.eeum
 
 import com.example.eeum.BuildConfig // ← 여기 확인!
@@ -42,7 +43,8 @@ class MainActivity : ComponentActivity() {
 
     private fun requestStartupPermissions() {
         val toRequest = buildList {
-            // 음성
+            // 카메라 권한을 앱 시작 시 한 번에 요청
+            add(android.Manifest.permission.CAMERA)
             add(android.Manifest.permission.RECORD_AUDIO)
             // 알림 (T+)
             if (Build.VERSION.SDK_INT >= 33) {

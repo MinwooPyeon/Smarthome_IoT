@@ -29,6 +29,8 @@ import com.example.eeum.ui.screens.AlarmManageScreen
 import com.example.eeum.ui.screens.MapScreen
 import com.example.eeum.ui.screens.UserInformationScreen
 import com.example.eeum.ui.screens.PasswordChangeScreen
+import com.example.eeum.ui.screens.DeviceRegistrationScreen
+import com.example.eeum.ui.screens.DeviceRegistrationQRScreen
 
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
@@ -46,6 +48,8 @@ private const val ROUTE_CREATE_ROUTINE_FIRST = "createRoutineFirst"
 private const val ROUTE_CREATE_ROUTINE_SECOND = "createRoutineSecond"
 private const val USER_INFORMATION_ROUTE = "user_information"
 private const val PASSWORD_CHANGE_ROUTE = "password_change"
+private const val DEVICE_REGISTRATION_ROUTE = "device_registration"
+private const val DEVICE_REGISTRATION_QR_ROUTE = "device_registration_qr"
 
 private const val MAP_ROUTE = "map"
 
@@ -104,12 +108,21 @@ fun EeumApp() {
         composable(PASSWORD_CHANGE_ROUTE) {
             PasswordChangeScreen(navController)
         }
+        // 디바이스 등록 플로우
+        composable(DEVICE_REGISTRATION_ROUTE) {
+            DeviceRegistrationScreen(navController) { _ ->
+                navController.navigate(DEVICE_REGISTRATION_QR_ROUTE) { launchSingleTop = true }
+            }
+        }
+        composable(DEVICE_REGISTRATION_QR_ROUTE) {
+            DeviceRegistrationQRScreen(navController)
+        }
     }
 }
 
-    // BottomNavigation이 포함된 메인 탭 화면들을 관리하는 컴포저블
-    @Composable
-    private fun MainTabsScreen(mainNavController: androidx.navigation.NavController) {
+// BottomNavigation이 포함된 메인 탭 화면들을 관리하는 컴포저블
+@Composable
+private fun MainTabsScreen(mainNavController: androidx.navigation.NavController) {
         val tabNavController = rememberNavController()
 
         M2Scaffold(
@@ -159,7 +172,7 @@ fun EeumApp() {
                         onOpenMap = { mainNavController.navigate(MAP_ROUTE) }
                     )
                 }
-                composable(Tab.Device.route) { DeviceScreen() }
+                composable(Tab.Device.route) { DeviceScreen(mainNavController) }
                 composable(Tab.Use.route) { EnergyScreen() }
                 composable(Tab.Menu.route) { MenuScreen(mainNavController) }
             }
