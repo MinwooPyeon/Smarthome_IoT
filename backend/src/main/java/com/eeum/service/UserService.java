@@ -1,13 +1,18 @@
 package com.eeum.service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.eeum.dto.request.PasswordUpdateRequest;
 import com.eeum.dto.request.UserImageUpdateRequest;
 import com.eeum.dto.response.UpdateNicknameResponse;
+import com.eeum.dto.response.UserHomeItemResponse;
 import com.eeum.dto.response.UserResponse;
 import com.eeum.entity.User;
+import com.eeum.repository.UserHomeRepository;
 import com.eeum.repository.UserRepository;
 
 import jakarta.transaction.Transactional;
@@ -22,6 +27,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserHomeRepository userHomeRepository;
 
     // 닉네임 변경
     public UpdateNicknameResponse updateNickname(Integer userId, String newNickname) {
@@ -96,5 +102,15 @@ public class UserService {
     @Transactional
     public void deleteUser(Integer userId) {
         userRepository.deleteById(userId);
+    }
+    
+    
+    // 유저의 집 목록 조회
+    public List<UserHomeItemResponse> listUserHomes(Integer userId) {
+        List<UserHomeRepository.HomeIdNameProjection> rows = userHomeRepository.findHomeIdAndNameByUserId(userId);
+        
+        return rows.stream()
+            .map(r -> new UserHomeItemResponse(r.getHomeId(), r.getHomeName()))
+            .toList();
     }
 }
