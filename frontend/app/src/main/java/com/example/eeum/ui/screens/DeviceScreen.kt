@@ -34,13 +34,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.eeum.R
 import com.example.eeum.ui.theme.*
 
 @Composable
-fun DeviceScreen() {
+fun DeviceScreen(navController: NavController? = null) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -130,7 +131,7 @@ fun DeviceScreen() {
         }
 
         // 2) 그리드 렌더링 (플러스 추가 카드 포함)
-        DeviceGrid(items = devices, showAddTile = true, onToggle = ::toggleDevice)
+        DeviceGrid(items = devices, showAddTile = true, onToggle = ::toggleDevice, onAddClick = { navController?.navigate("device_registration") })
     }
 }
 
@@ -310,7 +311,8 @@ private fun DeviceGrid(
     items: List<DeviceUi>,
     modifier: Modifier = Modifier,
     showAddTile: Boolean = true,
-    onToggle: (String) -> Unit = {}
+    onToggle: (String) -> Unit = {},
+    onAddClick: () -> Unit = {}
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
@@ -347,7 +349,7 @@ private fun DeviceGrid(
         }
         if (showAddTile) {
             item(span = { GridItemSpan(1) }) {
-                AddDeviceCard()
+                Box(modifier = Modifier.clickable { onAddClick() }) { AddDeviceCard() }
             }
         }
     }

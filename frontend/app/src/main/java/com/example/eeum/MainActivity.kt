@@ -41,6 +41,8 @@ class MainActivity : ComponentActivity() {
 
     private fun requestStartupPermissions() {
         val toRequest = buildList {
+            // 카메라 권한을 앱 시작 시 한 번에 요청
+            add(android.Manifest.permission.CAMERA)
             add(android.Manifest.permission.RECORD_AUDIO)
 
             if (Build.VERSION.SDK_INT >= 33) {
