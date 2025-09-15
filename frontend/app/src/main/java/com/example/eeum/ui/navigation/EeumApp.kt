@@ -23,7 +23,6 @@ import com.example.eeum.ui.screens.VoiceScreen
 import com.example.eeum.ui.screens.RoutineScreen
 import com.example.eeum.ui.screens.CreateRoutineFirstScreen
 import com.example.eeum.ui.screens.CreateRoutineSecondScreen
-import com.example.eeum.ui.screens.LoginScreen
 import com.example.eeum.ui.screens.LogManageScreen
 import com.example.eeum.ui.screens.AlarmManageScreen
 import com.example.eeum.ui.screens.MapScreen
@@ -65,7 +64,7 @@ fun EeumApp() {
 
         // 2️⃣ BottomNavigation이 없는 화면들
         composable(LOGIN_ROUTE) {
-            LoginScreen()
+//            LoginScreen()
         }
 
         composable(LOG_MANAGE_ROUTE) {
