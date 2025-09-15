@@ -29,7 +29,7 @@ public class HomeController implements ControllerHelper {
         )
         @GetMapping("/addresses/search")
         public ResponseEntity<?> search(
-                @RequestParam(name = "keyword") String keyword
+                @RequestParam(name = "keyword", required = false) String keyword
         ) {
             try {
                 AddressListResponse body = homeService.listAddressMarkers(keyword);
