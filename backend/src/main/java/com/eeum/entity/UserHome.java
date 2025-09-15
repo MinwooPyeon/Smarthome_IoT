@@ -27,4 +27,6 @@ public class UserHome {
     @Column(name = "home_id", nullable = false)
     private Integer homeId;
 
+    @Column(name = "is_primary", nullable = false)
+    private boolean isPrimary;       
 }

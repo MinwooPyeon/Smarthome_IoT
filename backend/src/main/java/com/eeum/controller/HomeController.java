@@ -27,17 +27,17 @@ public class HomeController implements ControllerHelper {
             summary = "주소로 집 정보 검색",
             description = "주소(detail) 키워드로 검색하여 addressId 기준으로 중복 제거한 결과를 반환합니다.(키워드 없으면 전체 조회)"
         )
-        @GetMapping("/addresses/search")
-        public ResponseEntity<?> search(
-                @RequestParam(name = "keyword", required = false) String keyword
-        ) {
-            try {
-                AddressListResponse body = homeService.listAddressMarkers(keyword);
-                return handleSuccess(body, HttpStatus.OK);
-            } catch (IllegalArgumentException e) {
-                return handleFail(e, HttpStatus.BAD_REQUEST);
-            } catch (Exception e) {
-                return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
-            }
+    @GetMapping("/addresses/search")
+    public ResponseEntity<?> search(
+            @RequestParam(name = "keyword", required = false) String keyword
+    ) {
+        try {
+            AddressListResponse body = homeService.listAddressMarkers(keyword);
+            return handleSuccess(body, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+}

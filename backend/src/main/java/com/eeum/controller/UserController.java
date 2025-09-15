@@ -4,7 +4,6 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -92,15 +91,14 @@ public class UserController implements ControllerHelper {
     }
 
     // 회원탈퇴
-    @Operation(summary = "회원 탈퇴", description = "로그인한 사용자를 탈퇴 처리합니다.")
-    @DeleteMapping
-    public ResponseEntity<?> deleteUser() {
-        try {
-            userService.deleteUser(TEMP_USER_ID);
-            return handleSuccess(Map.of("message", "회원 탈퇴 완료"));
-        } catch (Exception e) {
-            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
+//    @Operation(summary = "회원 탈퇴", description = "로그인한 사용자를 탈퇴 처리합니다.")
+//    @DeleteMapping
+//    public ResponseEntity<?> deleteUser() {
+//        try {
+//            userService.deleteUser(TEMP_USER_ID);
+//            return handleSuccess(Map.of("message", "회원 탈퇴 완료"));
+//        } catch (Exception e) {
+//            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+//        }
+//    }
 }

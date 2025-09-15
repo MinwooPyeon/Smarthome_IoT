@@ -8,16 +8,15 @@ import com.eeum.dto.request.UserImageUpdateRequest;
 import com.eeum.dto.response.UpdateNicknameResponse;
 import com.eeum.dto.response.UserResponse;
 import com.eeum.entity.User;
+import com.eeum.repository.UserHomeRepository;
 import com.eeum.repository.UserRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
-@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
