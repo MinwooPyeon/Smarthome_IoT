@@ -33,7 +33,8 @@ public class HomeService {
                         p.getAddressId(),
                         p.getLongitude(),
                         p.getLatitude(),
-                        p.getHomeName()
+                        p.getHomeName(),
+                        p.getDetail()
                 ))
                 .collect(Collectors.toList());
 
