@@ -10,10 +10,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -33,7 +37,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.example.eeum.R
 import com.example.eeum.data.model.dto.ActionItem
 import com.example.eeum.data.model.dto.ActionUi
@@ -50,11 +53,14 @@ fun CreateRoutineFirstScreen(navController: NavController) {
     var desc by remember { mutableStateOf("") }
     var selectedDays by remember { mutableStateOf(setOf(0)) } // 0=일 ~ 6=토
 
-    // 시간 상태 (24시간제)
-    var hour24 by remember { mutableIntStateOf(8) } // 08시
-    var minute by remember { mutableIntStateOf(0) } // 00분
+    var hour24 by remember { mutableIntStateOf(8) }
+    var minute by remember { mutableIntStateOf(0) }
     var showTimePicker by remember { mutableStateOf(false) }
     val timeText = remember(hour24, minute) { "%02d:%02d".format(hour24, minute) }
+
+    // 루틴 아이콘 상태 & 다이얼로그 표시 상태
+    var selectedIconRes by remember { mutableStateOf<Int?>(null) }
+    var showIconDialog by remember { mutableStateOf(false) }
 
     val actions = remember {
         mutableStateListOf(
@@ -64,7 +70,6 @@ fun CreateRoutineFirstScreen(navController: NavController) {
     }
     var nextId by remember { mutableIntStateOf(3) }
 
-    // 세컨드에서 돌아올 때 저장된 결과를 꺼내 리스트에 1회 추가
     navController.currentBackStackEntry
         ?.savedStateHandle
         ?.get<NewActionResult>("new_action")
@@ -80,225 +85,379 @@ fun CreateRoutineFirstScreen(navController: NavController) {
         }
 
     Scaffold(
-            containerColor = Color.Transparent,
-            topBar = {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 40.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.Black,
-                        modifier = Modifier.clickable { navController.popBackStack() }
-                    )
-                    Text("루틴 만들기", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text(" ", color = TextBlue, fontSize = 16.sp)
+        containerColor = Color.Transparent,
+        topBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 40.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.Black,
+                    modifier = Modifier.clickable { navController.popBackStack() }
+                )
+                Text("루틴 만들기", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(" ", color = TextBlue, fontSize = 16.sp)
+            }
+        }
+    ) { inner ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(inner)
+                .padding(horizontal = 16.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            // 카드 1: 루틴 이름/설명 + 아이콘 선택
+            item {
+                Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // ⬇️ 이미지 대신 "루틴 아이콘" 선택 UI
+                        RoutineIconPreview(
+                            iconRes = selectedIconRes,
+                            onClick = { showIconDialog = true },
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+
+                        Text("루틴 이름", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        OutlinedTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            placeholder = { Text("루틴 이름을 입력하세요") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, BorderGray, RoundedCornerShape(12.dp)),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = Color.Transparent,
+                                focusedBorderColor = Color.Transparent
+                            )
+                        )
+
+                        Text("설명", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        OutlinedTextField(
+                            value = desc,
+                            onValueChange = { desc = it },
+                            placeholder = { Text("루틴에 대한 설명을 입력하세요") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 100.dp)
+                                .border(1.dp, BorderGray, RoundedCornerShape(12.dp)),
+                            shape = RoundedCornerShape(12.dp),
+                            maxLines = 4,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = Color.Transparent,
+                                focusedBorderColor = Color.Transparent
+                            )
+                        )
+                    }
                 }
             }
-        ) { inner ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(inner)
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                // 카드 1: 루틴 이름/설명
-                item {
-                    Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+
+            // 카드 2: 요일 선택
+            item {
+                Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("요일 선택", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        val days = listOf("일", "월", "화", "수", "목", "금", "토")
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 0.dp)
                         ) {
-                            Text("루틴 이름", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                            OutlinedTextField(
-                                value = title,
-                                onValueChange = { title = it },
-                                placeholder = { Text("루틴 이름을 입력하세요") },
-                                singleLine = true,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .border(1.dp, BorderGray, RoundedCornerShape(12.dp)),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedBorderColor = Color.Transparent,
-                                    focusedBorderColor = Color.Transparent
-                                )
-                            )
-
-                            Text("설명", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                            OutlinedTextField(
-                                value = desc,
-                                onValueChange = { desc = it },
-                                placeholder = { Text("루틴에 대한 설명을 입력하세요") },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 100.dp)
-                                    .border(1.dp, BorderGray, RoundedCornerShape(12.dp)),
-                                shape = RoundedCornerShape(12.dp),
-                                maxLines = 4,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedBorderColor = Color.Transparent,
-                                    focusedBorderColor = Color.Transparent
-                                )
-                            )
-                        }
-                    }
-                }
-
-                // 카드 2: 요일 선택
-                item {
-                    Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text("요일 선택", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-
-                            val days = listOf("일", "월", "화", "수", "목", "금", "토")
-
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                contentPadding = PaddingValues(horizontal = 0.dp)
-                            ) {
-                                items(days.size) { idx ->
-                                    val selected = selectedDays.contains(idx)
-
-                                    FilterChip(
+                            items(days.size) { idx ->
+                                val selected = selectedDays.contains(idx)
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = {
+                                        selectedDays =
+                                            if (selected) selectedDays - idx else selectedDays + idx
+                                    },
+                                    label = { Text(days[idx]) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
                                         selected = selected,
-                                        onClick = {
-                                            selectedDays =
-                                                if (selected) selectedDays - idx else selectedDays + idx
-                                        },
-                                        label = { Text(days[idx]) },
-                                        shape = RoundedCornerShape(8.dp),
-                                        border = FilterChipDefaults.filterChipBorder(
-                                            enabled = true,
-                                            selected = selected,
-                                            borderColor = BorderGray,
-                                            selectedBorderColor = BorderGray,
-                                            disabledBorderColor = BorderGray,
-                                            disabledSelectedBorderColor = BorderGray,
-                                            borderWidth = 1.dp
-                                        ),
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            containerColor = Color(0xFFF6F7FB),
-                                            selectedContainerColor = TextBlue,
-                                            labelColor = Color.Black,
-                                            selectedLabelColor = Color.White
-                                        )
+                                        borderColor = BorderGray,
+                                        selectedBorderColor = BorderGray,
+                                        disabledBorderColor = BorderGray,
+                                        disabledSelectedBorderColor = BorderGray,
+                                        borderWidth = 1.dp
+                                    ),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        containerColor = Color(0xFFF6F7FB),
+                                        selectedContainerColor = TextBlue,
+                                        labelColor = Color.Black,
+                                        selectedLabelColor = Color.White
                                     )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                //카드 3: 시간 설정
-                item {
-                    Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text("시간 설정", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("설정 시간", style = MaterialTheme.typography.bodyLarge)
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = Color.White,
-                                    border = BorderStroke(1.dp, BorderGray),
-                                    modifier = Modifier.clickable { showTimePicker = true }
-                                ) {
-                                    Text(
-                                        text = timeText,
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 카드 4: 동작 설정 (리스트 + 추가 버튼)
-                item {
-                    Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text("동작 설정", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                actions.forEach { actionUi ->
-                                    ActionCard(
-                                        item = actionUi,
-                                        onDelete = { toRemove ->
-                                            actions.removeAll { it.item.id == toRemove.item.id }
-                                        }
-                                    )
-                                }
-                            }
-
-                            Button(
-                                onClick = { navController.navigate("createRoutineSecond") },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = TextBlue, contentColor = Color.White
                                 )
-                            ) {
-                                Text("동작 추가", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                             }
                         }
                     }
                 }
+            }
 
-                // 완료 버튼
-                item {
-                    Button(
-                        onClick = { /* TODO: 완료 저장 */ },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = TextBlue, contentColor = Color.White
-                        )
-                    ) { Text("완료", fontSize = 16.sp, fontWeight = FontWeight.Medium) }
+            // 카드 3: 시간 설정
+            item {
+                Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("시간 설정", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("설정 시간", style = MaterialTheme.typography.bodyLarge)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.White,
+                                border = BorderStroke(1.dp, BorderGray),
+                                modifier = Modifier.clickable { showTimePicker = true }
+                            ) {
+                                Text(
+                                    text = timeText,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
                 }
+            }
+
+            // 카드 4: 동작 설정
+            item {
+                Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("동작 설정", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            actions.forEach { actionUi ->
+                                ActionCard(
+                                    item = actionUi,
+                                    onDelete = { toRemove ->
+                                        actions.removeAll { it.item.id == toRemove.item.id }
+                                    }
+                                )
+                            }
+                        }
+                        Button(
+                            onClick = { navController.navigate("createRoutineSecond") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = TextBlue, contentColor = Color.White
+                            )
+                        ) { Text("동작 추가", fontSize = 16.sp, fontWeight = FontWeight.Medium) }
+                    }
+                }
+            }
+
+            // 완료 버튼
+            item {
+                Button(
+                    onClick = { /* TODO */ },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TextBlue, contentColor = Color.White
+                    )
+                ) { Text("완료", fontSize = 16.sp, fontWeight = FontWeight.Medium) }
+            }
+        }
+    }
+
+    // 시간 다이얼로그
+    if (showTimePicker) {
+        TimeWheelDialog(
+            initialHour24 = hour24,
+            initialMinute = minute,
+            onConfirm = { h, m ->
+                hour24 = h; minute = m; showTimePicker = false
+            },
+            onDismiss = { showTimePicker = false }
+        )
+    }
+
+    // ⬇️ 루틴 아이콘 선택 다이얼로그
+    if (showIconDialog) {
+        RoutineIconDialog(
+            title = "루틴 아이콘",
+            icons = defaultRoutineIcons(),        // 아래 함수에 정의된 10개 예시
+            onSelect = { res ->
+                selectedIconRes = res
+                showIconDialog = false
+            },
+            onDismiss = { showIconDialog = false }
+        )
+    }
+}
+
+/* =========================
+ * 아이콘 프리뷰(카드 1의 상단)
+ * ========================= */
+@Composable
+private fun RoutineIconPreview(
+    iconRes: Int?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val corner = 12.dp
+    Box(modifier = modifier.size(120.dp)) {
+        Surface(
+            shape = RoundedCornerShape(corner),
+            color = Color.White,
+            border = BorderStroke(1.dp, BorderGray),
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable { onClick() }     // 클릭 시 아이콘 선택 다이얼로그
+        ) {
+            if (iconRes != null) {
+                Image(
+                    painter = painterResource(iconRes),
+                    contentDescription = "routine icon",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(corner))
+                )
+            } else {
+                // 기본 플레이스홀더
+                Image(
+                    painter = painterResource(R.drawable.ic_mainlogo),
+                    contentDescription = "placeholder",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(corner))
+                )
             }
         }
 
-        //시간 휠 다이얼로그
-        if (showTimePicker) {
-            TimeWheelDialog(
-                initialHour24 = hour24,
-                initialMinute = minute,
-                onConfirm = { h, m ->
-                    hour24 = h
-                    minute = m
-                    showTimePicker = false
-                },
-                onDismiss = { showTimePicker = false }
+        // 우하단 + 버튼
+        Surface(
+            shape = CircleShape,
+            color = TextBlue,
+            shadowElevation = 4.dp,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .size(36.dp)
+                .clickable { onClick() }
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = "아이콘 선택",
+                tint = Color.White,
+                modifier = Modifier.padding(8.dp)
             )
         }
     }
+}
+
+/* =========================
+ * 루틴 아이콘 다이얼로그
+ * ========================= */
+@Composable
+private fun RoutineIconDialog(
+    title: String,
+    icons: List<Int>,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            tonalElevation = 0.dp,
+            shadowElevation = 6.dp,
+            color = Color.White
+        ) {
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 300.dp)
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(12.dp))
+
+                // ⬇️ 5열 x 2행(=10개) 그리드, 각 타일 radius 12dp
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(5),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 160.dp)
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    userScrollEnabled = false
+                ) {
+                    items(icons.take(10)) { resId ->
+                        val corner = 12.dp
+                        Surface(
+                            shape = RoundedCornerShape(corner),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, BorderGray),
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(RoundedCornerShape(corner))
+                                .clickable { onSelect(resId) }
+                        ) {
+                            Image(
+                                painter = painterResource(resId),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                TextButton(onClick = onDismiss) {
+                    Text("닫기", color = Color(0xFF4B5563))
+                }
+            }
+        }
+    }
+}
+
+/* 프로젝트 아이콘 리소스로 교체해서 사용하세요 */
+@Composable
+private fun defaultRoutineIcons(): List<Int> = listOf(
+    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_door
+    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_suitcase
+    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_home
+    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_pin
+    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_alarm
+    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_bell
+    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_shield
+    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_siren
+    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_monitor
+    R.drawable.ic_mainlogo  // TODO: R.drawable.ic_routine_star
+)
+
 
 @Composable
 private fun ActionCard(
@@ -532,11 +691,4 @@ private fun WheelPicker(
             picker.value = value
         }
     )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun Preview_CreatetRoutineFirstScreen() {
-    val nav = rememberNavController()
-    CreateRoutineFirstScreen(navController = nav)
 }

@@ -26,6 +26,7 @@ import com.example.eeum.ui.screens.CreateRoutineSecondScreen
 import com.example.eeum.ui.screens.LoginScreen
 import com.example.eeum.ui.screens.LogManageScreen
 import com.example.eeum.ui.screens.AlarmManageScreen
+import com.example.eeum.ui.screens.MapScreen
 import com.example.eeum.ui.screens.UserInformationScreen
 import com.example.eeum.ui.screens.PasswordChangeScreen
 
@@ -36,7 +37,7 @@ import androidx.compose.material.FabPosition as M2FabPosition
 private const val MAIN_TABS_ROUTE = "main_tabs"
 private const val VOICE_ROUTE = "voice"
 
-// BottomNavigation이 없는 화면들의 라우트  
+// BottomNavigation이 없는 화면들의 라우트
 private const val LOGIN_ROUTE = "login"
 private const val LOG_MANAGE_ROUTE = "log_manage"
 private const val ALARM_MANAGE_ROUTE = "alarm_manage"
@@ -45,6 +46,8 @@ private const val ROUTE_CREATE_ROUTINE_FIRST = "createRoutineFirst"
 private const val ROUTE_CREATE_ROUTINE_SECOND = "createRoutineSecond"
 private const val USER_INFORMATION_ROUTE = "user_information"
 private const val PASSWORD_CHANGE_ROUTE = "password_change"
+
+private const val MAP_ROUTE = "map"
 
 @Composable
 fun EeumApp() {
@@ -59,40 +62,44 @@ fun EeumApp() {
             composable(MAIN_TABS_ROUTE) {
                 MainTabsScreen(navController)
             }
-            
-            // 2️⃣ BottomNavigation이 없는 화면들 
+
+            // 2️⃣ BottomNavigation이 없는 화면들
             composable(LOGIN_ROUTE) {
                 LoginScreen()
             }
-            
+
             composable(LOG_MANAGE_ROUTE) {
                 LogManageScreen(navController)
             }
-            
+
             composable(ALARM_MANAGE_ROUTE) {
                 AlarmManageScreen(navController)
             }
-            
+
             composable(VOICE_ROUTE) {
                 VoiceScreen()
             }
-            
+
             composable(ROUTINE_ROUTE) {
                 RoutineScreen(navController)
             }
-            
+
             composable(ROUTE_CREATE_ROUTINE_FIRST) {
                 CreateRoutineFirstScreen(navController)
             }
-            
+
             composable(ROUTE_CREATE_ROUTINE_SECOND) {
                 CreateRoutineSecondScreen(navController)
             }
-            
+
             composable(USER_INFORMATION_ROUTE) {
                 UserInformationScreen(navController)
             }
 
+            composable(MAP_ROUTE) {
+                MapScreen(
+                    onBack = { navController.popBackStack() }
+                )
             composable(PASSWORD_CHANGE_ROUTE) {
                 PasswordChangeScreen(navController)
             }
@@ -146,7 +153,11 @@ private fun MainTabsScreen(mainNavController: androidx.navigation.NavController)
             startDestination = Tab.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Tab.Home.route) { HomeScreen() }
+            composable(Tab.Home.route) {
+                HomeScreen(
+                    onOpenMap = { mainNavController.navigate(MAP_ROUTE) }
+                )
+            }
             composable(Tab.Device.route) { DeviceScreen() }
             composable(Tab.Use.route) { EnergyScreen() }
             composable(Tab.Menu.route) { MenuScreen(mainNavController) }

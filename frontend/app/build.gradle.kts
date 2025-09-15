@@ -14,6 +14,11 @@ val localProperties = Properties().apply {
 val PICOVOICE_ACCESS_KEY = localProperties.getProperty("PICOVOICE_ACCESS_KEY")
     ?: error("PICOVOICE_ACCESS_KEY not found in local.properties")
 
+val NAVER_CLIENT_ID: String =
+    localProperties.getProperty("NAVER_CLIENT_ID")
+        ?: error("NAVER_CLIENT_ID not found in local.properties")
+
+
 android {
     namespace = "com.example.eeum"
     compileSdk = 36
@@ -26,6 +31,8 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["PICOVOICE_ACCESS_KEY"] = PICOVOICE_ACCESS_KEY
+        manifestPlaceholders["NAVER_CLIENT_ID"] = NAVER_CLIENT_ID
+        buildConfigField("String", "NAVER_CLIENT_ID", "\"$NAVER_CLIENT_ID\"")
     }
 
     buildTypes {
@@ -68,6 +75,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.appcompat)
+    implementation(libs.play.services.maps)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -87,7 +95,6 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.compose.material3:material3:1.3.0")
-    implementation("androidx.navigation:navigation-compose:2.4.0-alpha10")
     implementation(platform("androidx.compose:compose-bom:2025.06.00"))
     implementation("androidx.compose.material:material")
 
@@ -106,6 +113,7 @@ dependencies {
     // yaml
     implementation("org.yaml:snakeyaml:2.2")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
+    // Naver Map SDK
+    implementation("com.naver.maps:map-sdk:3.22.1")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 }
