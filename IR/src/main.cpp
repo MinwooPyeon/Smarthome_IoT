@@ -46,25 +46,48 @@ TaskHandle_t mqtt_task_handle = NULL;
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                               int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
+        ESP_LOGI(TAG, "WiFi Station 시작됨");
+        // 자동 연결 비활성화 - initWiFi()에서 수동으로 연결
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGI(TAG, "WiFi 연결 끊어짐, 재연결 시도...");
         esp_wifi_connect();
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
+        ESP_LOGI(TAG, "WiFi AP에 연결됨, IP 할당 대기 중...");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "WiFi 연결 성공!");
         ESP_LOGI(TAG, "IP 주소: " IPSTR, IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "게이트웨이: " IPSTR, IP2STR(&event->ip_info.gw));
+        ESP_LOGI(TAG, "넷마스크: " IPSTR, IP2STR(&event->ip_info.netmask));
     }
 }
 
 // WiFi 연결 함수
 void initWiFi() {
-    esp_netif_init();
-    esp_event_loop_create_default();
+    ESP_LOGI(TAG, "WiFi 초기화 시작...");
+
+    esp_err_t ret = esp_netif_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "esp_netif_init 실패: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    ret = esp_event_loop_create_default();
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "esp_event_loop_create_default 실패: %s", esp_err_to_name(ret));
+        return;
+    }
+
     esp_netif_create_default_wifi_sta();
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    esp_wifi_init(&cfg);
+    ret = esp_wifi_init(&cfg);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "esp_wifi_init 실패: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    ESP_LOGI(TAG, "WiFi 초기화 성공");
 
     // 이벤트 핸들러 등록
     esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL);
@@ -74,26 +97,66 @@ void initWiFi() {
     strcpy((char*)wifi_config.sta.ssid, WIFI_SSID);
     strcpy((char*)wifi_config.sta.password, WIFI_PASSWORD);
     wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    wifi_config.sta.threshold.rssi = -80;  // RSSI 임계값을 -80으로 낮춤 (더 약한 신호도 허용)
+    wifi_config.sta.pmf_cfg.capable = false;  // PMF 보안 비활성화 (호환성 향상)
+    wifi_config.sta.pmf_cfg.required = false;
 
     esp_wifi_set_mode(WIFI_MODE_STA);
     esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
-    esp_wifi_start();
 
-    ESP_LOGI(TAG, "WiFi 연결 시도 중...");
-    ESP_LOGI(TAG, "SSID: %s", WIFI_SSID);
+    // ESP32-WROOM-32E 전력 관리 설정
+    esp_wifi_set_ps(WIFI_PS_NONE);  // 전력 절약 모드 비활성화 (연결 안정성 향상)
 
-    // WiFi 스캔으로 사용 가능한 네트워크 확인
-    ESP_LOGI(TAG, "WiFi 네트워크 스캔 중...");
+    // iPhone 핫스팟 호환성을 위한 추가 설정
+    esp_wifi_set_max_tx_power(78);  // 최대 전송 전력 설정 (20dBm)
+
+    esp_err_t wifi_start_result = esp_wifi_start();
+    if (wifi_start_result != ESP_OK) {
+        ESP_LOGE(TAG, "WiFi 시작 실패: %s", esp_err_to_name(wifi_start_result));
+        return;
+    }
+
+    ESP_LOGI(TAG, "WiFi 초기화 완료 대기 중...");
+    vTaskDelay(pdMS_TO_TICKS(2000)); // 2초 대기
+
+    // WiFi 모듈 상태 확인
+    wifi_mode_t wifi_mode;
+    esp_wifi_get_mode(&wifi_mode);
+    ESP_LOGI(TAG, "WiFi 모드: %d", wifi_mode);
+
+    // WiFi 스캔으로 사용 가능한 네트워크 확인 (ESP32-WROOM-32E 최적화)
+    ESP_LOGI(TAG, "WiFi 네트워크 스캔 중... (ESP32-WROOM-32E)");
     wifi_scan_config_t scan_config = {};
     scan_config.ssid = NULL;
     scan_config.bssid = NULL;
     scan_config.channel = 0;
     scan_config.show_hidden = true;
     scan_config.scan_type = WIFI_SCAN_TYPE_ACTIVE;
-    scan_config.scan_time.active.min = 100;
-    scan_config.scan_time.active.max = 300;
+    scan_config.scan_time.active.min = 2000;  // ESP32-WROOM-32E용 2초
+    scan_config.scan_time.active.max = 5000;  // ESP32-WROOM-32E용 5초
 
-    esp_wifi_scan_start(&scan_config, true);
+    // WiFi 스캔 전 모듈 상태 확인
+    wifi_mode_t current_mode;
+    esp_wifi_get_mode(&current_mode);
+    ESP_LOGI(TAG, "스캔 전 WiFi 모드: %d", current_mode);
+
+    // WiFi 스캔 재시도 로직
+    esp_err_t scan_result = ESP_FAIL;
+    int scan_retry = 0;
+
+    while (scan_result != ESP_OK && scan_retry < 5) {  // 5번까지 재시도
+        ESP_LOGI(TAG, "WiFi 스캔 시도 %d/5", scan_retry + 1);
+        scan_result = esp_wifi_scan_start(&scan_config, true);
+        if (scan_result != ESP_OK) {
+            ESP_LOGW(TAG, "WiFi 스캔 시작 실패 (시도 %d/5): %s", scan_retry + 1, esp_err_to_name(scan_result));
+            vTaskDelay(pdMS_TO_TICKS(2000)); // 2초 대기 후 재시도
+            scan_retry++;
+        }
+    }
+
+    if (scan_result != ESP_OK) {
+        ESP_LOGE(TAG, "WiFi 스캔 최종 실패: %s", esp_err_to_name(scan_result));
+    }
 
     uint16_t ap_count = 0;
     esp_wifi_scan_get_ap_num(&ap_count);
@@ -104,8 +167,32 @@ void initWiFi() {
         esp_wifi_scan_get_ap_records(&ap_count, ap_records);
 
         for (int i = 0; i < ap_count; i++) {
-            ESP_LOGI(TAG, "WiFi: %s (RSSI: %d)", ap_records[i].ssid, ap_records[i].rssi);
+            ESP_LOGI(TAG, "WiFi: %s (RSSI: %d, Auth: %d, Channel: %d)",
+                     ap_records[i].ssid, ap_records[i].rssi, ap_records[i].authmode, ap_records[i].primary);
         }
+    } else {
+        ESP_LOGW(TAG, "WiFi 네트워크를 찾을 수 없습니다. iPhone 핫스팟을 확인해주세요.");
+    }
+
+    ESP_LOGI(TAG, "WiFi 연결 시도 중...");
+    ESP_LOGI(TAG, "SSID: %s", WIFI_SSID);
+
+    // WiFi 스캔 완료 후 연결 시도
+    esp_wifi_connect();
+
+    // 연결 대기 (최대 10초)
+    ESP_LOGI(TAG, "WiFi 연결 대기 중...");
+    vTaskDelay(pdMS_TO_TICKS(10000)); // 10초 대기
+
+    // 연결 상태 확인
+    wifi_ap_record_t ap_info;
+    if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+        ESP_LOGI(TAG, "WiFi 연결 성공!");
+        ESP_LOGI(TAG, "연결된 SSID: %s", ap_info.ssid);
+        ESP_LOGI(TAG, "RSSI: %d dBm", ap_info.rssi);
+    } else {
+        ESP_LOGW(TAG, "WiFi 연결 실패 - 재시도 중...");
+        esp_wifi_connect();
     }
 }
 
@@ -324,7 +411,9 @@ void createTasks() {
 // Arduino setup 함수
 void setup() {
     ESP_LOGI(TAG, "ESP32 IR Remote 시작");
+    ESP_LOGI(TAG, "모델: ESP32-WROOM-32E");
     ESP_LOGI(TAG, "Free heap: %d bytes", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "Chip revision: %d", esp_chip_info_t().revision);
 
     // NVS 초기화
     esp_err_t ret = nvs_flash_init();
@@ -361,11 +450,24 @@ void loop() {
     led_state = !led_state;
     gpio_set_level(GPIO_NUM_2, led_state ? 1 : 0);
 
-    // WiFi 연결 상태 확인
-    wifi_ap_record_t ap_info;
-    if (esp_wifi_sta_get_ap_info(&ap_info) != ESP_OK) {
-        ESP_LOGW(TAG, "WiFi 연결 끊어짐. 재연결 시도...");
-        initWiFi();
+    // WiFi 연결 상태 확인 (재연결 시도 제한)
+    static uint32_t last_wifi_check = 0;
+    static uint32_t wifi_reconnect_count = 0;
+
+    if (millis() - last_wifi_check > 10000) { // 10초마다 확인
+        wifi_ap_record_t ap_info;
+        if (esp_wifi_sta_get_ap_info(&ap_info) != ESP_OK) {
+            if (wifi_reconnect_count < 3) { // 최대 3번만 재연결 시도
+                ESP_LOGW(TAG, "WiFi 연결 끊어짐. 재연결 시도 %d/3...", wifi_reconnect_count + 1);
+                esp_wifi_connect(); // initWiFi() 대신 esp_wifi_connect()만 호출
+                wifi_reconnect_count++;
+            } else {
+                ESP_LOGE(TAG, "WiFi 재연결 시도 횟수 초과. 수동 재시작 필요.");
+            }
+        } else {
+            wifi_reconnect_count = 0; // 연결 성공 시 카운터 리셋
+        }
+        last_wifi_check = millis();
     }
 
     delay(100);
