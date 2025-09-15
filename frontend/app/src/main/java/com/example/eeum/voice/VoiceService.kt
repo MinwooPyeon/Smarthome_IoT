@@ -151,7 +151,9 @@ class VoiceService : Service() {
     private fun handleUtterance(text: String) {
         val intents = nlu.parseUtterance(text)
         if (intents.isEmpty()) {
-            tts?.say("이해하지 못했어요.")
+            tts?.say("이해하지 못했어요.") {
+                startListening()
+            }
             ProcessLifecycleOwner.get().lifecycleScope.launch {
                 VoiceBus.updates.emit(NluUpdate(text, emptyList()))
             }
@@ -161,7 +163,9 @@ class VoiceService : Service() {
         if (!::useCase.isInitialized) {
             val dir = VoiceDeps.directory
             if (dir == null) {
-                tts?.say("아직 디바이스 준비 중이에요.")
+                tts?.say("아직 디바이스 준비 중이에요.") {
+//                    startListening()
+                }
                 Log.d(TAG, "UseCase init skipped: device directory cache is null")
                 return
             } else {
@@ -179,31 +183,39 @@ class VoiceService : Service() {
         ProcessLifecycleOwner.get().lifecycleScope.launch {
             try {
                 val effects = useCase.run(intents, text)
-                effects.forEach { eff ->
+
+                val lastSpeakIdx = effects.indexOfLast { it is AppEffect.Speak }
+
+                effects.forEachIndexed { idx, eff ->
                     when (eff) {
                         is AppEffect.Speak -> {
                             Log.i(TAG, "Speak: ${eff.text}")
-                            tts?.say(eff.text)
+                            val after =
+                                if (idx == lastSpeakIdx) { { startListening() } } else null
+                            tts?.say(eff.text, after)
                         }
                         is AppEffect.Navigate -> {
                             Log.i(TAG, "Navigate(route=${eff.route}, params=${eff.params})")
-                            // 나중에 실제 네비게이션 붙일 것. (현재는 로그만)
+                            // TODO: 실제 네비게이션 연결
                         }
                         is AppEffect.Toast -> {
                             Log.i(TAG, "Toast: ${eff.text}")
-                            // 나중에 토스트/알림 처리
+                            // TODO: 토스트/알림 처리
                         }
                     }
-                    // 앞으로 UI가 붙었을 때도 동일 효과를 재사용할 수 있도록 브로드캐스트
                     AppEventBus.tryEmit(eff)
+                }
+
+                if (lastSpeakIdx == -1) {
+                    startListening()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "UseCase run failed", e)
-                tts?.say("처리에 실패했어요.")
+                tts?.say("처리에 실패했어요.") { startListening() }
             }
         }
 
-        // (선택) UI로 NLU 결과 흘리기 – 기존 유지
+
         ProcessLifecycleOwner.get().lifecycleScope.launch {
             VoiceBus.updates.emit(
                 NluUpdate(

@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.eeum.data.model.dto.routine.RoutineDetailRequest
 import com.example.eeum.data.model.dto.routine.RoutineRequest
 import com.example.eeum.data.model.dto.voice.IntentResult
+import com.example.eeum.data.model.response.routine.RoutineResponse
 import com.example.eeum.data.remote.repository.DeviceRepository
 import com.example.eeum.data.remote.repository.RoutineRepository
 import com.example.eeum.util.Payload
@@ -22,6 +23,13 @@ class VoiceUseCase(
 ) {
     suspend fun run(intents: List<IntentResult>, raw: String): List<AppEffect> {
         if (intents.isEmpty()) return emptyList()
+
+        intents.firstOrNull {
+            it.intent == "ROUTINE_SHOW_BY_NAME" || it.intent == "ROUTINE_DELETE_BY_NAME"
+        }?.let { hit ->
+            val speech = handleRoutineByName(hit)
+            return listOf(AppEffect.Speak(speech))
+        }
 
         // ── 루틴 생성 시작 ──
         intents.firstOrNull { it.intent == "ROUTINE_CREATE_START" }?.let {
@@ -539,6 +547,89 @@ class VoiceUseCase(
         val rn = place?.trim().orEmpty()
         val nn = number?.toString().orEmpty()
         return if (nn.isEmpty()) rn else rn + nn
+    }
+
+    private suspend fun handleRoutineByName(nlu: IntentResult): String {
+        val name = nlu.slots["name"]?.trim().orEmpty()
+        if (name.isBlank()) return "루틴 이름을 이해하지 못했어요."
+
+        val id = routineRepo.findIdByName(name)
+            ?: return "루틴 '${name}'을 찾을 수 없어요."
+
+        return when (nlu.intent) {
+            "ROUTINE_SHOW_BY_NAME" -> {
+                val r = routineRepo.readRoutineById(id)
+                r.fold(
+                    onSuccess = { rr -> summarizeRoutine(rr) },
+                    onFailure = { e -> friendlyFail(e) }
+                )
+            }
+            "ROUTINE_DELETE_BY_NAME" -> {
+                val r = routineRepo.deleteRoutineById(id)
+                r.fold(
+                    onSuccess = { "루틴 '${name}'을 삭제했어요." },
+                    onFailure = { e -> friendlyFail(e) }
+                )
+            }
+            else -> "아직 지원하지 않는 루틴 명령이에요."
+        }
+    }
+
+    private fun summarizeRoutine(rr: RoutineResponse): String {
+        val days = weekdayMaskToText(rr.routineWeekday).ifBlank { "매일" }
+        val time = formatActTime(rr.actTime)
+        val actions = rr.details.size
+        return "‘${rr.name}’ 요약: 요일은 ${days}, 시간은 ${time}, 동작은 ${actions}개입니다."
+    }
+
+    private fun weekdayMaskToText(mask: Int): String {
+        val names = listOf("월","화","수","목","금","토","일")
+        return names.mapIndexedNotNull { i, n -> if (mask and (1 shl i) != 0) n else null }
+            .joinToString("")
+    }
+
+    private fun formatActTime(raw: String): String {
+        val s = raw.trim()
+
+        // 1) "H:mm" / "HH:mm[:ss]"
+        Regex("""^(\d{1,2}):(\d{2})(?::(\d{2}))?$""").matchEntire(s)?.let { m ->
+            val h = m.groupValues[1].toInt().coerceIn(0, 23)
+            val mm = m.groupValues[2].toInt().coerceIn(0, 59)
+            return "%02d:%02d".format(h, mm)
+        }
+
+        // 2) ISO_INSTANT (…Z)
+        runCatching {
+            val zdt = org.threeten.bp.Instant.parse(s).atZone(org.threeten.bp.ZoneId.systemDefault())
+            return "%02d:%02d".format(zdt.hour, zdt.minute)
+        }
+
+        // 3) ISO_OFFSET_DATE_TIME (…+09:00 / …-05:00)
+        runCatching {
+            val odt = org.threeten.bp.OffsetDateTime.parse(
+                s, org.threeten.bp.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
+            )
+            val zdt = odt.atZoneSameInstant(org.threeten.bp.ZoneId.systemDefault())
+            return "%02d:%02d".format(zdt.hour, zdt.minute)
+        }
+
+        // 4) ISO_LOCAL_DATE_TIME (타임존 없음)
+        runCatching {
+            val ldt = org.threeten.bp.LocalDateTime.parse(
+                s, org.threeten.bp.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME
+            )
+            return "%02d:%02d".format(ldt.hour, ldt.minute)
+        }
+
+        // 5) epoch millis 문자열
+        s.toLongOrNull()?.let { ep ->
+            val zdt = org.threeten.bp.Instant.ofEpochMilli(ep)
+                .atZone(org.threeten.bp.ZoneId.systemDefault())
+            return "%02d:%02d".format(zdt.hour, zdt.minute)
+        }
+
+        // 6) 실패 시 원문 반환
+        return s
     }
 
     // ───────────────────────── Internal exec model ─────────────────────────
