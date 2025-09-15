@@ -2,7 +2,7 @@
 #define MQTT_MESSAGE_H
 
 #include <string>
-#include <nlohmann/json.hpp>
+#include "nlohmann/json.hpp"
 
 struct MQTTMessage {
     std::string topic;
