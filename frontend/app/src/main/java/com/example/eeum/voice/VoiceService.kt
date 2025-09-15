@@ -23,6 +23,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.example.eeum.R
 import com.example.eeum.core.AppEffect
+import com.example.eeum.core.AppEventBus
 import com.example.eeum.core.VoiceUseCase
 import com.example.eeum.data.model.dto.voice.IntentResult
 import com.example.eeum.data.model.dto.voice.NluUpdate
@@ -79,9 +80,9 @@ class VoiceService : Service() {
             Log.d(TAG, "Directory cache not ready yet; will lazy-init on first command")
         }
 
-        Handler(Looper.getMainLooper()).postDelayed({
-            tts?.say("음성 명령을 말씀해 주세요.")
-        }, 600)
+//        Handler(Looper.getMainLooper()).postDelayed({
+//            tts?.say("음성 명령을 말씀해 주세요.")
+//        }, 600)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -104,9 +105,9 @@ class VoiceService : Service() {
     // STT
     private fun startListening() {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            Log.e("VoiceService", "SpeechRecognizer not available"); return
+            Log.e(TAG, "SpeechRecognizer not available"); return
         }
-        if (isListening) { Log.d("VoiceService", "already listening"); return }  // ★
+        if (isListening) { Log.d(TAG, "already listening"); return }  // ★
         isListening = true                                                        // ★
 
         recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
@@ -115,13 +116,13 @@ class VoiceService : Service() {
                     val text = results.getStringArrayList(
                         SpeechRecognizer.RESULTS_RECOGNITION
                     )?.firstOrNull().orEmpty()
-                    Log.i("VoiceService", "ASR: $text")
+                    Log.i(TAG, "ASR: $text")
                     playEarcon()
                     handleUtterance(text)
                     shutdownRecognizer()
                 }
                 override fun onError(error: Int) {
-                    Log.e("VoiceService", "ASR error: $error")
+                    Log.e(TAG, "ASR error: $error")
                     shutdownRecognizer()
                 }
                 override fun onReadyForSpeech(p0: Bundle?) {}
@@ -160,37 +161,38 @@ class VoiceService : Service() {
             val dir = VoiceDeps.directory
             if (dir == null) {
                 tts?.say("아직 디바이스 준비 중이에요.")
-                Log.w("VoiceService", "UseCase init skipped: directory cache is null")
+                Log.d(TAG, "UseCase init skipped: directory cache is null")
                 return
             } else {
                 val repo = DeviceRepository(RetrofitUtil.deviceService, dir)
                 useCase = VoiceUseCase(repo)
-                Log.i("VoiceService", "UseCase lazily initialized")
+                Log.d(TAG, "UseCase lazily initialized")
             }
         }
 
-        // ★ 실제 라우팅 → UseCase 실행 → AppEffect 소비
         ProcessLifecycleOwner.get().lifecycleScope.launch {
             try {
-                val effects = useCase.run(intents) // ← 여기서 API까지 타는지 스모크 확인
+                val effects = useCase.run(intents) // ← 여기서 API까지 포함 실행
                 effects.forEach { eff ->
                     when (eff) {
                         is AppEffect.Speak -> {
-                            Log.i("VoiceService", "Speak: ${eff.text}") // 로그
-                            tts?.say(eff.text)                           // 실제 발화
+                            Log.i(TAG, "Speak: ${eff.text}")
+                            tts?.say(eff.text)
                         }
                         is AppEffect.Navigate -> {
-                            Log.i("VoiceService", "Navigate(route=${eff.route}, params=${eff.params})")
-                            // 스모크 단계: 네비는 일단 로그만. (나중에 AppEventBus 또는 알림 딥링크)
+                            Log.i(TAG, "Navigate(route=${eff.route}, params=${eff.params})")
+                            // 나중에 실제 네비게이션 붙일 것. (현재는 로그만)
                         }
                         is AppEffect.Toast -> {
-                            Log.i("VoiceService", "Toast: ${eff.text}")
-                            // 스모크 단계: 토스트/알림은 추후
+                            Log.i(TAG, "Toast: ${eff.text}")
+                            // 나중에 토스트/알림 처리
                         }
                     }
+                    // 앞으로 UI가 붙었을 때도 동일 효과를 재사용할 수 있도록 브로드캐스트
+                    AppEventBus.tryEmit(eff)
                 }
             } catch (e: Exception) {
-                Log.e("VoiceService", "UseCase run failed", e)
+                Log.e(TAG, "UseCase run failed", e)
                 tts?.say("처리에 실패했어요.")
             }
         }

@@ -1,141 +1,142 @@
 cmake_minimum_required(VERSION 3.16)
-project(esp32-ir-remote VERSION 1.0.0 LANGUAGES CXX)
-
-# ESP-IDF 프로젝트 설정 (ESP32 빌드 시)
-if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
-    include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-    return()
-endif()
+project(IRRemoteController)
 
 # C++ 표준 설정
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 빌드 타입 설정
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
+# 플랫폼 감지
+if(WIN32)
+    add_definitions(-DPLATFORM_WINDOWS)
+    set(PLATFORM_NAME "Windows")
+elseif(UNIX AND NOT APPLE)
+    add_definitions(-DPLATFORM_LINUX)
+    set(PLATFORM_NAME "Linux")
+elseif(APPLE)
+    add_definitions(-DPLATFORM_MACOS)
+    set(PLATFORM_NAME "macOS")
 endif()
 
-# 컴파일러 플래그
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -Wextra -DDEBUG")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
-
-# Find required packages
-find_package(Threads REQUIRED)
-
-# MQTT 라이브러리 찾기 (Windows에서는 찾지 않음)
-if(NOT WIN32)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(MOSQUITTO REQUIRED libmosquitto)
+# 디버그/릴리즈 설정
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_definitions(-DDEBUG_MODE=1)
+    add_definitions(-DVERBOSE_LOGGING=1)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")
+else()
+    add_definitions(-DRELEASE_MODE=1)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 endif()
 
-# Include directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/header)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external)
+# 헤더 디렉토리 추가
+include_directories(header)
+include_directories(external)
 
-# JSON 라이브러리 설정 (nlohmann/json.hpp 사용)
-set(NLOHMANN_JSON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/external/nlohmann)
-
-# Library sources
-set(LIB_SOURCES
+# 소스 파일들
+set(SOURCES
     src/config.cpp
+    src/irsend.cpp
+    src/ir_receiver.cpp
     src/mqtt_client.cpp
     src/mqtt_message.cpp
-    src/matter_client.cpp
     src/appliance_controller.cpp
+    src/generic_device.cpp
     src/remote.cpp
+    src/serial_controller.cpp
+    src/ir_learner.cpp
+    src/pir_sensor.cpp
+    src/matter_client.cpp
+    src/esp32_ir_receiver.cpp
+    src/esp32_ir_store.cpp
+    src/esp32_wifi_mqtt.cpp
 )
 
-# ESP32 specific sources (only for ESP32 builds)
-if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
-    list(APPEND LIB_SOURCES
-        src/esp32_ir_receiver.cpp
-        src/esp32_ir_store.cpp
-        src/pir_sensor.cpp
+# 헤더 파일들
+set(HEADERS
+    header/core/config.h
+    header/core/esp32_ir_system.h
+    header/core/ir_code_store.h
+    header/core/ir_system.h
+    header/core/platform.h
+    header/core/remote.h
+    header/hardware/appliance_controller.h
+    header/hardware/esp32_ir_receiver.h
+    header/hardware/esp32_ir_store.h
+    header/hardware/esp32_ir_transmitter.h
+    header/hardware/generic_device.h
+    header/hardware/ir_database.h
+    header/hardware/ir_learner.h
+    header/hardware/ir_protocol_detector.h
+    header/hardware/ir_receiver.h
+    header/hardware/irsend.h
+    header/hardware/pir_sensor.h
+    header/network/matter_client.h
+    header/network/mqtt_client.h
+    header/network/mqtt_message.h
+    header/network/serial_controller.h
+)
+
+# 메인 실행 파일 생성
+add_executable(ir_remote_controller
+    tests/test_simulation.cpp
+    ${SOURCES}
+    ${HEADERS}
+)
+
+# Windows에서 필요한 라이브러리
+if(WIN32)
+    # Windows에서는 추가 라이브러리가 필요하지 않음 (시뮬레이션 모드)
+endif()
+
+# 테스트 실행 파일 생성 (Google Test 사용)
+find_package(GTest QUIET)
+if(GTest_FOUND)
+    enable_testing()
+
+    # 단위 테스트
+    add_executable(unit_tests
+        tests/unit/test_ir_receiver.cpp
+        tests/unit/test_appliance_controller.cpp
+        tests/unit/test_mqtt_client.cpp
+        ${SOURCES}
+        ${HEADERS}
+    )
+
+    target_link_libraries(unit_tests GTest::GTest GTest::Main)
+
+    # 통합 테스트
+    add_executable(integration_tests
+        tests/integration/test_system_integration.cpp
+        ${SOURCES}
+        ${HEADERS}
+    )
+
+    target_link_libraries(integration_tests GTest::GTest GTest::Main)
+
+    # 테스트 추가
+    add_test(NAME UnitTests COMMAND unit_tests)
+    add_test(NAME IntegrationTests COMMAND integration_tests)
+else()
+    message(WARNING "Google Test not found. Tests will not be built.")
+endif()
+
+# 설치 설정
+install(TARGETS ir_remote_controller
+    RUNTIME DESTINATION bin
+)
+
+# 출력 디렉토리 설정
+set_target_properties(ir_remote_controller PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+if(TARGET unit_tests)
+    set_target_properties(unit_tests PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     )
 endif()
 
-# Create library
-add_library(irremote_lib STATIC ${LIB_SOURCES})
-
-# Set library properties
-set_target_properties(irremote_lib PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_VERSION_MAJOR}
-    PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/header/core/config.h;${CMAKE_CURRENT_SOURCE_DIR}/header/network/mqtt_client.h;${CMAKE_CURRENT_SOURCE_DIR}/header/network/matter_client.h;${CMAKE_CURRENT_SOURCE_DIR}/header/hardware/esp32_ir_receiver.h;${CMAKE_CURRENT_SOURCE_DIR}/header/hardware/esp32_ir_store.h;${CMAKE_CURRENT_SOURCE_DIR}/header/hardware/appliance_controller.h"
-)
-
-# Link libraries for library
-target_link_libraries(irremote_lib
-    Threads::Threads
-)
-
-# Windows가 아닌 경우 MQTT 라이브러리 링크
-if(NOT WIN32)
-    target_link_libraries(irremote_lib ${MOSQUITTO_LIBRARIES})
-    target_include_directories(irremote_lib PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
-endif()
-
-# Main executable
-set(MAIN_SOURCES src/main.cpp)
-add_executable(irremote_sender ${MAIN_SOURCES})
-
-# Link main executable with library
-target_link_libraries(irremote_sender irremote_lib)
-
-# Install targets
-install(TARGETS irremote_lib irremote_sender
-    EXPORT irremoteTargets
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-    RUNTIME DESTINATION bin
-    PUBLIC_HEADER DESTINATION include/irremote
-)
-
-# Install headers
-install(DIRECTORY header/
-    DESTINATION include/irremote
-    FILES_MATCHING PATTERN "*.h"
-)
-
-# Install configuration files
-# install(FILES 
-#     config/linux/systemd/irremote.service 
-#     DESTINATION /etc/systemd/system
-# )
-
-# Install scripts
-# install(DIRECTORY scripts/
-#     DESTINATION bin/irremote
-#     USE_SOURCE_PERMISSIONS
-# )
-
-# Export targets
-install(EXPORT irremoteTargets
-    FILE irremoteTargets.cmake
-    DESTINATION lib/cmake/irremote
-)
-
-# Add tests
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests")
-    add_subdirectory(tests)
-endif()
-
-# Print configuration summary
-message(STATUS "")
-message(STATUS "Configuration Summary:")
-message(STATUS "  Project: ${PROJECT_NAME} ${PROJECT_VERSION}")
-message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "  C++ standard: ${CMAKE_CXX_STANDARD}")
-message(STATUS "")
-
-# ESP32 specific build configuration
-if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
-    # ESP-IDF build
-    message(STATUS "Building for ESP32 with ESP-IDF")
-    # ESP-IDF specific configurations can be added here
-else()
-    # Standard CMake build
-    message(STATUS "Building with standard CMake")
+if(TARGET integration_tests)
+    set_target_properties(integration_tests PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
 endif()

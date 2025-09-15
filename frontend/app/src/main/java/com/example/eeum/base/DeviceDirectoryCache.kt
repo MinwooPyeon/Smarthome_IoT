@@ -17,7 +17,7 @@ class DeviceDirectoryCache(
         if (!res.isSuccessful) throw IllegalStateException("readDevices HTTP ${res.code()}")
         val api = res.body() ?: throw IllegalStateException("readDevices empty body")
 
-        if (api.status != "SUCCES") throw IllegalStateException("readDevices status=${api.status}")
+        if (api.status != "SUCCESS") throw IllegalStateException("readDevices status=${api.status}")
 
         val page: Page<DeviceResponse> = api.data
         val devices: List<DeviceResponse> = page.items

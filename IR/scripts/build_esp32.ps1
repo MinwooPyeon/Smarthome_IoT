@@ -10,6 +10,8 @@ param(
 
 Write-Host "ESP32 IR Remote Controller Build Script" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
+Write-Host "USB-C to USB-C 연결 지원" -ForegroundColor Cyan
+Write-Host ""
 
 # ESP-IDF 환경 확인
 $idfPath = $env:IDF_PATH
@@ -75,6 +77,17 @@ try {
     if ($LASTEXITCODE -eq 0) {
         Write-Host ""
         Write-Host "Build completed successfully!" -ForegroundColor Green
+        
+        if ($Flash) {
+            Write-Host ""
+            Write-Host "ESP32에 펌웨어가 업로드되었습니다." -ForegroundColor Cyan
+            Write-Host "USB-C to USB-C 케이블로 ESP32와 컴퓨터를 연결하세요." -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "컴퓨터에서 ESP32를 제어하려면:" -ForegroundColor Yellow
+            Write-Host "  python scripts\esp32_controller.py" -ForegroundColor White
+            Write-Host "  또는" -ForegroundColor Yellow
+            Write-Host "  scripts\run_esp32_controller.bat" -ForegroundColor White
+        }
     } else {
         Write-Host ""
         Write-Host "Build failed with exit code: $LASTEXITCODE" -ForegroundColor Red

@@ -63,7 +63,7 @@ private:
     mutable std::mutex stats_mutex_;
     
 #ifdef PLATFORM_ESP32
-    class IRsend* irsend_;
+    // RMT 채널은 ESP-IDF에서 관리
 #elif defined(PLATFORM_LINUX)
     int lirc_fd_;
     struct lirc_config* config_;

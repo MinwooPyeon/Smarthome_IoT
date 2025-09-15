@@ -28,6 +28,7 @@ import com.example.eeum.ui.screens.LogManageScreen
 import com.example.eeum.ui.screens.AlarmManageScreen
 import com.example.eeum.ui.screens.MapScreen
 import com.example.eeum.ui.screens.UserInformationScreen
+import com.example.eeum.ui.screens.PasswordChangeScreen
 
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
@@ -44,6 +45,7 @@ private const val ROUTINE_ROUTE = "routine"
 private const val ROUTE_CREATE_ROUTINE_FIRST = "createRoutineFirst"
 private const val ROUTE_CREATE_ROUTINE_SECOND = "createRoutineSecond"
 private const val USER_INFORMATION_ROUTE = "user_information"
+private const val PASSWORD_CHANGE_ROUTE = "password_change"
 
 private const val MAP_ROUTE = "map"
 
@@ -98,6 +100,8 @@ fun EeumApp() {
                 MapScreen(
                     onBack = { navController.popBackStack() }
                 )
+            composable(PASSWORD_CHANGE_ROUTE) {
+                PasswordChangeScreen(navController)
             }
         }
 }
