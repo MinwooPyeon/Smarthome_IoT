@@ -75,7 +75,8 @@ class VoiceService : Service() {
 
         VoiceDeps.directory?.let { dir ->
             val repo = DeviceRepository(RetrofitUtil.deviceService, dir)
-            useCase = VoiceUseCase(repo)
+            val routineRepo = RoutineRepository(RetrofitUtil.routineService,VoiceDeps.routineDirectory)
+            useCase = VoiceUseCase(repo, routineRepo)
             Log.d(TAG, "UseCase ready with directory cache")
         } ?: run {
             Log.d(TAG, "Directory cache not ready yet; will lazy-init on first command")
@@ -161,13 +162,17 @@ class VoiceService : Service() {
             val dir = VoiceDeps.directory
             if (dir == null) {
                 tts?.say("아직 디바이스 준비 중이에요.")
-                Log.d(TAG, "UseCase init skipped: directory cache is null")
+                Log.d(TAG, "UseCase init skipped: device directory cache is null")
                 return
             } else {
                 val repo = DeviceRepository(RetrofitUtil.deviceService, dir)
-                val routineRepo = RoutineRepository(RetrofitUtil.routineService)
+                val routineRepo = RoutineRepository(
+                    RetrofitUtil.routineService,
+                    VoiceDeps.routineDirectory
+                )
+
                 useCase = VoiceUseCase(repo, routineRepo)
-                Log.d(TAG, "UseCase lazily initialized")
+                Log.d(TAG, "UseCase lazily initialized with routine cache=${VoiceDeps.routineDirectory != null}")
             }
         }
 

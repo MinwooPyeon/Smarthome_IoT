@@ -60,22 +60,35 @@ class DeviceRepository(
         Result.success(ok)
     }
 
-    // ───────── 일괄 제어: 방(+번호) / 타입별 ─────────
     suspend fun bulkSetPower(
-        roomName: String,
-        number: Int?,
-        deviceType: String?,   // null → 해당 방의 모든 기기
+        roomName: String? = null,
+        number: Int? = null,
+        deviceType: String? = null,
         on: Boolean
     ): Result<Int> = withContext(Dispatchers.IO) {
-        val roomKey = number?.let { "$roomName$it" } ?: roomName
-        val res = deviceService.readDevices(type = deviceType, roomName = roomKey)
-        if (!res.isSuccessful) return@withContext fail(httpMsg(res))
-        val api = res.body() ?: return@withContext fail("빈 응답")
-        if (api.status != "SUCCESS") return@withContext fail(apiError(res, "API status=${api.status}"))
 
-        val items = api.data.items
+        val res = deviceService.readDevices(type = deviceType)
+        if (!res.isSuccessful) return@withContext fail("HTTP ${res.code()} ${res.message()}")
+        val api = res.body() ?: return@withContext fail("빈 응답")
+        if (api.status != "SUCCESS") return@withContext fail("API 실패")
+
+        val targetPrefix = buildString {
+            if (!roomName.isNullOrBlank()) {
+                append(roomName.trim())
+                number?.let { append(it) } // "침실"+"2" -> "침실2"
+            }
+        }.takeIf { it.isNotBlank() }
+
+        val items = api.data.items.filter { d ->
+            // "방1 에어컨" → firstToken = "방1"
+            val first = d.deviceName.substringBefore(' ').trim()
+            val roomMatch = targetPrefix?.let { first == it } ?: true
+            roomMatch
+        }
+
         var ok = 0
-        val body = JsonObject().apply { add("deviceDetail", Payload.deviceDetail(power = on)) }
+        val detail = Payload.deviceDetail(power = on)
+        val body = com.google.gson.JsonObject().apply { add("deviceDetail", detail) }
         for (d in items) {
             val up = deviceService.updateDeviceStatus(d.deviceId, body)
             if (up.isSuccessful && up.body()?.status == "SUCCESS") ok++
@@ -84,24 +97,24 @@ class DeviceRepository(
     }
 
     suspend fun bulkSetPowerRoomFamily(
-        baseRoom: String,         // 예: "침실"
-        deviceType: String?,      // null이면 해당 계열의 모든 기기
+        baseRoom: String,
+        deviceType: String?,
         on: Boolean
     ): Result<Int> = withContext(Dispatchers.IO) {
-        // 전체(or 타입별) 가져와서 클라이언트 측에서 계열 필터링
         val res = deviceService.readDevices(type = deviceType)
-        if (!res.isSuccessful) return@withContext fail(httpMsg(res))
+        if (!res.isSuccessful) return@withContext fail("HTTP ${res.code()} ${res.message()}")
         val api = res.body() ?: return@withContext fail("빈 응답")
-        if (api.status != "SUCCESS") return@withContext fail(apiError(res, "API status=${api.status}"))
+        if (api.status != "SUCCESS") return@withContext fail("API 실패")
 
-        val rx = Regex("^${Regex.escape(baseRoom)}\\d+$") // 침실1, 침실2, …
+        val base = baseRoom.trim()
         val items = api.data.items.filter { d ->
-            val roomKey = d.deviceName.substringBefore(' ').trim()
-            rx.matches(roomKey)
+            val first = d.deviceName.substringBefore(' ').trim()
+            first == base || first.startsWith(base) && first.drop(base.length).all { it.isDigit() }
         }
 
         var ok = 0
-        val body = JsonObject().apply { add("deviceDetail", Payload.deviceDetail(power = on)) }
+        val detail = Payload.deviceDetail(power = on)
+        val body = JsonObject().apply { add("deviceDetail", detail) }
         for (d in items) {
             val up = deviceService.updateDeviceStatus(d.deviceId, body)
             if (up.isSuccessful && up.body()?.status == "SUCCESS") ok++
@@ -165,5 +178,13 @@ class DeviceRepository(
             val err = org.json.JSONObject(raw).optString("error")
             if (err.isNullOrBlank()) fallback else err
         } catch (_: Exception) { fallback }
+    }
+
+    suspend fun getDeviceName(id: Int): Result<String> = withContext(Dispatchers.IO) {
+        val res = deviceService.readDevice(id)
+        if (!res.isSuccessful) return@withContext fail("HTTP ${res.code()} ${res.message()}")
+        val api = res.body() ?: return@withContext fail("빈 응답")
+        if (api.status != "SUCCESS") return@withContext fail("API status=${api.status}")
+        Result.success(api.data.deviceName)
     }
 }

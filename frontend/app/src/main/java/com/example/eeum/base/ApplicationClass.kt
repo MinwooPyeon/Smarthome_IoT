@@ -4,7 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.app.Dialog
 import android.os.Bundle
-import com.example.eeum.data.SharedPreferencesUtil
+import com.example.eeum.util.SharedPreferencesUtil
 import com.example.eeum.data.remote.service.AuthService
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -84,6 +84,7 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(this)
+        com.jakewharton.threetenabp.AndroidThreeTen.init(this)
 
         // SharedPreferences 초기화
         sharedPreferencesUtil = SharedPreferencesUtil(applicationContext)
