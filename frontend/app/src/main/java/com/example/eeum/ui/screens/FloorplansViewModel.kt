@@ -16,9 +16,13 @@ class FloorplansViewModel : ViewModel() {
     private val _houses = MutableLiveData<List<HouseItem>>()
     val houses: LiveData<List<HouseItem>> get() = _houses
 
-    //주소별 평면도 목록
+    // 주소별 평면도 목록
     private val _floorplans = MutableLiveData<List<FloorPlansList>>()
     val floorplans: LiveData<List<FloorPlansList>> get() = _floorplans
+
+    // 등록 결과: 서버가 돌려준 homeId
+    private val _registeredHomeId = MutableLiveData<Int?>()
+    val registeredHomeId: LiveData<Int?> get() = _registeredHomeId
 
     // 공통 상태/에러
     private val _status = MutableLiveData<String>()
@@ -27,7 +31,7 @@ class FloorplansViewModel : ViewModel() {
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> get() = _error
 
-    //주소 검색
+    // 주소 검색
     fun searchHouses(keyword: String? = null) {
         viewModelScope.launch {
             runCatching {
@@ -54,7 +58,7 @@ class FloorplansViewModel : ViewModel() {
         }
     }
 
-    //주소별 평면도 목록 조회
+    // 주소별 평면도 목록 조회
     fun getFloorplans(addressId: Int) {
         viewModelScope.launch {
             runCatching {
@@ -65,8 +69,10 @@ class FloorplansViewModel : ViewModel() {
                         _floorplans.value = body.data.items
                         _status.value = body.status
                         _error.value = null
-                        Log.d("FloorplansViewModel",
-                            "평면도 조회 성공: addressId=$addressId, ${body.data.items.size}건")
+                        Log.d(
+                            "FloorplansViewModel",
+                            "평면도 조회 성공: addressId=$addressId, ${body.data.items.size}건"
+                        )
                     } ?: run {
                         _error.value = "평면도 조회 실패: 빈 응답"
                         Log.e("FloorplansViewModel", "평면도 조회 실패: 빈 응답")
@@ -78,6 +84,36 @@ class FloorplansViewModel : ViewModel() {
             }.onFailure { e ->
                 _error.value = "네트워크 오류: ${e.message}"
                 Log.e("FloorplansViewModel", "평면도 조회 실패", e)
+            }
+        }
+    }
+
+    //평면도 등록
+    fun registerFloorplan(homeId: Int) {
+        viewModelScope.launch {
+            runCatching {
+                RetrofitUtil.floorplansService.uploadFloorplan(homeId)
+            }.onSuccess { response ->
+                if (response.isSuccessful) {
+                    response.body()?.let { body ->
+                        _registeredHomeId.value = body.data.homeId
+                        _status.value = body.status
+                        _error.value = null
+                        Log.d(
+                            "FloorplansViewModel",
+                            "평면도 등록 성공: homeId=${body.data.homeId}, status=${body.status}"
+                        )
+                    } ?: run {
+                        _error.value = "평면도 등록 실패: 빈 응답"
+                        Log.e("FloorplansViewModel", "평면도 등록 실패: 빈 응답")
+                    }
+                } else {
+                    _error.value = "평면도 등록 실패: ${response.code()}"
+                    Log.e("FloorplansViewModel", "평면도 등록 실패 code=${response.code()}")
+                }
+            }.onFailure { e ->
+                _error.value = "네트워크 오류: ${e.message}"
+                Log.e("FloorplansViewModel", "평면도 등록 실패", e)
             }
         }
     }

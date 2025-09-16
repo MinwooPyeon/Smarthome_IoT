@@ -2,12 +2,13 @@ package com.example.eeum.data.remote.service
 
 import com.example.eeum.data.model.response.floorplans.HouseFloorPlans
 import com.example.eeum.data.model.response.floorplans.MapData
+import com.example.eeum.data.model.response.floorplans.RegisterHome
 import retrofit2.Response
-import retrofit2.http.GET
-import retrofit2.http.Path
-import retrofit2.http.Query
+import retrofit2.http.*
 
 interface FloorplansService {
+
+    // 주소 검색
     @GET("/api/addresses/search")
     suspend fun searchHouses(
         @Query("keyword") keyword: String?
@@ -18,4 +19,10 @@ interface FloorplansService {
     suspend fun getFloorplans(
         @Path("addressId") addressId: Int
     ): Response<HouseFloorPlans>
+
+    // 평면도 등록
+    @POST("/api/homes/{homeId}/floorplans")
+    suspend fun uploadFloorplan(
+        @Path("homeId") homeId: Int,
+    ): Response<RegisterHome>
 }

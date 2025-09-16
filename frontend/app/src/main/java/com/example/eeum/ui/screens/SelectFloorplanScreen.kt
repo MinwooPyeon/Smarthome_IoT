@@ -36,18 +36,22 @@ fun SelectFloorplanScreen(
     vm: FloorplansViewModel = viewModel()
 ) {
     val floorplans by vm.floorplans.observeAsState(initial = emptyList<FloorPlansList>())
+    val registeredHomeId by vm.registeredHomeId.observeAsState()
+    val status by vm.status.observeAsState(initial = "")
+    val error by vm.error.observeAsState()
 
     // 진입 시 해당 addressId의 평면도 조회
     LaunchedEffect(addressId) { vm.getFloorplans(addressId) }
 
-    // ✅ 선택 상태는 인덱스가 아니라 floorplanId로 유지 (리스트 순서/갱신 안정)
+    // 선택 상태는 인덱스가 아니라 floorplanId로 유지 (리스트 순서/갱신 안정)
     var selectedFloorplanId by remember { mutableStateOf<Int?>(null) }
 
-    // floorplans가 갱신되면 선택 보정: 기존 선택이 없거나 사라졌으면 첫 항목으로
+    // floorplans 갱신 시 선택 보정
     LaunchedEffect(floorplans) {
         if (floorplans.isNotEmpty()) {
             if (selectedFloorplanId == null ||
-                floorplans.none { it.floorplanId == selectedFloorplanId }) {
+                floorplans.none { it.floorplanId == selectedFloorplanId }
+            ) {
                 selectedFloorplanId = floorplans.first().floorplanId
             }
         } else {
@@ -66,7 +70,7 @@ fun SelectFloorplanScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(start = 16.dp, end = 16.dp, top = 60.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 60.dp, bottom = 50.dp)
     ) {
         // 상단바
         Row(
@@ -97,7 +101,7 @@ fun SelectFloorplanScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // ✅ 아파트명 = 응답 homeName
+        // 아파트명
         Text(
             text = selected?.homeName ?: (floorplans.firstOrNull()?.homeName ?: "아파트명"),
             fontSize = 18.sp,
@@ -106,14 +110,14 @@ fun SelectFloorplanScreen(
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        // ✅ Chip들을 응답 개수만큼 렌더링 (스크롤 가능)
+        // 평면도 Chip 리스트
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(bottom = 16.dp)
         ) {
             items(
                 items = floorplans,
-                key = { it.floorplanId } // 안정 키
+                key = { it.floorplanId }
             ) { item ->
                 FloorplanChip(
                     label = "${trimZero(item.square)}㎡",
@@ -123,7 +127,7 @@ fun SelectFloorplanScreen(
             }
         }
 
-        // ✅ 도면 이미지 = 선택 항목의 imageUrl
+        // 도면 이미지
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -133,7 +137,7 @@ fun SelectFloorplanScreen(
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(ctx)
-                    .data(absoluteUrl) // 절대 URL 전달
+                    .data(absoluteUrl)
                     .crossfade(true)
                     .build(),
                 contentDescription = "평면도",
@@ -164,11 +168,16 @@ fun SelectFloorplanScreen(
                 Text(text = "이전", fontSize = 14.sp)
             }
 
+            // 선택된 Chip의 homeId로 등록
+            val isNextEnabled = selected != null
             Button(
-                onClick = { /* TODO: 다음 */ },
+                onClick = {
+                    selected?.let { vm.registerFloorplan(it.homeId) }
+                },
+                enabled = isNextEnabled,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = BrandBlue,
+                    containerColor = if (isNextEnabled) BrandBlue else Color(0xFFB0BEC5),
                     contentColor = Color.White
                 ),
                 modifier = Modifier
@@ -208,6 +217,7 @@ private fun FloorplanChip(
         )
     }
 }
+
 private fun toAbsoluteUrl(base: String, path: String?): String? {
     if (path.isNullOrBlank()) return null
     val b = base.trimEnd('/')
