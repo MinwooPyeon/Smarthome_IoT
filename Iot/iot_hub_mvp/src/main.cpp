@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 
                 Dht11Reader dht(pin);
                 dht.init();
-                auto r = dht.read_once(timeoutMs);
+                auto r = dht.read_with_retry(3, timeoutMs, 1200);
 
                 json out;
                 out["msgId"]    = msgId;
