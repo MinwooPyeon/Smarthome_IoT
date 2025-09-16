@@ -7,6 +7,7 @@ import com.eeum.dto.response.RoutineDetailResponse;
 import com.eeum.dto.response.RoutineResponse;
 import com.eeum.entity.Routine;
 import com.eeum.entity.RoutineDetail;
+import com.eeum.repository.RoutineIconRepository;
 import com.eeum.repository.RoutineRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import java.util.Map;
 public class RoutineService {
 
     private final RoutineRepository routineRepository;
+    private final RoutineIconRepository routineIconRepository;
     private final ObjectMapper objectMapper;
 
     // 루틴 생성
@@ -36,6 +38,14 @@ public class RoutineService {
         }
         if (req == null || req.getName() == null || req.getName().isBlank()) {
             throw new IllegalArgumentException("name은 필수입니다.");
+        }
+        
+        
+        Integer iconId = req.getIconId();
+        if (iconId != null) {
+            if (!routineIconRepository.existsById(iconId)) {
+                throw new IllegalArgumentException("유효하지 않은 iconId: " + iconId);
+            }
         }
 
         Routine routine = Routine.builder()
