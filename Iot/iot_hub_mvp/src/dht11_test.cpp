@@ -1,7 +1,7 @@
 #include "dht11_reader.hpp"
 #include <pigpio.h>
 #include <iostream>
-#include <stdint.h>
+#include <cstdint>
 
 int main(int argc, char** argv) {
     if (gpioInitialise() < 0) { std::cerr << "pigpio init failed\n"; return 1; }

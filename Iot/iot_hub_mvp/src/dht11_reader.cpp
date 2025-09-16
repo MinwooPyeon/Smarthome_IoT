@@ -1,6 +1,5 @@
 #include "dht11_reader.hpp"
 #include <pigpio.h>
-#include <cstdint>
 #include <stdexcept>
 #include <thread>
 #include <chrono>

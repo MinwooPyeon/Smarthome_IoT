@@ -1,6 +1,6 @@
 #pragma once
 #include <optional>
-
+#include <cstdint>
 struct Dht11Data {
     float tempC{};
     float hum{};
