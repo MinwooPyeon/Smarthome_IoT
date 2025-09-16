@@ -1,13 +1,17 @@
 package com.example.eeum.ui.navigation
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
-import androidx.navigation.navArgument
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -15,24 +19,23 @@ import androidx.navigation.navArgument
 import com.example.eeum.ui.components.EeumBottomAppBar
 import com.example.eeum.ui.components.EeumFloatingActionButton
 import com.example.eeum.ui.screens.DeviceScreen
-import com.example.eeum.ui.screens.HomeScreen
-import com.example.eeum.ui.screens.MenuScreen
 import com.example.eeum.ui.screens.EnergyScreen
-import com.example.eeum.ui.screens.VoiceScreen
+import com.example.eeum.ui.screens.MenuScreen
 import com.example.eeum.ui.screens.RoutineScreen
+import com.example.eeum.ui.screens.VoiceScreen
 import com.example.eeum.ui.screens.CreateRoutineFirstScreen
 import com.example.eeum.ui.screens.CreateRoutineSecondScreen
-import com.example.eeum.ui.screens.LoginScreen
 import com.example.eeum.ui.screens.LogManageScreen
 import com.example.eeum.ui.screens.AlarmManageScreen
 import com.example.eeum.ui.screens.MapScreen
+import com.example.eeum.ui.screens.SelectFloorplanScreen
 import com.example.eeum.ui.screens.UserInformationScreen
-import com.example.eeum.ui.screens.PasswordChangeScreen
 import com.example.eeum.ui.screens.DeviceRegistrationScreen
 import com.example.eeum.ui.screens.DeviceRegistrationQRScreen
-import com.example.eeum.ui.screens.DeviceRegistrationCompleteScreen
-import com.example.eeum.ui.screens.DeviceRegistrationBrandScreen
 import com.example.eeum.ui.screens.DeviceRegistrationSerialScreen
+import com.example.eeum.ui.screens.DeviceRegistrationBrandScreen
+import com.example.eeum.ui.screens.DeviceRegistrationCompleteScreen
+import com.example.eeum.ui.screens.HomeScreen
 
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
@@ -49,16 +52,14 @@ private const val ROUTINE_ROUTE = "routine"
 private const val ROUTE_CREATE_ROUTINE_FIRST = "createRoutineFirst"
 private const val ROUTE_CREATE_ROUTINE_SECOND = "createRoutineSecond"
 private const val USER_INFORMATION_ROUTE = "user_information"
-private const val PASSWORD_CHANGE_ROUTE = "password_change"
 private const val DEVICE_REGISTRATION_ROUTE = "device_registration"
 private const val DEVICE_REGISTRATION_QR_ROUTE = "device_registration_qr"
 private const val DEVICE_REGISTRATION_SERIAL_ROUTE = "device_registration_serial"
 private const val DEVICE_REGISTRATION_BRAND_ROUTE = "device_registration_brand"
 private const val DEVICE_REGISTRATION_COMPLETE_ROUTE = "device_registration_complete"
-
 private const val MAP_ROUTE = "map"
 
-// ✅ addressId를 경로 파라미터로 넘기는 평면도 선택 화면
+// addressId를 경로 파라미터로 넘기는 평면도 선택 화면
 private const val SELECT_FLOORPLAN_ROUTE = "select_floorplan/{addressId}"
 private fun selectFloorplanRoute(addressId: Int) = "select_floorplan/$addressId"
 
@@ -70,27 +71,27 @@ fun EeumApp() {
         navController = navController,
         startDestination = MAIN_TABS_ROUTE
     ) {
-        // 1️⃣ BottomNavigation이 포함된 화면들 (메인 앱 화면)
-        composable("$MAIN_TABS_ROUTE?tab={tab}", arguments = listOf(
-            navArgument("tab") { defaultValue = Tab.Home.route }
-        )) { backStackEntry ->
-            val targetTab = backStackEntry.arguments?.getString("tab")
-            MainTabsScreen(navController, initialTab = targetTab)
+        // 1) BottomNavigation 포함 메인
+        composable(
+            route = "$MAIN_TABS_ROUTE?tab={tab}",
+            arguments = listOf(
+                navArgument("tab") { defaultValue = Tab.Home.route }
+            )
+        ) { backStackEntry ->
+            val initialTab = backStackEntry.arguments?.getString("tab")
+            MainTabsScreen(navController, initialTab = initialTab)
         }
 
         // 2) BottomNavigation 미포함 화면들
-        composable(LOGIN_ROUTE) { /* LoginScreen() */ }
+        composable(LOGIN_ROUTE) { /* TODO: Login screen here (placeholder) */ }
 
         composable(LOG_MANAGE_ROUTE) { LogManageScreen(navController) }
-
         composable(ALARM_MANAGE_ROUTE) { AlarmManageScreen(navController) }
 
         composable(VOICE_ROUTE) { VoiceScreen() }
 
         composable(ROUTINE_ROUTE) { RoutineScreen(navController) }
-
         composable(ROUTE_CREATE_ROUTINE_FIRST) { CreateRoutineFirstScreen(navController) }
-
         composable(ROUTE_CREATE_ROUTINE_SECOND) { CreateRoutineSecondScreen(navController) }
 
         composable(USER_INFORMATION_ROUTE) { UserInformationScreen(navController) }
@@ -120,10 +121,13 @@ fun EeumApp() {
                 }
             )
         }
+
         // 디바이스 등록 플로우
         composable(DEVICE_REGISTRATION_ROUTE) {
             DeviceRegistrationScreen(navController) { kind ->
-                navController.navigate("$DEVICE_REGISTRATION_QR_ROUTE/$kind") { launchSingleTop = true }
+                navController.navigate("$DEVICE_REGISTRATION_QR_ROUTE/$kind") {
+                    launchSingleTop = true
+                }
             }
         }
         composable("$DEVICE_REGISTRATION_QR_ROUTE/{kind}") { backStackEntry ->
@@ -131,20 +135,25 @@ fun EeumApp() {
             DeviceRegistrationQRScreen(
                 navController = navController,
                 kind = kind,
-                onManualInput = { navController.navigate("$DEVICE_REGISTRATION_SERIAL_ROUTE/$kind") }
+                onManualInput = {
+                    navController.navigate("$DEVICE_REGISTRATION_SERIAL_ROUTE/$kind")
+                }
             )
         }
         composable("$DEVICE_REGISTRATION_SERIAL_ROUTE/{kind}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
             DeviceRegistrationSerialScreen(navController) { serial ->
-                navController.navigate("$DEVICE_REGISTRATION_BRAND_ROUTE/$kind?serial=$serial") { launchSingleTop = true }
+                navController.navigate("$DEVICE_REGISTRATION_BRAND_ROUTE/$kind?serial=$serial") {
+                    launchSingleTop = true
+                }
             }
         }
         composable("$DEVICE_REGISTRATION_BRAND_ROUTE/{kind}?serial={serial}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
-            // serial은 필요시 꺼내서 프리필용으로 사용 가능
-            DeviceRegistrationBrandScreen(navController) { _ ->
-                navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") { launchSingleTop = true }
+            DeviceRegistrationBrandScreen(navController) {
+                navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") {
+                    launchSingleTop = true
+                }
             }
         }
         composable("$DEVICE_REGISTRATION_COMPLETE_ROUTE/{kind}") { backStackEntry ->
@@ -154,29 +163,49 @@ fun EeumApp() {
     }
 }
 
-// BottomNavigation이 포함된 메인 탭 화면들을 관리하는 컴포저블
+/** BottomNavigation 이 포함된 메인 탭 화면 */
 @Composable
-private fun MainTabsScreen(mainNavController: androidx.navigation.NavController, initialTab: String? = null) {
-        val tabNavController = rememberNavController()
+private fun MainTabsScreen(
+    mainNavController: androidx.navigation.NavController,
+    initialTab: String? = null
+) {
+    val tabNavController = rememberNavController()
 
-        // 초기 탭 이동 (기본은 home)
-        androidx.compose.runtime.LaunchedEffect(initialTab) {
-            val target = initialTab ?: Tab.Home.route
-            if (target != Tab.Home.route) {
-                tabNavController.navigate(target) {
-                    launchSingleTop = true
-                }
-            }
+    // 초기 탭 이동 (기본 Home)
+    androidx.compose.runtime.LaunchedEffect(initialTab) {
+        val target = initialTab ?: Tab.Home.route
+        if (target != Tab.Home.route) {
+            tabNavController.navigate(target) { launchSingleTop = true }
         }
+    }
 
-        M2Scaffold(
-            isFloatingActionButtonDocked = true,
-            floatingActionButtonPosition = M2FabPosition.Center,
-            backgroundColor = Color.Transparent,
-            floatingActionButton = {
-                EeumFloatingActionButton(
-                    onClick = {
-                        mainNavController.navigate(VOICE_ROUTE) {
+    M2Scaffold(
+        isFloatingActionButtonDocked = true,
+        floatingActionButtonPosition = M2FabPosition.Center,
+        backgroundColor = Color.Transparent,
+        floatingActionButton = {
+            EeumFloatingActionButton(
+                onClick = {
+                    mainNavController.navigate(VOICE_ROUTE) {
+                        launchSingleTop = true
+                        restoreState = true
+                        popUpTo(tabNavController.graph.startDestinationId) {
+                            saveState = true
+                        }
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            // BottomAppBar 높이는 유지하고, 시스템 내비게이션바 만큼만 아래에 여백 추가
+            Column {
+                val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
+
+                EeumBottomAppBar(
+                    currentDestination = currentDestination,
+                    onTabClick = { route ->
+                        tabNavController.navigate(route) {
                             launchSingleTop = true
                             restoreState = true
                             popUpTo(tabNavController.graph.startDestinationId) {
@@ -185,44 +214,7 @@ private fun MainTabsScreen(mainNavController: androidx.navigation.NavController,
                         }
                     }
                 )
-            },
-            bottomBar = {
-                //BottomAppBar 자체 높이는 그대로 두고,
-                //아래에 시스템 내비게이션 바 높이만큼 빈 공간을 추가
-                Column {
-                    val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
-                    val currentDestination = navBackStackEntry?.destination
-
-                    EeumBottomAppBar(
-                        currentDestination = currentDestination,
-                        onTabClick = { route ->
-                            tabNavController.navigate(route) {
-                                launchSingleTop = true
-                                restoreState = true
-                                popUpTo(tabNavController.graph.startDestinationId) {
-                                    saveState = true
-                                }
-                            }
-                        }
-                    )
-                    //Spacer가 '밖에' 생기는 여백이라 cutoutShape가 늘어나지 않습니다.
-                    Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-                }
-            }
-        ) { innerPadding ->
-            NavHost(
-                navController = tabNavController,
-                startDestination = Tab.Home.route,
-                modifier = Modifier.padding(innerPadding)
-            ) {
-                composable(Tab.Home.route) {
-                    HomeScreen(
-                        onOpenMap = { mainNavController.navigate(MAP_ROUTE) }
-                    )
-                }
-                composable(Tab.Device.route) { DeviceScreen(mainNavController) }
-                composable(Tab.Use.route) { EnergyScreen() }
-                composable(Tab.Menu.route) { MenuScreen(mainNavController) }
+                Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
             }
         }
     ) { innerPadding ->
@@ -236,7 +228,7 @@ private fun MainTabsScreen(mainNavController: androidx.navigation.NavController,
                     onOpenMap = { mainNavController.navigate(MAP_ROUTE) }
                 )
             }
-            composable(Tab.Device.route) { DeviceScreen() }
+            composable(Tab.Device.route) { DeviceScreen(mainNavController) }
             composable(Tab.Use.route) { EnergyScreen() }
             composable(Tab.Menu.route) { MenuScreen(mainNavController) }
         }

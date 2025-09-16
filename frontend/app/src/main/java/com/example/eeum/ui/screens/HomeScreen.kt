@@ -10,6 +10,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,21 +19,38 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.eeum.R
+import com.example.eeum.data.model.response.home.Home
 import com.example.eeum.ui.theme.EeumTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onOpenMap: () -> Unit = {},
-    onAddHome: () -> Unit = {}
+    onAddHome: () -> Unit = {},
+    vm: HomeViewModel = viewModel()
 ) {
-    // 더미 집 목록
-    val homes = listOf(
-        "서울시 성동구 00아파트 101동 1203호",
-        "경북 구미시 인동 OO아파트 102동 904호"
-    )
-    var selectedHome by remember { mutableStateOf(homes.first()) }
+    // 🔹 서버 데이터 연결
+    val homes: List<Home> by vm.homes.observeAsState(emptyList())
+
+    // 첫 진입 시 서버에서 목록 로드
+    LaunchedEffect(Unit) { vm.fetchUserHomes() }
+
+    // 드롭다운에 표시할 문자열 목록
+    val homeNames = remember(homes) { homes.map { it.homeName } }
+
+    // 선택 상태(문자열) — 서버 목록이 갱신되면 보정
+    var selectedHome by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(homeNames) {
+        if (homeNames.isNotEmpty()) {
+            if (selectedHome == null || !homeNames.contains(selectedHome)) {
+                selectedHome = homeNames.first()
+            }
+        } else {
+            selectedHome = null
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -75,14 +93,14 @@ fun HomeScreen(
         // 헤더 텍스트
         FloorplanHeader(
             title = "우리 집 평면도",
-            onAddClick = { /* TODO */ }
+            onAddClick = { /* 필요 시 추가 */ }
         )
 
         // ‘집 선택’
         Spacer(Modifier.height(8.dp))
         HomeDropdown(
             selected = selectedHome,
-            items = homes,
+            items = homeNames,
             onSelect = { selectedHome = it },
             onAddNew = onAddHome
         )
@@ -99,7 +117,7 @@ fun HomeScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeDropdown(
-    selected: String,
+    selected: String?,                // ⬅️ nullable 로 변경
     items: List<String>,
     onSelect: (String) -> Unit,
     onAddNew: () -> Unit
@@ -108,10 +126,10 @@ private fun HomeDropdown(
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = it }
+        onExpandedChange = { expanded = it && items.isNotEmpty() } // 목록 없을 때는 열리지 않게
     ) {
         TextField(
-            value = selected,
+            value = selected ?: "집을 선택하세요",
             onValueChange = {},
             readOnly = true,
             label = { Text("집 선택") },
@@ -124,9 +142,9 @@ private fun HomeDropdown(
                 focusedContainerColor = Color.White,
                 unfocusedContainerColor = Color.White,
                 disabledContainerColor = Color.White,
-                focusedIndicatorColor = Color.Transparent,   // 밑줄 제거
-                unfocusedIndicatorColor = Color.Transparent, // 밑줄 제거
-                disabledIndicatorColor = Color.Transparent   // 밑줄 제거
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent
             )
         )
 
