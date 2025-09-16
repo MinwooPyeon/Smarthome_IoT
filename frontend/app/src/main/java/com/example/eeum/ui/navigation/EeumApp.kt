@@ -4,16 +4,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.paint
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.navArgument
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.eeum.R
+import androidx.navigation.navArgument
 import com.example.eeum.ui.components.EeumBottomAppBar
 import com.example.eeum.ui.components.EeumFloatingActionButton
 import com.example.eeum.ui.screens.DeviceScreen
@@ -60,14 +58,17 @@ private const val DEVICE_REGISTRATION_COMPLETE_ROUTE = "device_registration_comp
 
 private const val MAP_ROUTE = "map"
 
+// ✅ addressId를 경로 파라미터로 넘기는 평면도 선택 화면
+private const val SELECT_FLOORPLAN_ROUTE = "select_floorplan/{addressId}"
+private fun selectFloorplanRoute(addressId: Int) = "select_floorplan/$addressId"
+
 @Composable
 fun EeumApp() {
     val navController = rememberNavController()
 
-    // 메인 NavHost - BottomNavigation 유무를 결정하는 최상위 네비게이션
     NavHost(
         navController = navController,
-        startDestination = MAIN_TABS_ROUTE  // 임시로 메인탭부터 시작 (나중에 LOGIN_ROUTE로 변경 가능)
+        startDestination = MAIN_TABS_ROUTE
     ) {
         // 1️⃣ BottomNavigation이 포함된 화면들 (메인 앱 화면)
         composable("$MAIN_TABS_ROUTE?tab={tab}", arguments = listOf(
@@ -77,46 +78,47 @@ fun EeumApp() {
             MainTabsScreen(navController, initialTab = targetTab)
         }
 
-        // 2️⃣ BottomNavigation이 없는 화면들
-        composable(LOGIN_ROUTE) {
-            LoginScreen()
-        }
+        // 2) BottomNavigation 미포함 화면들
+        composable(LOGIN_ROUTE) { /* LoginScreen() */ }
 
-        composable(LOG_MANAGE_ROUTE) {
-            LogManageScreen(navController)
-        }
+        composable(LOG_MANAGE_ROUTE) { LogManageScreen(navController) }
 
-        composable(ALARM_MANAGE_ROUTE) {
-            AlarmManageScreen(navController)
-        }
+        composable(ALARM_MANAGE_ROUTE) { AlarmManageScreen(navController) }
 
-        composable(VOICE_ROUTE) {
-            VoiceScreen()
-        }
+        composable(VOICE_ROUTE) { VoiceScreen() }
 
-        composable(ROUTINE_ROUTE) {
-            RoutineScreen(navController)
-        }
+        composable(ROUTINE_ROUTE) { RoutineScreen(navController) }
 
-        composable(ROUTE_CREATE_ROUTINE_FIRST) {
-            CreateRoutineFirstScreen(navController)
-        }
+        composable(ROUTE_CREATE_ROUTINE_FIRST) { CreateRoutineFirstScreen(navController) }
 
-        composable(ROUTE_CREATE_ROUTINE_SECOND) {
-            CreateRoutineSecondScreen(navController)
-        }
+        composable(ROUTE_CREATE_ROUTINE_SECOND) { CreateRoutineSecondScreen(navController) }
 
-        composable(USER_INFORMATION_ROUTE) {
-            UserInformationScreen(navController)
-        }
+        composable(USER_INFORMATION_ROUTE) { UserInformationScreen(navController) }
 
         composable(MAP_ROUTE) {
             MapScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onSelectAddress = { id ->
+                    navController.navigate(selectFloorplanRoute(id)) {
+                        launchSingleTop = true
+                    }
+                }
             )
         }
-        composable(PASSWORD_CHANGE_ROUTE) {
-            PasswordChangeScreen(navController)
+
+        composable(
+            route = SELECT_FLOORPLAN_ROUTE,
+            arguments = listOf(navArgument("addressId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val addressId = backStackEntry.arguments?.getInt("addressId") ?: 0
+            SelectFloorplanScreen(
+                addressId = addressId,
+                onBack = { navController.popBackStack() },
+                onNavigateHome = {
+                    // 등록 성공 시 메인 탭(Home)으로 이동
+                    navController.popBackStack(MAIN_TABS_ROUTE, inclusive = false)
+                }
+            )
         }
         // 디바이스 등록 플로우
         composable(DEVICE_REGISTRATION_ROUTE) {
@@ -176,6 +178,10 @@ private fun MainTabsScreen(mainNavController: androidx.navigation.NavController,
                     onClick = {
                         mainNavController.navigate(VOICE_ROUTE) {
                             launchSingleTop = true
+                            restoreState = true
+                            popUpTo(tabNavController.graph.startDestinationId) {
+                                saveState = true
+                            }
                         }
                     }
                 )
@@ -219,4 +225,20 @@ private fun MainTabsScreen(mainNavController: androidx.navigation.NavController,
                 composable(Tab.Menu.route) { MenuScreen(mainNavController) }
             }
         }
+    ) { innerPadding ->
+        NavHost(
+            navController = tabNavController,
+            startDestination = Tab.Home.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(Tab.Home.route) {
+                HomeScreen(
+                    onOpenMap = { mainNavController.navigate(MAP_ROUTE) }
+                )
+            }
+            composable(Tab.Device.route) { DeviceScreen() }
+            composable(Tab.Use.route) { EnergyScreen() }
+            composable(Tab.Menu.route) { MenuScreen(mainNavController) }
+        }
     }
+}

@@ -19,12 +19,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,8 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.eeum.data.model.response.floorplans.HouseItem
 import com.example.eeum.ui.theme.EeumTheme
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -44,75 +44,72 @@ import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.LocationTrackingMode
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
+import com.naver.maps.map.overlay.InfoWindow
+import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.util.FusedLocationSource
 
 @Composable
 fun MapScreen(
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    onSelectAddress: ((Int) -> Unit)? = null,
+    vm: FloorplansViewModel = viewModel()
 ) {
     val isPreview = LocalInspectionMode.current
     var searchText by remember { mutableStateOf("") }
+    val houses: List<HouseItem> by vm.houses.observeAsState(emptyList())
+
+    LaunchedEffect(searchText) {
+        vm.searchHouses(searchText.ifBlank { null })
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(start = 16.dp, end = 16.dp, top = 60.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 60.dp, bottom = 32.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 16.dp)) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "뒤로가기",
                 tint = Color.Black,
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable { onBack() }
+                modifier = Modifier.size(24.dp).clickable { onBack() }
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "평면도 선택",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
+            Text(text = "평면도 선택", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
         }
 
         Text(
             text = "아래 지도에서 우리집을 선택해주세요.",
-            fontSize = 16.sp,
-            color = Color.Black,
-            modifier = Modifier.padding(bottom = 16.dp)
+            fontSize = 16.sp, color = Color.Black, modifier = Modifier.padding(bottom = 16.dp)
         )
 
         OutlinedTextField(
             value = searchText,
             onValueChange = { searchText = it },
+            textStyle = LocalTextStyle.current.copy(
+                fontSize = 14.sp,
+                lineHeight = 14.sp,
+                platformStyle = PlatformTextStyle(includeFontPadding = false)
+            ),
             placeholder = {
                 Text(
                     text = "아파트, 오피스텔, 주소 검색",
                     fontSize = 14.sp,
                     color = Color.Gray,
-                    lineHeight = 20.sp,
-                    overflow = TextOverflow.Clip,
+                    lineHeight = 14.sp,
                     style = LocalTextStyle.current.copy(
                         platformStyle = PlatformTextStyle(includeFontPadding = false)
-                    )
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             },
             singleLine = true,
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.Search,
-                    contentDescription = "검색",
-                    tint = Color.Gray
-                )
-            },
+                .heightIn(min = 52.dp),
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "검색", tint = Color.Gray) },
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = Color.White,
                 focusedContainerColor = Color.White,
@@ -126,69 +123,134 @@ fun MapScreen(
 
         if (isPreview) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight()
-                    .background(Color(0xFFEDEDED)),
+                modifier = Modifier.fillMaxSize().background(Color(0xFFEDEDED)),
                 contentAlignment = Alignment.Center
             ) { Text("네이버 지도", color = Color.Gray) }
         } else {
-            NaverMapViewComposable()
+            NaverMapViewComposable(
+                houses = houses,
+                onMarkerSelected = onSelectAddress
+            )
         }
     }
 }
 
 @Composable
-private fun NaverMapViewComposable() {
+private fun NaverMapViewComposable(
+    houses: List<HouseItem>,
+    onMarkerSelected: ((Int) -> Unit)?
+) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
 
+    // MapView는 한번만 만들고, 단일 생명주기 제어
     val mapView = remember { MapView(context) }
+    var naverMapRef by remember { mutableStateOf<NaverMap?>(null) }
+    val markersByAddressId = remember { mutableStateMapOf<Int, Marker>() }
+    val infoWindowsByAddressId = remember { mutableStateMapOf<Int, InfoWindow>() }
+    val latestHouses by rememberUpdatedState(houses)
 
-    // 수명주기 연결
-    DisposableEffect(mapView, lifecycleOwner) {
-        val lifecycle = lifecycleOwner.lifecycle
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_CREATE -> mapView.onCreate(null)
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
-                else -> Unit
-            }
+    DisposableEffect(Unit) {
+        mapView.onCreate(null)
+        mapView.onStart()
+        mapView.onResume()
+        onDispose {
+            mapView.onPause()
+            mapView.onStop()
+            mapView.onDestroy()
         }
-        lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer) }
     }
 
     AndroidView(
         factory = {
             mapView.apply {
-                getMapAsync { naverMap ->
-                    setupNaverMap(naverMap, context)
+                getMapAsync { map ->
+                    naverMapRef = map
+                    setupNaverMap(map, context)
+                    updateMarkers(
+                        context, map,
+                        markersByAddressId, infoWindowsByAddressId,
+                        latestHouses, onMarkerSelected
+                    )
                 }
             }
         },
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
+        update = {
+            naverMapRef?.let { map ->
+                updateMarkers(
+                    context, map,
+                    markersByAddressId, infoWindowsByAddressId,
+                    latestHouses, onMarkerSelected
+                )
+            }
+        },
+        modifier = Modifier.fillMaxSize()
     )
 }
 
-private fun setupNaverMap(
+private fun updateMarkers(
+    context: Context,
     naverMap: NaverMap,
-    context: Context
+    markersByAddressId: MutableMap<Int, Marker>,
+    infoWindowsByAddressId: MutableMap<Int, InfoWindow>,
+    houses: List<HouseItem>,
+    onMarkerSelected: ((Int) -> Unit)?
 ) {
-    // 0) 기본 카메라 위치: 36.107113, 128.416401 (초기 디폴트)
+    // 제거
+    val incoming = houses.map { it.addressId }.toSet()
+    val toRemove = markersByAddressId.keys.filter { it !in incoming }
+    toRemove.forEach { id ->
+        infoWindowsByAddressId[id]?.close()
+        infoWindowsByAddressId.remove(id)
+        markersByAddressId[id]?.map = null
+        markersByAddressId.remove(id)
+    }
+
+    // 추가/갱신
+    houses.forEach { house ->
+        val lat = house.latitude
+        val lon = house.longitude
+
+        // 좌표 검증
+        val valid = !lat.isNaN() && !lon.isNaN() &&
+                lat in -90.0..90.0 && lon in -180.0..180.0
+        if (!valid) {
+            Log.w("NaverMap", "Skip invalid coord: id=${house.addressId}, lat=$lat lon=$lon")
+            return@forEach
+        }
+
+        val marker = markersByAddressId[house.addressId] ?: Marker().also {
+            markersByAddressId[house.addressId] = it
+        }
+
+        // 순서 중요: position 먼저, 그 다음 map
+        marker.position = LatLng(lat, lon)
+        marker.captionText = ""
+        marker.tag = house.addressId
+        if (marker.map == null) marker.map = naverMap
+
+        marker.setOnClickListener {
+            onMarkerSelected?.invoke(house.addressId) // ← 네비게이션 콜백 호출
+            true
+        }
+
+        val info = infoWindowsByAddressId[house.addressId] ?: InfoWindow().also {
+            infoWindowsByAddressId[house.addressId] = it
+        }
+        info.adapter = object : InfoWindow.DefaultTextAdapter(context) {
+            override fun getText(window: InfoWindow): CharSequence = house.homeName
+        }
+        if (info.marker != marker) info.open(marker)
+    }
+}
+
+private fun setupNaverMap(naverMap: NaverMap, context: Context) {
     val defaultPos = LatLng(36.107113, 128.416401)
     naverMap.moveCamera(CameraUpdate.scrollTo(defaultPos))
     naverMap.moveCamera(CameraUpdate.zoomTo(18.0))
 
-    // 1) 경량/심볼 및 UI 설정
     naverMap.symbolScale = 0f
     naverMap.isLiteModeEnabled = true
+
     naverMap.uiSettings.apply {
         isCompassEnabled = false
         isScaleBarEnabled = false
@@ -200,7 +262,6 @@ private fun setupNaverMap(
 
     val activity = context.findComponentActivity() ?: return
 
-    // 2) 권한 없으면 기본 위치만 보여주고 끝
     if (!hasAnyLocationPermission(context)) {
         naverMap.locationSource = null
         naverMap.locationTrackingMode = LocationTrackingMode.None
@@ -209,13 +270,11 @@ private fun setupNaverMap(
         return
     }
 
-    // 3) 위치 소스/트래킹 모드
-    val locationSource = FusedLocationSource(activity, /*REQUEST_CODE*/ 1000)
-    naverMap.locationSource = locationSource
+    val source = FusedLocationSource(activity, 1000)
+    naverMap.locationSource = source
     naverMap.locationTrackingMode = LocationTrackingMode.Face
     naverMap.locationOverlay.isVisible = true
 
-    // 4) 첫 실제 위치 수신 시 1회만 현재 위치로 이동
     var cameraInitialized = false
     naverMap.addOnLocationChangeListener { loc ->
         if (!cameraInitialized) {
@@ -223,65 +282,43 @@ private fun setupNaverMap(
             naverMap.moveCamera(CameraUpdate.scrollTo(here))
             naverMap.moveCamera(CameraUpdate.zoomTo(18.0))
             cameraInitialized = true
-            naverMap.locationTrackingMode = LocationTrackingMode.Face
-            Log.d("NaverMap", "Camera moved by onLocationChange: $here")
         }
     }
 
-    // 5) FusedLocationProvider로 즉시 점프(퍼미션 체크/예외 처리 포함)
     runCatching {
         val fused = LocationServices.getFusedLocationProviderClient(activity)
         val cts = CancellationTokenSource()
 
-        val fineGranted = ActivityCompat.checkSelfPermission(
-            activity, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        val coarseGranted = ActivityCompat.checkSelfPermission(
-            activity, Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!(fineGranted || coarseGranted)) return@runCatching
+        val fine = ActivityCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = ActivityCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!(fine || coarse)) return@runCatching
 
-        try {
-            fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
-                .addOnSuccessListener { loc ->
-                    if (loc != null && !cameraInitialized) {
-                        val here = LatLng(loc.latitude, loc.longitude)
-                        naverMap.moveCamera(CameraUpdate.scrollTo(here))
-                        naverMap.moveCamera(CameraUpdate.zoomTo(18.0))
-                        cameraInitialized = true
-                        naverMap.locationTrackingMode = LocationTrackingMode.Face
-                        Log.d("NaverMap", "Camera moved by getCurrentLocation: $here")
-                    }
-                }
-                .addOnFailureListener { e -> Log.e("NaverMap", "getCurrentLocation failed", e) }
-
-            fused.lastLocation.addOnSuccessListener { loc ->
+        fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
+            .addOnSuccessListener { loc ->
                 if (loc != null && !cameraInitialized) {
                     val here = LatLng(loc.latitude, loc.longitude)
                     naverMap.moveCamera(CameraUpdate.scrollTo(here))
                     naverMap.moveCamera(CameraUpdate.zoomTo(18.0))
                     cameraInitialized = true
-                    naverMap.locationTrackingMode = LocationTrackingMode.Face
-                    Log.d("NaverMap", "Camera moved by lastLocation: $here")
                 }
             }
-        } catch (se: SecurityException) {
-            Log.e("NaverMap", "Location access SecurityException", se)
+        fused.lastLocation.addOnSuccessListener { loc ->
+            if (loc != null && !cameraInitialized) {
+                val here = LatLng(loc.latitude, loc.longitude)
+                naverMap.moveCamera(CameraUpdate.scrollTo(here))
+                naverMap.moveCamera(CameraUpdate.zoomTo(18.0))
+                cameraInitialized = true
+            }
         }
     }.onFailure { Log.e("NaverMap", "FusedLocation init error", it) }
 }
 
 private fun hasAnyLocationPermission(ctx: Context): Boolean {
-    val fine = ActivityCompat.checkSelfPermission(
-        ctx, Manifest.permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
-    val coarse = ActivityCompat.checkSelfPermission(
-        ctx, Manifest.permission.ACCESS_COARSE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
+    val fine = ActivityCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    val coarse = ActivityCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
     return fine || coarse
 }
 
-// Context → ComponentActivity 안전 추출
 private fun Context.findComponentActivity(): ComponentActivity? {
     var c: Context? = this
     while (c is ContextWrapper) {

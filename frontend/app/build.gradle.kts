@@ -124,4 +124,16 @@ dependencies {
     // Naver Map SDK
     implementation("com.naver.maps:map-sdk:3.22.1")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+
+    // LiveData -> Compose state
+    implementation("androidx.compose.runtime:runtime-livedata")
+
+    // Compose에서 ViewModel/Lifecycle 사용
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
+
+    // viewModelScope 등 ViewModel KTX
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
 }
