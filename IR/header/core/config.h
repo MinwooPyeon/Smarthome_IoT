@@ -7,7 +7,7 @@
 
 /**
  * @brief 애플리케이션 설정 클래스
- * 
+ *
  * 웹 서버, MQTT, 보안 등의 설정을 관리합니다.
  */
 class Config {
@@ -85,6 +85,34 @@ public:
     std::vector<std::string> getAllowedOrigins() const { return allowed_origins_; }
     void setAllowedOrigins(const std::vector<std::string>& origins) { allowed_origins_ = origins; }
 
+    // 추가 보안 설정
+    bool isTlsEnabled() const { return tls_enabled_; }
+    void setTlsEnabled(bool enabled) { tls_enabled_ = enabled; }
+
+    std::string getTlsCertPath() const { return tls_cert_path_; }
+    void setTlsCertPath(const std::string& path) { tls_cert_path_ = path; }
+
+    std::string getTlsKeyPath() const { return tls_key_path_; }
+    void setTlsKeyPath(const std::string& path) { tls_key_path_ = path; }
+
+    std::string getTlsCaPath() const { return tls_ca_path_; }
+    void setTlsCaPath(const std::string& path) { tls_ca_path_ = path; }
+
+    bool isRateLimitEnabled() const { return rate_limit_enabled_; }
+    void setRateLimitEnabled(bool enabled) { rate_limit_enabled_ = enabled; }
+
+    int getRateLimitRequests() const { return rate_limit_requests_; }
+    void setRateLimitRequests(int requests) { rate_limit_requests_ = requests; }
+
+    int getRateLimitWindow() const { return rate_limit_window_; }
+    void setRateLimitWindow(int window) { rate_limit_window_ = window; }
+
+    bool isInputValidationEnabled() const { return input_validation_enabled_; }
+    void setInputValidationEnabled(bool enabled) { input_validation_enabled_ = enabled; }
+
+    bool isLoggingEnabled() const { return security_logging_enabled_; }
+    void setLoggingEnabled(bool enabled) { security_logging_enabled_ = enabled; }
+
     // 로깅 설정
     std::string getLogLevel() const { return log_level_; }
     void setLogLevel(const std::string& level) { log_level_ = level; }
@@ -134,7 +162,7 @@ public:
     bool load(const std::string& filename);
     int getInt(const std::string& key, int default_value) const;
     std::string getString(const std::string& key, const std::string& default_value) const;
-    
+
     // 기존 인터페이스 호환성
     void setString(const std::string& key, const std::string& value);
     void setInt(const std::string& key, int value);
@@ -165,6 +193,17 @@ private:
     std::string api_token_ = "";
     bool api_token_required_ = false;
     std::vector<std::string> allowed_origins_ = {"*"};
+
+    // 추가 보안 설정
+    bool tls_enabled_ = false;
+    std::string tls_cert_path_ = "";
+    std::string tls_key_path_ = "";
+    std::string tls_ca_path_ = "";
+    bool rate_limit_enabled_ = true;
+    int rate_limit_requests_ = 100;
+    int rate_limit_window_ = 60; // seconds
+    bool input_validation_enabled_ = true;
+    bool security_logging_enabled_ = true;
 
     // 로깅 설정
     std::string log_level_ = "INFO";

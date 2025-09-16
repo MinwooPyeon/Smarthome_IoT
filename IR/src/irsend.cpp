@@ -12,9 +12,9 @@
 #include <random>
 #endif
 
-IRSend::IRSend() 
+IRSend::IRSend()
     : initialized_(false), debug_mode_(false), code_store_(nullptr) {
-    
+
 #ifdef PLATFORM_ESP32
     // RMT 채널은 초기화에서 설정됨
 #endif
@@ -30,11 +30,11 @@ IRSend::IRSend(IRSend&& other) noexcept
       code_store_(other.code_store_),
       stats_(other.stats_),
       last_error_(std::move(other.last_error_)) {
-    
+
 #ifdef PLATFORM_ESP32
         // RMT 채널은 복사하지 않음
 #endif
-    
+
     other.initialized_ = false;
     other.code_store_ = nullptr;
 }
@@ -42,17 +42,17 @@ IRSend::IRSend(IRSend&& other) noexcept
 IRSend& IRSend::operator=(IRSend&& other) noexcept {
     if (this != &other) {
         cleanup();
-        
+
         initialized_ = other.initialized_.load();
         debug_mode_ = other.debug_mode_.load();
         code_store_ = other.code_store_;
         stats_ = other.stats_;
         last_error_ = std::move(other.last_error_);
-        
+
 #ifdef PLATFORM_ESP32
         // RMT 채널은 복사하지 않음
 #endif
-        
+
         other.initialized_ = false;
         other.code_store_ = nullptr;
     }
@@ -61,18 +61,18 @@ IRSend& IRSend::operator=(IRSend&& other) noexcept {
 
 bool IRSend::initialize() {
     std::lock_guard<std::mutex> lock(mutex_);
-    
+
     if (initialized_) {
         return true;
     }
-    
+
 #ifdef PLATFORM_ESP32
-    int tx_pin = 22; // GPIO 22번 핀 (HX_53 IR Transmitter)
-    
-    // RMT 채널 설정
+    int tx_pin = 23; // GPIO 23번 핀 (HX_53 IR Transmitter) - 22번 대신 23번 사용
+
+    // RMT 채널 설정 (ESP32-WROOM-32E 최적화)
     rmt_config_t config = {};
     config.rmt_mode = RMT_MODE_TX;
-    config.channel = RMT_CHANNEL_0;
+    config.channel = RMT_CHANNEL_1;  // RMT_CHANNEL_0 대신 RMT_CHANNEL_1 사용
     config.gpio_num = (gpio_num_t)tx_pin;
     config.mem_block_num = 1;
     config.tx_config.loop_en = false;
@@ -82,21 +82,24 @@ bool IRSend::initialize() {
     config.tx_config.carrier_level = RMT_CARRIER_LEVEL_HIGH;
     config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
     config.tx_config.idle_output_en = true;
-    
+
+    // RMT 클럭 분주기 설정 (ESP32-WROOM-32E 최적화)
+    config.clk_div = 80;  // 80MHz / 80 = 1MHz (1μs 단위)
+
     esp_err_t ret = rmt_config(&config);
     if (ret != ESP_OK) {
         ESP_LOGE("IR_SEND", "RMT 설정 실패: %s", esp_err_to_name(ret));
         return false;
     }
-    
+
     ret = rmt_driver_install(config.channel, 0, 0);
     if (ret != ESP_OK) {
         ESP_LOGE("IR_SEND", "RMT 드라이버 설치 실패: %s", esp_err_to_name(ret));
         return false;
     }
-    
+
     ESP_LOGI("IR_SEND", "ESP32 IR 송신기 초기화 완료 - GPIO %d", tx_pin);
-#elif defined(PLATFORM_LINUX)   
+#elif defined(PLATFORM_LINUX)
     lirc_fd_ = lirc_get_local_socket(nullptr, 0);
     if (lirc_fd_ < 0) {
         setLastError("lirc 소켓 생성 실패");
@@ -106,20 +109,20 @@ bool IRSend::initialize() {
 #elif defined(PLATFORM_WINDOWS)
     LOG_INFO("Windows IR 송신기 시뮬레이션 초기화 완료");
 #endif
-    
+
     initialized_ = true;
     return true;
 }
 
 void IRSend::cleanup() {
     std::lock_guard<std::mutex> lock(mutex_);
-    
+
     if (!initialized_) {
         return;
     }
-    
+
 #ifdef PLATFORM_ESP32
-    rmt_driver_uninstall(RMT_CHANNEL_0);
+    rmt_driver_uninstall(RMT_CHANNEL_1);
 #elif defined(PLATFORM_LINUX)
     if (lirc_fd_ >= 0) {
         lirc_freeconfig(config_);
@@ -127,7 +130,7 @@ void IRSend::cleanup() {
         lirc_fd_ = -1;
     }
 #endif
-    
+
     initialized_ = false;
 }
 
@@ -135,45 +138,45 @@ IRSendStatus IRSend::sendControlSignal(const std::string& control_signal) {
     if (!initialized_) {
         return IRSendStatus(IRSendResult::DEVICE_NOT_FOUND, "IR 송신기가 초기화되지 않음");
     }
-    
+
     if (!validateControlSignal(control_signal)) {
         return IRSendStatus(IRSendResult::INVALID_CODE, "잘못된 제어 신호: " + control_signal);
     }
-    
+
     auto start_time = std::chrono::high_resolution_clock::now();
-    
+
     // 제어 신호를 IR 코드로 변환
     std::string ir_code = convertControlSignalToIRCode(control_signal);
     if (ir_code.empty()) {
         return IRSendStatus(IRSendResult::INVALID_CODE, "IR 코드 변환 실패: " + control_signal);
     }
-    
+
     // IR 코드 전송
     IRSendStatus result = sendIRCode(ir_code);
-    
+
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     result.duration_ms = duration.count() / 1000.0;
-    
+
     updateStatistics(result);
     return result;
 }
 
 IRSendStatus IRSend::sendIRCode(const std::string& ir_code) {
     std::lock_guard<std::mutex> lock(mutex_);
-    
+
     if (!initialized_) {
         return IRSendStatus(IRSendResult::DEVICE_NOT_FOUND, "IR 송신기가 초기화되지 않음");
     }
-    
+
     try {
         uint64_t code = std::stoull(ir_code.substr(2), nullptr, 16); // "0x" 제거
-        
+
 #ifdef PLATFORM_ESP32
         // ESP32 RMT를 사용한 IR 송신
         rmt_item32_t items[68]; // NEC 프로토콜용 아이템 배열
         int item_count = 0;
-        
+
         // NEC 프로토콜 구현
         // Leader pulse
         items[item_count].level0 = 1;
@@ -181,7 +184,7 @@ IRSendStatus IRSend::sendIRCode(const std::string& ir_code) {
         items[item_count].level1 = 0;
         items[item_count].duration1 = 4500; // 4.5ms
         item_count++;
-        
+
         // Data bits (32비트)
         for (int i = 31; i >= 0; i--) {
             bool bit = (code >> i) & 1;
@@ -195,15 +198,15 @@ IRSendStatus IRSend::sendIRCode(const std::string& ir_code) {
             }
             item_count++;
         }
-        
+
         // Stop bit
         items[item_count].level0 = 1;
         items[item_count].duration0 = 560;
         items[item_count].level1 = 0;
         items[item_count].duration1 = 0; // End marker
         item_count++;
-        
-        esp_err_t ret = rmt_write_items(RMT_CHANNEL_0, items, item_count, true);
+
+        esp_err_t ret = rmt_write_items(RMT_CHANNEL_1, items, item_count, true);
         if (ret == ESP_OK) {
             ESP_LOGI("IR_SEND", "ESP32 IR 코드 전송: %s", ir_code.c_str());
             return IRSendStatus(IRSendResult::SUCCESS, "IR 코드 전송 성공");
@@ -225,9 +228,9 @@ IRSendStatus IRSend::sendIRCode(const std::string& ir_code) {
         LOG_INFO("Windows IR 코드 시뮬레이션 전송: %s", ir_code.c_str());
         return IRSendStatus(IRSendResult::SUCCESS, "IR 코드 시뮬레이션 전송 성공");
 #endif
-        
+
         return IRSendStatus(IRSendResult::TRANSMISSION_FAILED, "IR 송신 실패");
-        
+
     } catch (const std::exception& e) {
         setLastError("IR 코드 전송 중 오류: " + std::string(e.what()));
         return IRSendStatus(IRSendResult::INVALID_CODE, "IR 코드 파싱 오류: " + ir_code);
@@ -236,20 +239,20 @@ IRSendStatus IRSend::sendIRCode(const std::string& ir_code) {
 
 std::vector<IRSendStatus> IRSend::sendControlSignals(const std::vector<std::string>& control_signals, int delay_ms) {
     std::vector<IRSendStatus> results;
-    
+
     for (const auto& signal : control_signals) {
         IRSendStatus result = sendControlSignal(signal);
         results.push_back(result);
-        
+
         if (result.result != IRSendResult::SUCCESS) {
             LOG_ERROR("제어 신호 전송 실패: %s - %s", signal.c_str(), result.message.c_str());
         }
-        
+
         if (delay_ms > 0) {
             delay_ms(delay_ms);
         }
     }
-    
+
     return results;
 }
 
@@ -285,7 +288,7 @@ bool IRSend::validateControlSignal(const std::string& control_signal) {
     if (control_signal.empty()) {
         return false;
     }
-    
+
     return control_signal.length() > 0 && control_signal.length() < 100;
 }
 
@@ -293,28 +296,28 @@ std::string IRSend::convertControlSignalToIRCode(const std::string& control_sign
     // MQTT로 직접 IR 코드를 받으므로 매핑 테이블 불필요
     // IR 코드 저장소에서만 찾기
     if (code_store_) {
-        return code_store_->getIRCode(control_signal);
+        return code_store_->getIRSignal(control_signal);
     }
-    
+
     return "";
 }
 
 void IRSend::updateStatistics(const IRSendStatus& status) {
     std::lock_guard<std::mutex> lock(stats_mutex_);
-    
+
     stats_.total_sent++;
     if (status.result == IRSendResult::SUCCESS) {
         stats_.successful_sends++;
     } else {
         stats_.failed_sends++;
     }
-    
+
     // 평균 소요 시간 계산
     if (stats_.total_sent > 0) {
-        stats_.average_duration_ms = 
+        stats_.average_duration_ms =
             (stats_.average_duration_ms * (stats_.total_sent - 1) + status.duration_ms) / stats_.total_sent;
     }
-    
+
     stats_.last_send_time = std::chrono::steady_clock::now();
 }
 

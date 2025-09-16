@@ -7,26 +7,27 @@
 #include <atomic>
 
 #ifdef ESP32
-// ESP32 전용 전방 선언
-class IRrecv;
+// ESP32 전용 include
+#include "Arduino.h"
+// ESP32에서는 자체 IR 수신 구현 사용
 #endif
 
 class IRReceiver {
 public:
     IRReceiver(int gpio_pin = 23);
     ~IRReceiver();
-    
+
     // IR 수신 시작/중지
     bool startReceiving();
     void stopReceiving();
     bool isReceiving() const;
-    
+
     // IR 코드 수신
     std::string receiveIRCode();
-    
+
     // 콜백 설정
     void setIRCodeCallback(std::function<void(const std::string&)> callback);
-    
+
     // GPIO 핀 설정
     void setGPIO(int gpio_pin);
     int getGPIO() const;
@@ -38,26 +39,27 @@ private:
     std::function<void(const std::string&)> ir_code_callback_;
     
 #ifdef ESP32
-    IRrecv* irrecv_;
+    // ESP32 전용 IR 수신 구현
+    bool is_initialized_;
 #endif
-    
+
     // 수신 스레드 함수
     void receiveLoop();
-    
+
     // IR 코드 읽기
     std::string readIRCode();
-    
+
     // NEC 프로토콜 디코딩
     std::string decodeNECProtocol();
-    
+
     // RC5 프로토콜 디코딩
     std::string decodeRC5Protocol();
-    
+
     // Sony 프로토콜 디코딩
     std::string decodeSonyProtocol();
-    
+
     // 프로토콜 이름 변환
-    std::string getProtocolName(decode_type_t protocol);
+    std::string getProtocolName(int protocol);
 };
 
-#endif 
+#endif
