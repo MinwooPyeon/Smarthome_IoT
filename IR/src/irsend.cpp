@@ -122,7 +122,7 @@ void IRSend::cleanup() {
     }
 
 #ifdef PLATFORM_ESP32
-    rmt_driver_uninstall(RMT_CHANNEL_0);
+    rmt_driver_uninstall(RMT_CHANNEL_1);
 #elif defined(PLATFORM_LINUX)
     if (lirc_fd_ >= 0) {
         lirc_freeconfig(config_);
@@ -206,7 +206,7 @@ IRSendStatus IRSend::sendIRCode(const std::string& ir_code) {
         items[item_count].duration1 = 0; // End marker
         item_count++;
 
-        esp_err_t ret = rmt_write_items(RMT_CHANNEL_0, items, item_count, true);
+        esp_err_t ret = rmt_write_items(RMT_CHANNEL_1, items, item_count, true);
         if (ret == ESP_OK) {
             ESP_LOGI("IR_SEND", "ESP32 IR 코드 전송: %s", ir_code.c_str());
             return IRSendStatus(IRSendResult::SUCCESS, "IR 코드 전송 성공");
