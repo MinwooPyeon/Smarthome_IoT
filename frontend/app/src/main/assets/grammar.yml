@@ -134,53 +134,47 @@ context:
       - (이제) @더추가
 
     ROUTINE_LIST_ACTIONS:
-      - (이제) @지금류 @무엇류 @되었류
-      - (이제) @동작류 @목록류 @알려류
-      - (이제) @추가한류 @동작류 @무엇류
+      - (이제) 루틴_목록
 
     ROUTINE_UNDO_LAST:
-      - (이제) @최근류 @것류 @취소류
-      - (이제) @마지막류 @동작류 @삭제류
+      - (이제) @루틴_되돌리기
 
     ROUTINE_CLEAR_ACTIONS:
-      - (이제) @동작류 @전부류 @삭제류
-      - (이제) @지금까지류 @전부류 @삭제류
+      - (이제) @루틴_초기화
 
     ROUTINE_RENAME:
-      - (이제) @이름류 @변경류
-      - (이제) 이름 @다시류 @정하기류
+      - (이제) @루틴_이름재설정
 
     ROUTINE_REDESC:
-      - (이제) @설명류 @변경류
-      - (이제) 설명 @다시류 @정하기류
+      - (이제) @루틴_설명재설정
 
     ROUTINE_SHOW_BY_NAME:
-      - @루틴_보기 $pv.FreeText:name
-      - $pv.FreeText:name [이,가,은,는] @루틴_보기
+      - (지금) @루틴_보기 $pv.FreeText:name
+      - (지금) $pv.FreeText:name [이,가,은,는] @루틴_보기
 
     ROUTINE_DELETE_BY_NAME:
-      - @루틴_삭제 $pv.FreeText:name
-      - $pv.FreeText:name [을,를] @루틴_삭제
+      - (지금) @루틴_삭제 $pv.FreeText:name
+      - (지금) $pv.FreeText:name [을,를] @루틴_삭제
 
     ROUTINE_UPDATE_TIME_BY_NAME:
-      - @루틴_시간수정 $pv.FreeText:name [을,를] $pv.FreeText:time [로,으로,에]
-      - $pv.FreeText:name [이,가,은,는] @루틴_시간수정 $pv.FreeText:time [로,으로,에]
-      - $pv.FreeText:name [을,를] $pv.FreeText:time [로,으로,에] @루틴_시간수정
+      - (지금) @루틴_시간수정 $pv.FreeText:name [을,를] $pv.FreeText:time [로,으로,에]
+      - (지금) $pv.FreeText:name [이,가,은,는] @루틴_시간수정 $pv.FreeText:time [로,으로,에]
+      - (지금) $pv.FreeText:name [을,를] $pv.FreeText:time [로,으로,에] @루틴_시간수정
 
     ROUTINE_UPDATE_WEEK_BY_NAME:
-      - @루틴_요일수정 $pv.FreeText:name [을,를] $pv.FreeText:week [로,으로]
-      - $pv.FreeText:name [이,가,은,는] @루틴_요일수정 $pv.FreeText:week [로,으로]
-      - $pv.FreeText:name [을,를] $pv.FreeText:week [로,으로] @루틴_요일수정
+      - (지금) @루틴_요일수정 $pv.FreeText:name [을,를] $pv.FreeText:week [로,으로]
+      - (지금) $pv.FreeText:name [이,가,은,는] @루틴_요일수정 $pv.FreeText:week [로,으로]
+      - (지금) $pv.FreeText:name [을,를] $pv.FreeText:week [로,으로] @루틴_요일수정
 
     ROUTINE_UPDATE_DESC_BY_NAME:
-      - @루틴_설명수정 $pv.FreeText:name [을,를] $pv.FreeText:desc (으로,로,라고)
-      - $pv.FreeText:name [이,가,은,는] @루틴_설명수정 $pv.FreeText:desc (으로,로,라고)
-      - $pv.FreeText:name [을,를] $pv.FreeText:desc (으로,로,라고) @루틴_설명수정
+      - (지금) @루틴_설명수정 $pv.FreeText:name [을,를] $pv.FreeText:desc (으로,로,라고)
+      - (지금) $pv.FreeText:name [이,가,은,는] @루틴_설명수정 $pv.FreeText:desc (으로,로,라고)
+      - (지금) $pv.FreeText:name [을,를] $pv.FreeText:desc (으로,로,라고) @루틴_설명수정
 
     ROUTINE_UPDATE_RENAME_BY_NAME:
-      - @루틴_이름수정 $pv.FreeText:name [을,를] $pv.FreeText:newName [으로,로]
-      - $pv.FreeText:name [을,를] @루틴_이름수정 $pv.FreeText:newName [으로,로]
-      - $pv.FreeText:name [이,가,은,는] @루틴_이름수정 $pv.FreeText:newName [으로,로]
+      - (지금) @루틴_이름수정 $pv.FreeText:name [을,를] $pv.FreeText:newName [으로,로]
+      - (지금) $pv.FreeText:name [을,를] @루틴_이름수정 $pv.FreeText:newName [으로,로]
+      - (지금) $pv.FreeText:name [이,가,은,는] @루틴_이름수정 $pv.FreeText:newName [으로,로]
 
   slots:
     장소:
@@ -370,76 +364,6 @@ context:
       - 계속 추가해줘
       - 동작 더 추가
       - 동작 계속 추가
-    지금류:
-      - 지금까지
-      - 현재
-      - 지금
-    무엇류:
-      - 뭐
-      - 무엇
-      - 뭐야
-      - 뭐였지
-      - 뭐였어
-    되었류:
-      - 했어
-      - 추가됐어
-      - 들어갔어
-      - 들어갔니
-      - 추가되었어
-    동작류:
-      - 동작
-      - 액션
-    목록류:
-      - 목록
-      - 리스트
-    알려류:
-      - 보여줘
-      - 알려줘
-    추가한류:
-      - 추가한
-      - 등록한
-    최근류:
-      - 방금
-      - 마지막
-      - 최근
-    것류:
-      - 거
-      - 것
-    취소류:
-      - 취소
-      - 되돌려
-      - 없애
-      - 삭제해
-    마지막류:
-      - 마지막
-    삭제류:
-      - 지워
-      - 삭제해
-      - 빼줘
-      - 초기화해
-    전부류:
-      - 전부
-      - 모두
-      - 전체
-      - 다
-    지금까지류:
-      - 지금까지
-    이름류:
-      - 이름
-      - 루틴 이름
-    설명류:
-      - 설명
-      - 루틴 설명
-    변경류:
-      - 바꿔
-      - 변경해
-      - 수정해
-    다시류:
-      - 다시
-      - 새로
-    정하기류:
-      - 정할래
-      - 정해
     루틴_이름:
       - 루틴 이름은
       - 이름은
