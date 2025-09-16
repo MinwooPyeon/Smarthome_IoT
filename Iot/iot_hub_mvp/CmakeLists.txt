@@ -27,3 +27,11 @@ target_link_libraries(hub_agent
   nlohmann_json::nlohmann_json
   pigpio rt pthread
 )
+
+add_executable(dht11_test src/dht11_test.cpp src/dht11_reader.cpp)
+target_include_directories(dht11_test PRIVATE include)
+target_link_libraries(dht11_test pigpio rt pthread)
+
+add_executable(ir_test src/ir_test.cpp src/ir_receiver.cpp)
+target_include_directories(ir_test PRIVATE include)
+target_link_libraries(ir_test pigpio rt pthread)
