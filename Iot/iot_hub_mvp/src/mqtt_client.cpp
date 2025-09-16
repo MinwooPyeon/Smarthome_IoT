@@ -1,122 +1,79 @@
-#include "MqttClient.hpp"
+#include "mqtt_client.hpp"
 #include <iostream>
-#include <cstring>
-#include <atomic>
+#include <chrono>
+#include <thread>
 
-static std::atomic<bool> g_lib_inited{false};
+static const char* SYS_CA = "/etc/ssl/certs/ca-certificates.crt"; // Ubuntu/RPiOS 기본 CA 번들
 
-bool MqttClient::init(const std::string& clientId, const std::string& host, int port,
-                      const std::string& user, const std::string& pass)
-{
-    if (!g_lib_inited.exchange(true)) {
-        mosquitto_lib_init();
-    }
+bool MqttClient::init(const AppConfig& cfg, const std::string& clientId){
+    cfg_ = cfg;
 
-    // clean session = true, userdata = this
+    mosquitto_lib_init();
     m_ = mosquitto_new(clientId.c_str(), true, this);
-    if (!m_) {
-        std::cerr << "[MQTT] mosquitto_new() failed\n";
-        return false;
-    }
+    if(!m_) return false;
 
-    // 멀티스레드에서 publish할 수 있도록
-    mosquitto_threaded_set(m_, true);
+    if(!cfg_.mqttUser.empty())
+        mosquitto_username_pw_set(m_, cfg_.mqttUser.c_str(), cfg_.mqttPass.c_str());
 
-    if (!user.empty()) {
-        int rc = mosquitto_username_pw_set(m_, user.c_str(), pass.empty() ? nullptr : pass.c_str());
-        if (rc != MOSQ_ERR_SUCCESS) {
-            std::cerr << "[MQTT] username_pw_set failed: " << mosquitto_strerror(rc) << "\n";
-            return false;
+    // TLS: 포트가 8883이면 시스템 CA로 TLS 세팅 + 호스트명 검증 생략(개발/테스트 편의)
+    if(cfg_.mqttPort == 8883){
+        int trc = mosquitto_tls_set(m_, SYS_CA, nullptr, nullptr, nullptr, nullptr);
+        if(trc != MOSQ_ERR_SUCCESS){
+            std::cerr << "[mqtt] tls_set failed: " << mosquitto_strerror(trc)
+                      << " (trying to continue)\n";
         }
+        // mosquitto_pub에서 --insecure 쓰던 것과 동일 효과(호스트명 검증 off)
+        mosquitto_tls_insecure_set(m_, true);
     }
 
     mosquitto_connect_callback_set(m_, &MqttClient::on_connect_cb);
     mosquitto_message_callback_set(m_, &MqttClient::on_message_cb);
 
-    int rc = mosquitto_connect(m_, host.c_str(), port, /*keepalive*/60);
-    if (rc != MOSQ_ERR_SUCCESS) {
-        std::cerr << "[MQTT] connect failed: " << mosquitto_strerror(rc) << "\n";
+    int rc = mosquitto_connect(m_, cfg_.mqttHost.c_str(), cfg_.mqttPort, 60);
+    if(rc != MOSQ_ERR_SUCCESS){
+        std::cerr << "[mqtt] connect failed: " << mosquitto_strerror(rc) << "\n";
         return false;
     }
     return true;
 }
 
-void MqttClient::set_message_handler(MessageHandler h) { handler_ = std::move(h); }
+void MqttClient::set_message_handler(MessageHandler h){ handler_ = std::move(h); }
 
-bool MqttClient::subscribe(const std::string& topic, int qos)
-{
-    if (!m_) return false;
-    int mid = 0;
-    int rc = mosquitto_subscribe(m_, &mid, topic.c_str(), qos);
-    if (rc != MOSQ_ERR_SUCCESS) {
-        std::cerr << "[MQTT] subscribe failed: " << mosquitto_strerror(rc) << "\n";
-        return false;
-    }
-    return true;
+bool MqttClient::subscribe(const std::string& topic, int qos){
+    return mosquitto_subscribe(m_, nullptr, topic.c_str(), qos) == MOSQ_ERR_SUCCESS;
 }
 
-bool MqttClient::publish(const std::string& topic, const std::string& payload, int qos, bool retain)
-{
-    if (!m_) return false;
-    int rc = mosquitto_publish(m_, /*mid*/nullptr, topic.c_str(),
-                               static_cast<int>(payload.size()), payload.data(),
-                               qos, retain);
-    if (rc != MOSQ_ERR_SUCCESS) {
-        std::cerr << "[MQTT] publish failed: " << mosquitto_strerror(rc) << "\n";
-        return false;
-    }
-    return true;
+bool MqttClient::publish(const std::string& topic, const std::string& payload, int qos, bool retain){
+    return mosquitto_publish(m_, nullptr, topic.c_str(), (int)payload.size(),
+                             payload.data(), qos, retain) == MOSQ_ERR_SUCCESS;
 }
 
-void MqttClient::loop_forever()
-{
-    if (!m_) return;
-    // 네트워크 루프(블로킹). 신호/외부에서 mosquitto_disconnect 호출 시 반환됨.
-    int rc = mosquitto_loop_forever(m_, /*timeout_ms*/-1, /*max_packets*/1);
-    if (rc != MOSQ_ERR_SUCCESS && rc != MOSQ_ERR_NO_CONN) {
-        std::cerr << "[MQTT] loop_forever returned: " << mosquitto_strerror(rc) << "\n";
+void MqttClient::loop_forever(){
+    int rc;
+    while((rc = mosquitto_loop(m_, -1, 1)) == MOSQ_ERR_SUCCESS) {}
+    std::cerr << "[mqtt] loop exited: " << mosquitto_strerror(rc) << "\n";
+}
+void MqttClient::loop_for_ms(int ms){
+    auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    while(std::chrono::steady_clock::now() < end){
+        mosquitto_loop(m_, 100, 1);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
 
-void MqttClient::cleanup()
-{
-    if (m_) {
-        // 연결 중이면 끊기
-        mosquitto_disconnect(m_);
-        mosquitto_destroy(m_);
-        m_ = nullptr;
-    }
-    // 단일 프로세스에서 한 번만 정리
-    if (g_lib_inited.exchange(false)) {
-        mosquitto_lib_cleanup();
-    }
+void MqttClient::cleanup(){
+    if(m_){ mosquitto_destroy(m_); m_ = nullptr; }
+    mosquitto_lib_cleanup();
 }
 
-// ---- static callbacks ----
-void MqttClient::on_connect_cb(struct mosquitto* m, void* userdata, int rc)
-{
-    auto* self = static_cast<MqttClient*>(userdata);
-    if (rc == 0) {
-        std::cerr << "[MQTT] connected.\n";
-    } else {
-        std::cerr << "[MQTT] connect error: " << mosquitto_strerror(rc) << "\n";
-    }
-    (void)m; (void)self;
+void MqttClient::on_connect_cb(struct mosquitto*, void*, int rc){
+    std::cout << "[mqtt] connected rc=" << rc << "\n";
 }
-
-void MqttClient::on_message_cb(struct mosquitto* m, void* userdata, const struct mosquitto_message* msg)
-{
-    auto* self = static_cast<MqttClient*>(userdata);
-    if (!self || !self->handler_) return;
-
-    // payload는 NUL-terminated 보장X → 길이 기반으로 문자열 구성
-    std::string topic = msg->topic ? msg->topic : "";
-    std::string payload;
-    if (msg->payload && msg->payloadlen > 0) {
-        payload.assign(static_cast<const char*>(msg->payload),
-                       static_cast<size_t>(msg->payloadlen));
+void MqttClient::on_message_cb(struct mosquitto*, void* obj, const struct mosquitto_message* msg){
+    auto* self = static_cast<MqttClient*>(obj);
+    if(self && self->handler_ && msg && msg->payload){
+        std::string topic = msg->topic ? msg->topic : "";
+        std::string payload((const char*)msg->payload, (size_t)msg->payloadlen);
+        self->handler_(topic, payload);
     }
-
-    self->handler_(topic, payload);
-    (void)m;
 }
