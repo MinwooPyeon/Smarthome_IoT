@@ -1,65 +1,77 @@
-// include/sensors/Dht11Sensor.hpp
 #pragma once
-#include "sensors/iSensor.hpp"
-#include "interface/iGpio.hpp"
-#include "util/sensorTypes.hpp"
+#include "util/sensorTypes.hpp"   // SensorReading, SensorConfig, SensorState, Error
+#include "sensors/iSensor.hpp"     // 질문에 올려준 인터페이스 헤더(경로는 프로젝트에 맞게)
+#include <pigpio.h>
+
 #include <atomic>
-#include <condition_variable>
+#include <chrono>
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <mutex>
 #include <optional>
-#include <vector>
+#include <thread>
+#include <tuple>
 
 namespace sensors {
 
-class Dht11Sensor : public iSensor {
+class Dht11Sensor final : public iSensor {
 public:
     struct Options {
-        std::string chip = "gpio"; // pigpio에선 의미 없음
-        int pin = -1;              // BCM pin
-        int min_interval_ms = 1100; // DHT11 권장 1s 이상
-        int start_low_ms = 18;       // 스타트 신호(LOW, ms)
-        int start_high_us = 30;      // 스타트 후 HIGH 유지(us) 20~40
+        uint8_t gpioPin = 4;                 // 기본 BCM4
+        std::chrono::milliseconds period{2000}; // 주기 측정 (DHT11 스펙상 1Hz 근처 권장)
+        bool ownPigpioLifecycle = false;     // true면 내부에서 gpioInitialise/gpioTerminate
     };
 
-    Dht11Sensor(std::shared_ptr<iGpio> gpio, SensorConfig cfg, Options opt);
-    ~Dht11Sensor() override { stop(); }
+    Dht11Sensor(const SensorConfig& cfg, const Options& opt);
+    ~Dht11Sensor() override;
 
-    // iSensor
-    SensorState state() const override { return state_.load(); }
+    // 구성 & 메타
+    SensorState state() const override { return state_; }
     const SensorConfig& config() const override { return cfg_; }
+
+    // 생명주기
     bool initialize(Error* err = nullptr) override;
     bool start(Error* err = nullptr) override;
     void stop() override;
+
+    // 동기 1회 읽기
     std::optional<SensorReading> readOnce(Error* err = nullptr) override;
 
-    void setReadingCallback(ReadingCallback cb) override { on_read_ = std::move(cb); }
-    void setErrorCallback(ErrorCallback cb) override     { on_err_  = std::move(cb); }
+    // 콜백 등록(비동기)
+    void setReadingCallback(ReadingCallback cb) override;
+    void setErrorCallback(ErrorCallback cb) override;
+
     bool reset(Error* err = nullptr) override;
 
 private:
-    bool trigger_measurement(Error* err);
-    void on_edge(bool level, uint32_t tick);
-    void clear_rx_state();
-    bool decode_and_publish(Error* err);
+    // DHT11 로우레벨
+    void sendStartSignal();
+    int  waitForLow(int timeout_us);
+    int  waitForHigh(int timeout_us);
+    std::tuple<uint8_t,uint8_t> measureRawTH(Error* err); // (tempC, hum%)
+
+    // 쓰레드 루프
+    void runLoop();
+
+    // 내부 헬퍼
+    static uint8_t calcParity(uint8_t hH, uint8_t hL, uint8_t tH, uint8_t tL);
+    static uint64_t nowMicros();
 
 private:
-    std::shared_ptr<iGpio> gpio_;
-    SensorConfig           cfg_;
-    Options                opt_;
-    std::atomic<SensorState> state_{SensorState::Uninitialized};
+    SensorConfig   cfg_{};
+    Options        opt_{};
+    std::atomic<SensorState> state_{SensorState::Created};
 
-    ReadingCallback on_read_{};
-    ErrorCallback   on_err_{};
+    std::mutex     cbMutex_;
+    ReadingCallback readingCb_;
+    ErrorCallback   errorCb_;
 
-    std::mutex rx_m_;
-    std::vector<uint32_t> high_us_; // HIGH 구간(us) 기록
-    std::atomic<bool> receiving_{false};
-    std::atomic<uint32_t> last_tick_{0};
-    std::atomic<bool> last_level_high_{false};
+    std::thread    worker_;
+    std::atomic<bool> running_{false};
 
-    // readOnce 임시 저장
-    std::mutex once_m_;
-    std::optional<SensorReading> last_reading_;
+    bool pigpioInitedHere_{false}; // ownPigpioLifecycle=true일 때만 true가 됨
 };
 
 } // namespace sensors
+

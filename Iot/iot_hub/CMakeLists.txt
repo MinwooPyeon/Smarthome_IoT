@@ -10,8 +10,14 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 # =========================
+# 옵션: DHT11을 Lab04(pigpio 직결) 경로로 사용
+#  - ON  : Dht11Sensor.cpp 내부에서 Lab04 스타일 폴링 사용 (권장: 마감 촉박 시)
+#  - OFF : 기존 iGpio 경로 유지
+# =========================
+option(DHT11_USE_LAB04 "Use Lab04-style pigpio polling for DHT11" ON)   # ✅ ADD
+
+# =========================
 # Mosquitto (MQTT)
-# sudo apt install -y libmosquitto-dev
 # =========================
 find_path(MOSQ_INCLUDE_DIR mosquitto.h)
 find_library(MOSQ_LIB mosquitto)
@@ -21,11 +27,9 @@ endif()
 
 # =========================
 # pigpio (GPIO / timing)
-# sudo apt install -y pigpio
 # =========================
 find_path(PIGPIO_INCLUDE_DIR pigpio.h)
 find_library(PIGPIO_LIB pigpio)
-# pigpio는 pthread/rt 필요
 find_package(Threads REQUIRED)
 find_library(RT_LIB rt)
 
@@ -38,19 +42,19 @@ endif()
 
 # =========================
 # Sensors library (DHT11, IR Receiver, GpioPigpio, Manager)
-# 파일 경로는 프로젝트 구조에 맞게 조정하세요.
 # =========================
 add_library(sensors
   src/sensors/sensorManager.cpp
   src/sensors/Dht11Sensor.cpp
   src/sensors/IrReceiverSensor.cpp
-  src/interface/gpioPigpio.cpp      # 이미 있으시면 유지
+  src/interface/gpioPigpio.cpp
+  src/sensors/CDht11.cpp            # ✅ ADD: Lab04 클래스 포함
 )
 
 target_include_directories(sensors
   PUBLIC
-    include            # 권장: include/sensors/...
-    header             # 기존에 쓰시던 경로가 있다면 함께 유지
+    include
+    header                          # ✅ ensure header/sensors/CDht11.hpp 가 보이도록
     ${PIGPIO_INCLUDE_DIR}
 )
 
@@ -61,8 +65,10 @@ target_link_libraries(sensors
     ${RT_LIB}
 )
 
-# 필요 시 다른 타겟에서 센서 타입/인터페이스를 사용하도록
-# (예: target_link_libraries(다른타겟 PRIVATE sensors))
+# Lab04 경로를 사용할지 여부를 컴파일 정의로 전달
+if (DHT11_USE_LAB04)                # ✅ ADD
+  target_compile_definitions(sensors PUBLIC DHT11_USE_LAB04=1)
+endif()
 
 # =========================
 # MQTT Subscriber library
@@ -97,17 +103,22 @@ add_executable(test_pub src/mqtt/test_pub.cpp)
 target_link_libraries(test_pub PRIVATE mqtt_pub)
 
 # =========================
-# [예시] 센서 단독 테스트 실행파일
-# DHT11/IR 수신 동작만 확인하고 싶을 때 사용
+# 센서 단독 테스트 실행파일
 # =========================
 add_executable(test_sensors
-  src/sensors/test_sensors.cpp   # 예: 센서 매니저 초기화/시작/읽기 코드
+  src/sensors/test_sensors.cpp
 )
 target_link_libraries(test_sensors PRIVATE sensors)
 
 # =========================
-# [선택] MQTT + Sensors 통합 예시 실행파일
+# (선택) Lab04 예제 메인으로 바로 확인해보기
+# - Lab04 repo에서 main 예제를 src/sensors/dht11_lab04_main.cpp로 복사했다면 켜세요.
 # =========================
-#add_executable(hub_node src/app/hub_node.cpp)
-#target_link_libraries(hub_node PRIVATE sensors mqtt_pub mqtt_sub)
-#target_include_directories(hub_node PRIVATE include header)
+ if (EXISTS "${CMAKE_SOURCE_DIR}/src/sensors/lab04.cpp")      # ✅ ADD (옵션)
+   add_executable(dht11_lab04_demo
+     src/sensors/lab04.cpp
+     src/sensors/CDht11.cpp
+   )
+   target_include_directories(dht11_lab04_demo PRIVATE header ${PIGPIO_INCLUDE_DIR})
+   target_link_libraries(dht11_lab04_demo PRIVATE ${PIGPIO_LIB} Threads::Threads ${RT_LIB})
+ endif()

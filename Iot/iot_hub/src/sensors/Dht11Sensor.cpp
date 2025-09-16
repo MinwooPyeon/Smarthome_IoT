@@ -1,148 +1,239 @@
-// src/sensors/Dht11Sensor.cpp
 #include "sensors/Dht11Sensor.hpp"
-#include <thread>
+#include <stdexcept>
+#include <cstring>
 
-using namespace sensors;
+namespace sensors {
 
-Dht11Sensor::Dht11Sensor(std::shared_ptr<iGpio> gpio, SensorConfig cfg, Options opt)
-: gpio_(std::move(gpio)), cfg_(std::move(cfg)), opt_(opt) {}
+using namespace std::chrono_literals;
+
+// 타임아웃 상수(마이크로초)
+static constexpr int TIMEOUT_US = 1000000; // 1s (충분히 큼)
+static constexpr int FRAME_TIMEOUT_US = 100000; // 프레임 내 플립 대기 (100ms)
+static constexpr int BIT_COUNT = 40;
+
+static inline void setErrorMsg(Error* err, const std::string& msg, int code = 0) {
+    if (!err) return;
+    // TODO: Error 타입 정의에 맞게 설정하세요.
+    // 예시:
+    err->message = msg;
+    err->code = code;
+}
+
+Dht11Sensor::Dht11Sensor(const SensorConfig& cfg, const Options& opt)
+: cfg_(cfg), opt_(opt) {}
+
+Dht11Sensor::~Dht11Sensor() {
+    stop();
+    if (opt_.ownPigpioLifecycle && pigpioInitedHere_) {
+        gpioTerminate();
+        pigpioInitedHere_ = false;
+    }
+}
 
 bool Dht11Sensor::initialize(Error* err) {
-    if (!gpio_) { if (err) err->message = "gpio null"; state_ = SensorState::Fault; return false; }
-    int gerr{};
-    if (!gpio_->open(opt_.chip, opt_.pin, PinMode::INPUT, &gerr)) {
-        if (err) err->message = "gpio open(INPUT) failed, err=" + std::to_string(gerr);
-        state_ = SensorState::Fault; return false;
+    if (state_ != SensorState::Created && state_ != SensorState::Fault) {
+        return true;
     }
+
+    if (opt_.ownPigpioLifecycle) {
+        int rc = gpioInitialise();
+        if (rc < 0) {
+            setErrorMsg(err, "pigpio initialize failed", rc);
+            state_ = SensorState::Fault;
+            return false;
+        }
+        pigpioInitedHere_ = true;
+    }
+
+    // DHT11의 아이들 상태: 출력 HIGH
+    gpioSetMode(opt_.gpioPin, PI_OUTPUT);
+    gpioWrite(opt_.gpioPin, 1);
+
     state_ = SensorState::Ready;
     return true;
 }
 
 bool Dht11Sensor::start(Error* err) {
-    if (state_ != SensorState::Ready && state_ != SensorState::Stopped) return true;
-    int gerr{};
-    if (!gpio_->watch(Edge::BOTH, [this](int /*pin*/, bool level, uint32_t tick){
-        this->on_edge(level, tick);
-    }, &gerr)) {
-        if (err) err->message = "watch failed, err=" + std::to_string(gerr);
-        state_ = SensorState::Fault; return false;
+    if (state_ != SensorState::Ready && state_ != SensorState::Stopped) {
+        return true;
     }
+    running_ = true;
+    worker_ = std::thread(&Dht11Sensor::runLoop, this);
     state_ = SensorState::Running;
+    (void)err;
     return true;
 }
 
 void Dht11Sensor::stop() {
-    if (state_ == SensorState::Running || state_ == SensorState::Ready) {
-        gpio_->unwatch();
-        gpio_->close();
-        state_ = SensorState::Stopped;
+    if (!running_) {
+        if (state_ == SensorState::Running) state_ = SensorState::Stopped;
+        return;
     }
-}
-
-bool Dht11Sensor::reset(Error* err) {
-    stop();
-    return initialize(err) && start(err);
-}
-
-void Dht11Sensor::clear_rx_state() {
-    std::lock_guard lk(rx_m_);
-    high_us_.clear();
-    last_tick_ = 0;
-    last_level_high_ = false;
-}
-
-bool Dht11Sensor::trigger_measurement(Error* err) {
-    // OUTPUT으로 전환 → 18ms LOW → 20~40us HIGH → 입력/감시 복귀
-    int gerr{};
-    gpio_->unwatch();
-    gpio_->close();
-    if (!gpio_->open(opt_.chip, opt_.pin, PinMode::OUTPUT, &gerr)) {
-        if (err) err->message = "open(OUTPUT) failed, err=" + std::to_string(gerr);
-        return false;
-    }
-    if (!gpio_->write(false, &gerr)) { if (err) err->message = "write LOW failed"; return false; }
-    std::this_thread::sleep_for(std::chrono::milliseconds(opt_.start_low_ms));
-    if (!gpio_->write(true, &gerr))  { if (err) err->message = "write HIGH failed"; return false; }
-    std::this_thread::sleep_for(std::chrono::microseconds(opt_.start_high_us));
-
-    gpio_->close();
-    if (!gpio_->open(opt_.chip, opt_.pin, PinMode::INPUT, &gerr)) {
-        if (err) err->message = "reopen(INPUT) failed, err=" + std::to_string(gerr);
-        return false;
-    }
-    if (!gpio_->watch(Edge::BOTH, [this](int /*pin*/, bool level, uint32_t tick){
-        this->on_edge(level, tick);
-    }, &gerr)) {
-        if (err) err->message = "watch failed, err=" + std::to_string(gerr);
-        return false;
-    }
-    clear_rx_state();
-    receiving_ = true;
-    return true;
-}
-
-void Dht11Sensor::on_edge(bool level, uint32_t tick) {
-    uint32_t prev = last_tick_.exchange(tick);
-    bool prev_high = last_level_high_.exchange(level);
-    if (prev == 0) return;
-
-    uint32_t dt = tick - prev;
-    if (prev_high) { // 직전 구간이 HIGH였다면 길이를 기록
-        std::lock_guard lk(rx_m_);
-        high_us_.push_back(dt);
-
-        // 충분히 쌓였으면 디코드 시도
-        if (high_us_.size() >= 40 + 10) {
-            Error e{};
-            decode_and_publish(&e);
-            receiving_ = false;
-        }
-    }
-}
-
-bool Dht11Sensor::decode_and_publish(Error* err) {
-    std::vector<uint32_t> high;
-    { std::lock_guard lk(rx_m_); high = high_us_; }
-    if (high.size() < 40) { if (err) err->message = "too few pulses"; return false; }
-
-    // 끝에서 40개 비트 구간 사용 (간단한 방법)
-    std::vector<uint32_t> bits_us(high.end() - 40, high.end());
-    uint8_t bytes[5]{};
-    for (int i = 0; i < 40; ++i) {
-        uint32_t us = bits_us[i];
-        int bit = (us > 50) ? 1 : 0; // 50us 임계
-        bytes[i/8] <<= 1;
-        bytes[i/8] |= (bit & 1);
-    }
-
-    uint8_t sum = (uint8_t)(bytes[0] + bytes[1] + bytes[2] + bytes[3]);
-    if (sum != bytes[4]) { if (err) err->message = "checksum mismatch"; return false; }
-
-    // DHT11: 정수부만 유효
-    SensorReading r{};
-    r.name = cfg_.name;
-    r.kind = cfg_.kind;
-    r.ts_ms = now_ms();
-    r.values["temperature_c"] = static_cast<double>(bytes[2]);
-    r.values["humidity_rh"]   = static_cast<double>(bytes[0]);
-
-    last_reading_ = r;
-    if (on_read_) on_read_(r);
-    return true;
+    running_ = false;
+    if (worker_.joinable()) worker_.join();
+    if (state_ == SensorState::Running) state_ = SensorState::Stopped;
 }
 
 std::optional<SensorReading> Dht11Sensor::readOnce(Error* err) {
-    if (state_ != SensorState::Running) {
-        if (err) err->message = "sensor not running";
+    if (state_ != SensorState::Ready && state_ != SensorState::Running && state_ != SensorState::Stopped) {
+        setErrorMsg(err, "sensor not initialized");
         return std::nullopt;
     }
-    if (!trigger_measurement(err)) return std::nullopt;
 
-    // 간단 대기(200ms) 후 마지막 측정 사용
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    std::lock_guard lk(once_m_);
-    auto out = last_reading_;
-    last_reading_.reset();
-    if (!out.has_value() && err) err->message = "timeout/no reading";
-    return out;
+    try {
+        auto [tC, h] = measureRawTH(err);
+
+        SensorReading rd{}; // 기본 생성 가능한 전제
+        // TODO: 프로젝트의 SensorReading 스키마에 맞춰 채우세요.
+        // 아래는 흔히 쓰는 예시입니다.
+        rd.type = "DHT11";
+        rd.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                           std::chrono::system_clock::now().time_since_epoch()
+                       ).count();
+        rd.temperatureC = static_cast<double>(tC);
+        rd.humidity = static_cast<double>(h);
+
+        return rd;
+    } catch (const std::exception& ex) {
+        setErrorMsg(err, ex.what());
+        return std::nullopt;
+    }
 }
+
+// ----------------- 콜백 등록 -----------------
+void Dht11Sensor::setReadingCallback(ReadingCallback cb) {
+    std::lock_guard<std::mutex> lk(cbMutex_);
+    readingCb_ = std::move(cb);
+}
+void Dht11Sensor::setErrorCallback(ErrorCallback cb) {
+    std::lock_guard<std::mutex> lk(cbMutex_);
+    errorCb_ = std::move(cb);
+}
+
+bool Dht11Sensor::reset(Error* err) {
+    // 단순 재초기화 로직
+    try {
+        stop();
+        state_ = SensorState::Created;
+        return initialize(err);
+    } catch (...) {
+        setErrorMsg(err, "reset failed");
+        state_ = SensorState::Fault;
+        return false;
+    }
+}
+
+// ----------------- 내부 구현: DHT11 프로토콜 -----------------
+void Dht11Sensor::sendStartSignal() {
+    // MCU -> DHT11 시작 신호: LOW 18~20ms, 이후 HIGH로 전환
+    gpioSetMode(opt_.gpioPin, PI_OUTPUT);
+    gpioWrite(opt_.gpioPin, 0);
+    std::this_thread::sleep_for(20ms);
+    gpioWrite(opt_.gpioPin, 1);
+    // 버스 해제 후 입력으로 바꿔서 DHT 응답 대기
+    gpioSetMode(opt_.gpioPin, PI_INPUT);
+}
+
+int Dht11Sensor::waitForLow(int timeout_us) {
+    unsigned start = gpioTick();
+    while (gpioRead(opt_.gpioPin)) {
+        if ((int)(gpioTick() - start) > timeout_us) {
+            throw std::runtime_error("timeout waiting LOW");
+        }
+    }
+    return (int)(gpioTick() - start);
+}
+
+int Dht11Sensor::waitForHigh(int timeout_us) {
+    unsigned start = gpioTick();
+    while (!gpioRead(opt_.gpioPin)) {
+        if ((int)(gpioTick() - start) > timeout_us) {
+            throw std::runtime_error("timeout waiting HIGH");
+        }
+    }
+    return (int)(gpioTick() - start);
+}
+
+std::tuple<uint8_t,uint8_t> Dht11Sensor::measureRawTH(Error* err) {
+    // 시퀀스는 CDht11 로직과 동일 컨셉
+    // 수신 비트 40개: HH, HL, TH, TL, Parity
+    sendStartSignal();
+
+    uint64_t data = 0;
+
+    try {
+        // DHT 응답 시퀀스: LOW(80us) -> HIGH(80us) -> 데이터 비트들
+        waitForLow(FRAME_TIMEOUT_US);
+        waitForHigh(FRAME_TIMEOUT_US);
+        waitForLow(FRAME_TIMEOUT_US);
+
+        for (int i = 0; i < BIT_COUNT; ++i) {
+            data <<= 1;
+            int lowTime  = waitForHigh(FRAME_TIMEOUT_US);
+            int highTime = waitForLow(FRAME_TIMEOUT_US);
+            // DHT11은 '1'이 더 긴 HIGH
+            if (lowTime < highTime) {
+                data |= 0x1ULL;
+            }
+        }
+
+        waitForHigh(FRAME_TIMEOUT_US);
+    } catch (...) {
+        // 라인 원복
+        gpioSetMode(opt_.gpioPin, PI_OUTPUT);
+        gpioWrite(opt_.gpioPin, 1);
+        throw; // 위에서 에러로 처리
+    }
+
+    // 라인 원복
+    gpioSetMode(opt_.gpioPin, PI_OUTPUT);
+    gpioWrite(opt_.gpioPin, 1);
+
+    // 파싱
+    uint8_t hH = (data >> 32) & 0xFF;
+    uint8_t hL = (data >> 24) & 0xFF;
+    uint8_t tH = (data >> 16) & 0xFF;
+    uint8_t tL = (data >> 8)  & 0xFF;
+    uint8_t p  =  data        & 0xFF;
+
+    if (static_cast<uint8_t>(hH + hL + tH + tL) != p) {
+        setErrorMsg(err, "DHT11 parity checksum failed");
+        throw std::runtime_error("parity check failed");
+    }
+
+    // DHT11은 정수부만 유효 (소수부는 항상 0)
+    uint8_t humidity    = hH;
+    uint8_t temperature = tH;
+    return {temperature, humidity};
+}
+
+uint8_t Dht11Sensor::calcParity(uint8_t hH, uint8_t hL, uint8_t tH, uint8_t tL) {
+    return static_cast<uint8_t>(hH + hL + tH + tL);
+}
+
+uint64_t Dht11Sensor::nowMicros() {
+    return static_cast<uint64_t>(gpioTick());
+}
+
+// ----------------- 쓰레드 루프 -----------------
+void Dht11Sensor::runLoop() {
+    // DHT11은 너무 자주 읽으면 오류가 잦음(≥1s 권장)
+    const auto period = opt_.period.count() < 1000 ? 1000ms : opt_.period;
+
+    while (running_) {
+        Error err{};
+        auto reading = readOnce(&err);
+        {
+            std::lock_guard<std::mutex> lk(cbMutex_);
+            if (!reading) {
+                if (errorCb_) errorCb_(err);
+            } else {
+                if (readingCb_) readingCb_(*reading);
+            }
+        }
+        std::this_thread::sleep_for(period);
+    }
+}
+
+} // namespace sensors
+
