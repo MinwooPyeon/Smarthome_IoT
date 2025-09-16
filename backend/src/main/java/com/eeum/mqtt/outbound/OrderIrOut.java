@@ -2,6 +2,8 @@ package com.eeum.mqtt.outbound;
 
 import java.util.List;
 
+import com.eeum.mqtt.common.RetrySpec;
+import com.eeum.mqtt.common.Timing;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import jakarta.validation.constraints.NotBlank;
@@ -27,6 +29,7 @@ public class OrderIrOut {
     @NotBlank private String msgId;    // 서버가 생성
     @NotBlank private String schema;   // "order/1.x"
     private   String corrId;
+    @Builder.Default
     @NotBlank private String type = "ir";
     private   Integer priority;
     private   Long    expiresAt;
