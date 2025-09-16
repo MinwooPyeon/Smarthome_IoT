@@ -3,8 +3,8 @@
 
 struct AppConfig {
     std::string deviceId = "rpi5-a";
-    std::string mqttHost = "localhost";
-    int         mqttPort = 1883;
+    std::string mqttHost = "43.201.62.254";
+    int         mqttPort = 8883;
     std::string mqttUser = "";     // 필요 시
     std::string mqttPass = "";     // 필요 시
 
