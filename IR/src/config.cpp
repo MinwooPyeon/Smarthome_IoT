@@ -2,7 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include <nlohmann/json.hpp>
+#include "nlohmann/json.hpp"
 
 std::shared_ptr<Config> Config::loadFromFile(const std::string& filename) {
     auto config = std::make_shared<Config>();

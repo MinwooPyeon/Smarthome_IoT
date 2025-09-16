@@ -35,7 +35,16 @@ bool GpioPigpio::open(const std::string& chip, int line, PinMode mode, int* err)
     pin_ = line; // BCM 번호
     int rc = gpioSetMode(pin_, toPigpioMode(mode));
     if (rc != 0) { if (err) *err = rc; return false; }
-
+    
+    
+    if (mode == PinMode::INPUT) {
+        gpioSetPullUpDown(pin_, PI_PUD_UP); // ✅ 풀업 필수
+        gpioGlitchFilter(pin_, 5);         // 5~20us 정도 권장
+    } else {
+        gpioSetPullUpDown(pin_, PI_PUD_OFF);
+        gpioGlitchFilter(pin_, 0);
+    }
+    
     opened_ = true;
     return true;
 }
@@ -93,8 +102,13 @@ bool GpioPigpio::watch(Edge edge, EdgeCallback cb, int* err) {
 
 void GpioPigpio::unwatch() {
     if (!opened_) return;
-    // 등록 해제: func=nullptr 전달
+
+    // ✅ alert 콜백 해제 (정확한 시그니처: (pin, func, userdata))
+    gpioSetAlertFuncEx(pin_, nullptr, nullptr);
+
+    // ✅ ISR 콜백도 사용했다면 같이 해제 (f=nullptr이면 취소됨)
     gpioSetISRFuncEx(pin_, EITHER_EDGE, 0, nullptr, nullptr);
+
     cb_ = nullptr;
     edge_ = Edge::NONE;
     last_level_.store(-1);

@@ -2,6 +2,7 @@
 
 #include <string>
 #include <functional>
+#include <chrono>
 #include "cJSON.h"
 
 /**
@@ -77,12 +78,27 @@ public:
      */
     void setDebugMode(bool enabled);
 
+    // 보안 관련 메서드
+    void setAuthenticationToken(const std::string& token);
+    void setMaxMessageSize(size_t max_size);
+    void setRateLimit(int max_messages_per_second);
+    bool validateCommand(const std::string& command) const;
+    bool validateJson(const std::string& json_str) const;
+    std::string sanitizeInput(const std::string& input) const;
+
 private:
     int m_baud_rate;
     bool m_initialized;
     bool m_debug_mode;
     CommandCallback m_command_callback;
-    
+
+    // 보안 관련 멤버 변수
+    std::string m_auth_token;
+    size_t m_max_message_size;
+    int m_max_messages_per_second;
+    std::chrono::steady_clock::time_point m_last_message_time;
+    int m_message_count;
+
     // 내부 버퍼
     std::string m_input_buffer;
     static const size_t MAX_BUFFER_SIZE = 1024;
@@ -111,4 +127,10 @@ private:
      * @param message 디버그 메시지
      */
     void debugPrint(const std::string& message);
+    
+    /**
+     * @brief 속도 제한 확인
+     * @return 속도 제한 통과 여부
+     */
+    bool checkRateLimit();
 };

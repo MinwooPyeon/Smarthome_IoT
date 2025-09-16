@@ -32,4 +32,7 @@ public class Address {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "emd_code", nullable = false)
     private EupMyeonDong eupMyeonDong;
+    
+    @Column(name = "home_name")
+    private String homeName;
 }

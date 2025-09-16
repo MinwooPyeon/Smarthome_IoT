@@ -6,8 +6,8 @@ import android.app.Dialog
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
-import com.example.eeum.data.SharedPreferencesUtil
 import com.example.eeum.data.remote.service.AuthService
+import com.example.eeum.util.SharedPreferencesUtil
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.naver.maps.map.NaverMapSdk
@@ -69,6 +69,7 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(this)
+        com.jakewharton.threetenabp.AndroidThreeTen.init(this)
 
         // ✅ 네이버 맵 SDK Client ID를 Manifest 메타데이터에서 읽어 주입
         initNaverMapClient()

@@ -11,4 +11,6 @@ public class AddressItemResponse {
     private Integer addressId;
     private Double longitude;
     private Double latitude;
+    private String homeName;
+    private String detail;
 }

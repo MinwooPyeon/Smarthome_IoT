@@ -1,10 +1,12 @@
-#pragma once
+#ifndef APPLIANCE_CONTROLLER_H
+#define APPLIANCE_CONTROLLER_H
 
 #include <string>
 #include <map>
 #include <vector>
 #include <functional>
 #include <memory>
+#include "network/mqtt_client.h"
 
 // 가전기기 타입
 enum class ApplianceType {
@@ -49,7 +51,6 @@ class IRLearner;
 class IRDatabase;
 class IRProtocolDetector;
 class GenericDeviceManager;
-class MqttClient;
 
 /**
  * @brief 가전기기 제어 클래스

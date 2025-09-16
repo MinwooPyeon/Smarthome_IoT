@@ -195,7 +195,8 @@ CREATE TABLE "addresses" (
 	"detail"	VARCHAR		NULL,
 	"sgg_code"	INTEGER		NOT NULL,
 	"sido_code"	INTEGER		NOT NULL,
-	"emd_code"	INTEGER		NOT NULL
+	"emd_code"	INTEGER		NOT NULL,
+	"home_name" VARCHAR     NOT NULL
 );
 
 CREATE TABLE "ir_signal" (

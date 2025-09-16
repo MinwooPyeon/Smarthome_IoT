@@ -22,17 +22,22 @@ public class HomeService {
 	// 지도 주소 마커 조회 (keyword가 있으면 해당 키워드로 검색)
     @Transactional(readOnly = true)
     public AddressListResponse listAddressMarkers(String keyword) {
+    	
+    	List<AddressProjection> rows;
 
-        List<AddressProjection> rows =
-                (keyword == null || keyword.isBlank())
-                        ? homeRepository.findAllAddressDistinct()
-                        : homeRepository.searchAddressMarkers(keyword.trim());
+        if (keyword == null || keyword.isBlank()) {
+            rows = homeRepository.findAllAddressDistinct();
+        } else {
+            rows = homeRepository.searchAddressMarkers(keyword.trim());
+        }
 
         List<AddressItemResponse> items = rows.stream()
                 .map(p -> new AddressItemResponse(
                         p.getAddressId(),
                         p.getLongitude(),
-                        p.getLatitude()
+                        p.getLatitude(),
+                        p.getHomeName(),
+                        p.getDetail()
                 ))
                 .collect(Collectors.toList());
 

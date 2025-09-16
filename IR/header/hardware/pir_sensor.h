@@ -5,12 +5,13 @@
 #include <memory>
 #include <thread>
 #include <atomic>
+#include <vector>
 
 
 
 /**
  * @brief PIR 센서를 IR 수신 센서로 사용하는 클래스
- * 
+ *
  * PIR 센서의 모션 감지 신호를 IR 신호 수신으로 해석합니다.
  */
 class PIRSensor {
@@ -126,18 +127,18 @@ private:
     float sensitivity_;
     std::atomic<bool> enabled_;
     std::atomic<bool> running_;
-    
+
     // 콜백 함수들
     IRSignalCallback ir_signal_callback_;
     StatusCallback status_callback_;
-    
+
     // 모니터링 스레드
     std::unique_ptr<std::thread> monitoring_thread_;
-    
+
     // 센서 데이터
     std::string last_ir_signal_;
     std::atomic<int> detected_count_;
-    
+
     // 신호 처리 관련
     std::vector<int> signal_buffer_;
     int signal_threshold_;

@@ -3,6 +3,7 @@ package com.example.eeum.ui.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -46,7 +47,8 @@ fun CustomButton(
             .height(height)
             .shadow(elevation = 2.dp, spotColor = Color(0x1A000000), ambientColor = Color(0x1A000000))
             .border(width = 1.dp, color = Color(0xFFE5E7EB), shape = RoundedCornerShape(size = 12.dp))
-            .background(color = backgroundColor, shape = RoundedCornerShape(size = 12.dp)),
+            .background(color = backgroundColor, shape = RoundedCornerShape(size = 12.dp))
+            .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -60,7 +62,7 @@ fun CustomButton(
                     modifier = Modifier.size(24.dp), // 아이콘 크기 예시
                     colorFilter = if (iconTint != Color.Unspecified) androidx.compose.ui.graphics.ColorFilter.tint(iconTint) else null
                 )
-                Spacer(modifier = Modifier.width(8.dp)) // 아이콘과 텍스트 사이 간격
+                Spacer(modifier = androidx.compose.ui.Modifier.width(8.dp)) // 아이콘과 텍스트 사이 간격
             }
             Text(
                 text = text,

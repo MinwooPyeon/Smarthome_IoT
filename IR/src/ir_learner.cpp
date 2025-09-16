@@ -3,7 +3,12 @@
 #include "core/platform.h"
 #include <fstream>
 #include <algorithm>
+#include <mutex>
+#include <ArduinoJson.h>
 #include <sstream>
+#include "esp_log.h"
+
+static const char* TAG = "IR_LEARNER";
 
 IRLearner::IRLearner() : learning_mode_(false), ir_receiver_(nullptr) {
     LOG_INFO("IR 학습기 초기화 완료");
@@ -11,7 +16,7 @@ IRLearner::IRLearner() : learning_mode_(false), ir_receiver_(nullptr) {
 
 IRLearner::IRLearner(IRReceiver* ir_receiver) : learning_mode_(false), ir_receiver_(ir_receiver) {
     LOG_INFO("IR 학습기 초기화 완료 (IR 수신기 연동)");
-    
+
     // IR 수신기 콜백 설정
     if (ir_receiver_) {
         ir_receiver_->setIRCodeCallback([this](const std::string& ir_code) {
@@ -28,7 +33,7 @@ bool IRLearner::startLearningMode() {
     if (learning_mode_) {
         return false;
     }
-    
+
     learning_mode_ = true;
     LOG_INFO("IR 학습 모드 시작");
     return true;
@@ -47,29 +52,29 @@ bool IRLearner::learnIRCode(const std::string& appliance_id, const std::string& 
     return learnIRCode(appliance_id, command_name, "");
 }
 
-bool IRLearner::learnIRCode(const std::string& appliance_id, const std::string& command_name, 
+bool IRLearner::learnIRCode(const std::string& appliance_id, const std::string& command_name,
                            const std::string& description) {
     if (!learning_mode_) {
         LOG_ERROR("학습 모드가 활성화되지 않음");
         return false;
     }
-    
+
     if (!ir_receiver_) {
         LOG_ERROR("IR 수신기가 설정되지 않음");
         return false;
     }
-    
+
     LOG_INFO("IR 코드 학습 시작: %s - %s", appliance_id.c_str(), command_name.c_str());
     LOG_INFO("리모컨 버튼을 눌러주세요...");
-    
+
     current_appliance_id_ = appliance_id;
     current_command_name_ = command_name;
-    
+
     if (!ir_receiver_->isReceiving()) {
         ir_receiver_->startReceiving();
     }
-       
-    return true; 
+
+    return true;
 }
 
 std::vector<LearnedCommand> IRLearner::getLearnedCommands(const std::string& appliance_id) const {
@@ -81,11 +86,11 @@ std::vector<LearnedCommand> IRLearner::getLearnedCommands(const std::string& app
 std::vector<LearnedCommand> IRLearner::getAllLearnedCommands() const {
     std::lock_guard<std::mutex> lock(commands_mutex_);
     std::vector<LearnedCommand> all_commands;
-    
+
     for (const auto& pair : learned_commands_) {
         all_commands.insert(all_commands.end(), pair.second.begin(), pair.second.end());
     }
-    
+
     return all_commands;
 }
 
@@ -95,7 +100,7 @@ bool IRLearner::deleteLearnedCommand(const std::string& appliance_id, const std:
     if (it == learned_commands_.end()) {
         return false;
     }
-    
+
     auto& commands = it->second;
     commands.erase(
         std::remove_if(commands.begin(), commands.end(),
@@ -104,7 +109,7 @@ bool IRLearner::deleteLearnedCommand(const std::string& appliance_id, const std:
             }),
         commands.end()
     );
-    
+
     LOG_INFO("학습된 명령 삭제: %s - %s", appliance_id.c_str(), command_name.c_str());
     return true;
 }
@@ -113,12 +118,12 @@ bool IRLearner::validateIRCode(const std::string& ir_code) const {
     if (ir_code.empty() || ir_code.length() < 3) {
         return false;
     }
-    
+
     // 16진수 형식 검증
     if (ir_code.substr(0, 2) != "0x") {
         return false;
     }
-    
+
     // 16진수 문자 검증
     for (size_t i = 2; i < ir_code.length(); i++) {
         char c = ir_code[i];
@@ -126,7 +131,7 @@ bool IRLearner::validateIRCode(const std::string& ir_code) const {
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -139,7 +144,7 @@ std::string IRLearner::detectProtocol(const std::string& ir_code) const {
     } else if (ir_code.length() == 6) { // 12비트
         return "Sony";
     }
-    
+
     return "Unknown";
 }
 
@@ -150,10 +155,10 @@ bool IRLearner::saveLearnedCodes(const std::string& filename) const {
             LOG_ERROR("파일 열기 실패: %s", filename.c_str());
             return false;
         }
-        
+
         file << "{\n";
         file << "  \"learned_commands\": [\n";
-        
+
         std::lock_guard<std::mutex> lock(commands_mutex_);
         bool first = true;
         for (const auto& pair : learned_commands_) {
@@ -172,13 +177,13 @@ bool IRLearner::saveLearnedCodes(const std::string& filename) const {
                 first = false;
             }
         }
-        
+
         file << "\n  ]\n";
         file << "}\n";
-        
+
         LOG_INFO("학습된 IR 코드 저장 완료: %s", filename.c_str());
         return true;
-        
+
     } catch (const std::exception& e) {
         LOG_ERROR("IR 코드 저장 실패: %s", e.what());
         return false;
@@ -192,18 +197,18 @@ bool IRLearner::loadLearnedCodes(const std::string& filename) {
             LOG_ERROR("파일 열기 실패: %s", filename.c_str());
             return false;
         }
-        
+
         DynamicJsonDocument doc(4096);
         DeserializationError error = deserializeJson(doc, file);
-        
+
         if (error) {
             LOG_ERROR("JSON 파싱 오류: %s", error.c_str());
             return false;
         }
-        
+
         std::lock_guard<std::mutex> lock(commands_mutex_);
         learned_commands_.clear();
-        
+
         if (doc.containsKey("learned_commands")) {
             JsonArray commands = doc["learned_commands"];
             for (JsonObject cmd : commands) {
@@ -217,16 +222,16 @@ bool IRLearner::loadLearnedCodes(const std::string& filename) {
                 command.ir_code.description = cmd["description"].as<std::string>();
                 command.repeat_count = cmd["repeat_count"].as<int>();
                 command.notes = cmd["notes"].as<std::string>();
-                
+
                 command.ir_code.timestamp = std::chrono::steady_clock::now();
-                
+
                 learned_commands_[command.appliance_id].push_back(command);
             }
         }
-        
+
         LOG_INFO("학습된 IR 코드 로드 완료: %d개 명령어", learned_commands_.size());
         return true;
-        
+
     } catch (const std::exception& e) {
         LOG_ERROR("IR 코드 로드 실패: %s", e.what());
         return false;
@@ -253,7 +258,7 @@ IRCode IRLearner::analyzeIRCode(const std::string& raw_code) const {
 
 bool IRLearner::isDuplicateCode(const IRCode& code) const {
     std::lock_guard<std::mutex> lock(commands_mutex_);
-    
+
     for (const auto& pair : learned_commands_) {
         for (const auto& command : pair.second) {
             if (command.ir_code.code == code.code) {
@@ -261,7 +266,7 @@ bool IRLearner::isDuplicateCode(const IRCode& code) const {
             }
         }
     }
-    
+
     return false;
 }
 
@@ -275,7 +280,7 @@ std::string IRLearner::generateCodeHash(const IRCode& code) const {
 // IR 수신기 설정
 void IRLearner::setIRReceiver(IRReceiver* ir_receiver) {
     ir_receiver_ = ir_receiver;
-    
+
     if (ir_receiver_) {
         // IR 수신기 콜백 설정
         ir_receiver_->setIRCodeCallback([this](const std::string& ir_code) {
@@ -289,30 +294,30 @@ IRReceiver* IRLearner::getIRReceiver() const {
     return ir_receiver_;
 }
 
-// IR 코드 수신 콜백 
+// IR 코드 수신 콜백
 void IRLearner::onIRCodeReceived(const std::string& ir_code) {
     if (!learning_mode_ || current_appliance_id_.empty() || current_command_name_.empty()) {
-        return; 
+        return;
     }
-    
+
     LOG_INFO("IR 코드 수신됨: %s", ir_code.c_str());
-    
+
     // IR 코드 분석
     IRCode analyzed_code = analyzeIRCode(ir_code);
     analyzed_code.description = "학습된 코드: " + current_command_name_;
-    
+
     // 코드 검증
     if (validation_callback_ && !validation_callback_(analyzed_code)) {
         LOG_ERROR("IR 코드 검증 실패: %s", ir_code.c_str());
         return;
     }
-    
+
     // 중복 검사
     if (isDuplicateCode(analyzed_code)) {
-        LOG_WARNING("중복된 IR 코드 감지: %s", ir_code.c_str());
+        ESP_LOGW(TAG, "중복된 IR 코드 감지: %s", ir_code.c_str());
         return;
     }
-    
+
     // 학습된 명령 저장
     LearnedCommand command;
     command.appliance_id = current_appliance_id_;
@@ -320,20 +325,20 @@ void IRLearner::onIRCodeReceived(const std::string& ir_code) {
     command.ir_code = analyzed_code;
     command.repeat_count = 1;
     command.notes = "실제 리모컨에서 학습됨";
-    
+
     {
         std::lock_guard<std::mutex> lock(commands_mutex_);
         learned_commands_[current_appliance_id_].push_back(command);
     }
-    
-    LOG_INFO("IR 코드 학습 완료: %s -> %s (%s)", 
+
+    LOG_INFO("IR 코드 학습 완료: %s -> %s (%s)",
              analyzed_code.code.c_str(), current_appliance_id_.c_str(), current_command_name_.c_str());
-    
+
     // 콜백 호출
     if (learning_callback_) {
         learning_callback_(analyzed_code);
     }
-    
+
     // 학습 완료 후 상태 초기화
     current_appliance_id_.clear();
     current_command_name_.clear();

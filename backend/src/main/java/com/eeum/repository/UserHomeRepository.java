@@ -2,29 +2,74 @@ package com.eeum.repository;
 
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.repository.query.Param;  
+
+import java.util.List;
+import java.util.Optional;
 
 import com.eeum.entity.UserHome;
 
-import org.springframework.data.repository.query.Param;  
-import jakarta.transaction.Transactional;
-
 public interface UserHomeRepository extends JpaRepository<UserHome, Integer> {
 
-	// userId가 해당 addressId의 집에 접근 권한이 있는지
-	@Query(value = """
-		    select exists(
-		      select 1
-		      from eeum.user_home uh
-		      join eeum.home h on h.home_id = uh.home_id
-		      where uh.user_id = :userId and h.address_id = :addressId
-		    )
-		""", nativeQuery = true)
-		boolean existsByUserIdAndAddressId(@Param("userId") Integer userId,
-		                                   @Param("addressId") Integer addressId);
-	
-        boolean existsByUserIdAndHomeId(Integer userId, Integer homeId);
+	// userId가 해당 addressId의 집에 접근 권한이 있는지 확인
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1
+                  FROM eeum.user_home uh
+                  JOIN eeum.home h ON h.home_id = uh.home_id
+                 WHERE uh.user_id = :userId
+                   AND h.address_id = :addressId
+            )
+            """, nativeQuery = true)
+        boolean existsByUserIdAndAddressId(@Param("userId") Integer userId,
+                                           @Param("addressId") Integer addressId);
+
+    
+    // userId가 homeId에 속해 있는지 여부 확인
+    boolean existsByUserIdAndHomeId(Integer userId, Integer homeId);
+
+    
+    // user_home에서 userId와 homeId 매핑 삭제
+    void deleteByUserIdAndHomeId(Integer userId, Integer homeId);
+    
+    
+    // 유저의 집 목록 조회
+    @Query(value = """
+            SELECT h.home_id   AS homeId,
+                   a.home_name AS homeName
+              FROM eeum.user_home uh
+              JOIN eeum.home       h ON uh.home_id   = h.home_id
+              JOIN eeum.addresses  a ON h.address_id = a.address_id
+             WHERE uh.user_id = :userId
+             ORDER BY h.home_id
+            """, nativeQuery = true)
+        List<HomeIdNameProjection> findHomeIdAndNameByUserId(@Param("userId") Integer userId);
+
+
+        interface HomeIdNameProjection {
+            Integer getHomeId();
+            String getHomeName();
+        }
+
+        // userId와 homeId로 user_home 엔티티 조회
+        Optional<UserHome> findByUserIdAndHomeId(Integer userId, Integer homeId);
+
         
-        // userhome 삭제
-        @Transactional
-        void deleteByUserIdAndHomeId(Integer userId, Integer homeId);
+        // 해당 유저의 기존 대표 집(isPrimary=true) 해제
+        @Modifying(clearAutomatically = true, flushAutomatically = true)
+        @Query("""
+            UPDATE UserHome u SET u.isPrimary = false
+             WHERE u.userId = :userId AND u.isPrimary = true
+        """)
+        int resetPrimaryByUserId(@Param("userId") Integer userId);
+
+        
+        // 특정 집을 대표 집으로 설정(isPrimary=true)
+        @Modifying(clearAutomatically = true, flushAutomatically = true)
+        @Query("""
+            UPDATE UserHome u SET u.isPrimary = true
+             WHERE u.userId = :userId AND u.homeId = :homeId
+        """)
+        int setPrimary(@Param("userId") Integer userId, @Param("homeId") Integer homeId);
     }

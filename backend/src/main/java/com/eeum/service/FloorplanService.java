@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,17 +22,26 @@ public class FloorplanService {
     private final FloorplanRepository floorplanRepository;
     private final UserHomeRepository userHomeRepository;
     
+    public interface FloorplanRow {
+        Integer getFloorplanId();
+        String  getImageUrl();
+        OffsetDateTime getCreatedAt();
+        Double  getSquare();
+        Double  getFloorplansX();
+        Double  getFloorplansY();
+        Integer getHomeId();
+        String  getHomeName();
+    }
+    
+    
     // 집의 평면도 목록
     public FloorplanListResponse listByAddressId(Integer userId, Integer addressId) {
         if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
+        
+        List<FloorplanRow> rows =
+                floorplanRepository.findAllForMapByAddressId(addressId);
 
-        if (addressId != null && !userHomeRepository.existsByUserIdAndAddressId(userId, addressId)) {
-            throw new IllegalArgumentException("해당 집에 대한 권한이 없습니다.");
-        }
-
-        List<Floorplan> list = floorplanRepository.findAllByUserIdAndAddressId(userId, addressId);
-
-        List<FloorplanItemResponse> items = list.stream()
+        List<FloorplanItemResponse> items = rows.stream()
                 .map(this::toItem)
                 .toList();
 
@@ -59,18 +69,20 @@ public class FloorplanService {
 	      return homeId;
 	  }
 	  
-	    @Transactional
-	    public void deleteUserHomeByHome(Integer userId, Integer homeId) {
-	        if (userId == null || homeId == null) {
-	            throw new IllegalArgumentException("userId, homeId는 필수입니다.");
-	        }
-	        
-	        if (!userHomeRepository.existsByUserIdAndHomeId(userId, homeId)) {
-	            return;
-	        }
-	        
-	        userHomeRepository.deleteByUserIdAndHomeId(userId, homeId);
-	    }
+	  
+	  // 유저 집 삭제
+		@Transactional
+		public void deleteUserHomeByHome(Integer userId, Integer homeId) {
+		    if (userId == null || homeId == null) {
+		        throw new IllegalArgumentException("userId, homeId는 필수입니다.");
+		    }
+		    
+		    if (!userHomeRepository.existsByUserIdAndHomeId(userId, homeId)) {
+		        return;
+		    }
+		    
+		    userHomeRepository.deleteByUserIdAndHomeId(userId, homeId);
+		}
 	  
 	    
 	    // 특정 homeid로 평면도 조회
@@ -88,21 +100,8 @@ public class FloorplanService {
 	        return new FloorplanListResponse(items);
 	    }
 	    
-	    // user가 등록한 집들의 평면도 목록 조회
-//	    @Transactional(readOnly = true)
-//	    public FloorplanListResponse listByUserHomes(Integer userId) {
-//	        if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
-//
-//	        List<Floorplan> list = floorplanRepository.findAllByUserHomes(userId);
-//
-//	        List<FloorplanItemResponse> items = list.stream()
-//	                .map(this::toItem)
-//	                .collect(Collectors.toList());
-//
-//	        return new FloorplanListResponse(items);
-//	    }
-	  
-
+	    
+	    
     private FloorplanItemResponse toItem(Floorplan f) {
         return new FloorplanItemResponse(
                 f.getFloorplanId(),
@@ -111,7 +110,23 @@ public class FloorplanService {
                 f.getSquare(),
                 f.getFloorplansX(),
                 f.getFloorplansY(),
-                f.getHomeId()
+                f.getHomeId(),
+                null
+        );
+        
+    }
+        
+        
+    private FloorplanItemResponse toItem(FloorplanRow r) {
+        return new FloorplanItemResponse(
+                r.getFloorplanId(),
+                r.getImageUrl(),
+                r.getCreatedAt().toInstant(),
+                r.getSquare(),
+                r.getFloorplansX(),
+                r.getFloorplansY(),
+                r.getHomeId(),
+                r.getHomeName()
         );
     }
 }

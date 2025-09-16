@@ -3,6 +3,7 @@
 #include <chrono>
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 #ifdef __linux__
 #include <wiringPi.h>
@@ -134,7 +135,7 @@ void PIRSensor::enable() {
     running_ = true;
     
     // 모니터링 스레드 시작
-    monitoring_thread_ = std::make_unique<std::thread>(&PIRSensor::monitoringThread, this);
+    monitoring_thread_ = std::unique_ptr<std::thread>(new std::thread(&PIRSensor::monitoringThread, this));
     
     std::cout << "PIR Sensor enabled" << std::endl;
     

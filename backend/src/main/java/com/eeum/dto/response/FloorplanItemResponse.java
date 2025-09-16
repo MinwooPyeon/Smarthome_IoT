@@ -15,4 +15,5 @@ public class FloorplanItemResponse {
     private Double floorplansX;
     private Double floorplansY;
     private Integer homeId;
+    private String homeName;
 }

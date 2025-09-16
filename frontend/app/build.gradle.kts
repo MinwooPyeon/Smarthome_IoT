@@ -55,7 +55,6 @@ android {
         compose = true
         buildConfig = true
     }
-
     dataBinding {
         enable = true
     }
@@ -87,7 +86,6 @@ dependencies {
     // 음성 인식용
     implementation("ai.picovoice:picovoice-android:3.0.2")
     implementation("ai.picovoice:porcupine-android:3.0.3")
-    implementation("ai.picovoice:rhino-android:3.0.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     // XML 테마용 (필수)
@@ -96,6 +94,13 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.3.0")
     implementation(platform("androidx.compose:compose-bom:2025.06.00"))
     implementation("androidx.compose.material:material")
+
+    // CameraX + MLKit (QR 스캔)
+    implementation("androidx.camera:camera-core:1.3.4")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
 
     // retrofit
     implementation ("com.squareup.retrofit2:retrofit:2.9.0")
@@ -111,6 +116,10 @@ dependencies {
 
     // yaml
     implementation("org.yaml:snakeyaml:2.2")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
+    implementation("com.jakewharton.threetenabp:threetenabp:1.4.6")
 
     // Naver Map SDK
     implementation("com.naver.maps:map-sdk:3.22.1")

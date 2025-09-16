@@ -59,7 +59,7 @@ private val allDevices = listOf(
 @Composable
 fun DeviceRegistrationScreen(
     navController: NavController? = null,
-    onSelect: (String) -> Unit = {}
+    onSelect: (String) -> Unit = { kind -> navController?.navigate("device_registration_complete/$kind") }
 ) {
     Column(
         modifier = Modifier
