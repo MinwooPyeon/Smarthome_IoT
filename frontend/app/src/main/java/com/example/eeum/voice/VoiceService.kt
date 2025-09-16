@@ -81,10 +81,6 @@ class VoiceService : Service() {
         } ?: run {
             Log.d(TAG, "Directory cache not ready yet; will lazy-init on first command")
         }
-
-//        Handler(Looper.getMainLooper()).postDelayed({
-//            tts?.say("음성 명령을 말씀해 주세요.")
-//        }, 600)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -106,6 +102,10 @@ class VoiceService : Service() {
 
     // STT
     private fun startListening() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { startListening() }
+            return
+        }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             Log.e(TAG, "SpeechRecognizer not available"); return
         }
@@ -120,8 +120,8 @@ class VoiceService : Service() {
                     )?.firstOrNull().orEmpty()
                     Log.i(TAG, "ASR: $text")
                     playEarcon()
-                    handleUtterance(text)
                     shutdownRecognizer()
+                    handleUtterance(text)
                 }
                 override fun onError(error: Int) {
                     Log.e(TAG, "ASR error: $error")
@@ -184,34 +184,43 @@ class VoiceService : Service() {
             try {
                 val effects = useCase.run(intents, text)
 
-                val lastSpeakIdx = effects.indexOfLast { it is AppEffect.Speak }
+                val speaks = effects.filterIsInstance<AppEffect.Speak>()
+                speaks.forEachIndexed { idx, s ->
+                    val isLast = idx == speaks.lastIndex
+                    val flush = idx == 0
 
-                effects.forEachIndexed { idx, eff ->
-                    when (eff) {
-                        is AppEffect.Speak -> {
-                            Log.i(TAG, "Speak: ${eff.text}")
-                            val after =
-                                if (idx == lastSpeakIdx) { { startListening() } } else null
-                            tts?.say(eff.text, after)
+                    val onDoneCb: (() -> Unit)? = if (isLast && s.expectReply) {
+                        {
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                Log.d(TAG, "TTS done → restart listening")
+                                startListening()
+                            }, 150L)
                         }
+                    } else null
+
+                    Log.i(TAG, "Speak: ${s.text} (expectReply=${s.expectReply}, flush=$flush, last=$isLast)")
+                    tts?.say(s.text, flush, onDoneCb)
+                }
+                effects.forEach { eff ->
+                    when (eff) {
                         is AppEffect.Navigate -> {
                             Log.i(TAG, "Navigate(route=${eff.route}, params=${eff.params})")
-                            // TODO: 실제 네비게이션 연결
+                            // TODO: 실제 네비게이션 연결 예정
                         }
                         is AppEffect.Toast -> {
                             Log.i(TAG, "Toast: ${eff.text}")
                             // TODO: 토스트/알림 처리
                         }
+                        is AppEffect.Speak -> {
+
+                        }
                     }
                     AppEventBus.tryEmit(eff)
                 }
-
-                if (lastSpeakIdx == -1) {
-                    startListening()
-                }
             } catch (e: Exception) {
                 Log.e(TAG, "UseCase run failed", e)
-                tts?.say("처리에 실패했어요.") { startListening() }
+
+                tts?.say("처리에 실패했어요.")
             }
         }
 

@@ -154,6 +154,34 @@ context:
       - (이제) @설명류 @변경류
       - (이제) 설명 @다시류 @정하기류
 
+    ROUTINE_SHOW_BY_NAME:
+      - @루틴_보기 $pv.FreeText:name
+      - $pv.FreeText:name [이,가,은,는] @루틴_보기
+
+    ROUTINE_DELETE_BY_NAME:
+      - @루틴_삭제 $pv.FreeText:name
+      - $pv.FreeText:name [을,를] @루틴_삭제
+
+    ROUTINE_UPDATE_TIME_BY_NAME:
+      - @루틴_시간수정 $pv.FreeText:name [을,를] $pv.FreeText:time [로,으로,에]
+      - $pv.FreeText:name [이,가,은,는] @루틴_시간수정 $pv.FreeText:time [로,으로,에]
+      - $pv.FreeText:name [을,를] $pv.FreeText:time [로,으로,에] @루틴_시간수정
+
+    ROUTINE_UPDATE_WEEK_BY_NAME:
+      - @루틴_요일수정 $pv.FreeText:name [을,를] $pv.FreeText:week [로,으로]
+      - $pv.FreeText:name [이,가,은,는] @루틴_요일수정 $pv.FreeText:week [로,으로]
+      - $pv.FreeText:name [을,를] $pv.FreeText:week [로,으로] @루틴_요일수정
+
+    ROUTINE_UPDATE_DESC_BY_NAME:
+      - @루틴_설명수정 $pv.FreeText:name [을,를] $pv.FreeText:desc (으로,로,라고)
+      - $pv.FreeText:name [이,가,은,는] @루틴_설명수정 $pv.FreeText:desc (으로,로,라고)
+      - $pv.FreeText:name [을,를] $pv.FreeText:desc (으로,로,라고) @루틴_설명수정
+
+    ROUTINE_UPDATE_RENAME_BY_NAME:
+      - @루틴_이름수정 $pv.FreeText:name [을,를] $pv.FreeText:newName [으로,로]
+      - $pv.FreeText:name [을,를] @루틴_이름수정 $pv.FreeText:newName [으로,로]
+      - $pv.FreeText:name [이,가,은,는] @루틴_이름수정 $pv.FreeText:newName [으로,로]
+
   slots:
     장소:
       - 베란다
@@ -440,3 +468,95 @@ context:
       - 시기는
       - 루틴 시간은
       - 루틴 시간
+    루틴_목록:
+      - 현재 목록은
+      - 동작 목록 보여줘
+      - 지금 뭐 들어갔어
+      - 지금까지 추가된 동작
+      - 추가한 동작 알려줘
+      - 액션 목록 보여줘
+      - 지금 루틴 상태
+      - 루틴 요약
+      - 현재 동작 요약
+      - 뭐뭐 들어갔지
+    루틴_되돌리기:
+      - 되돌려줘
+      - 마지막 취소
+      - 방금거 취소
+      - 최근 거 되돌려
+      - 한 단계 되돌려
+      - 직전꺼 취소
+      - 바로 전 거 지워
+      - 방금 추가한 거 빼줘
+      - 마지막 동작 삭제해
+    루틴_초기화:
+      - 초기화 해줘
+      - 전부 삭제해
+      - 모두 삭제
+      - 전체 삭제
+      - 다 지워
+      - 전부 비워
+      - 다 비워
+      - 싹 지워
+      - 처음부터 할래
+      - 다 취소할래
+    루틴_이름재설정:
+      - 이름 다시 설정할래
+      - 이름 다시
+      - 이름 바꿀래
+      - 이름 변경
+      - 이름 수정해
+      - 이름 다시 정할래
+      - 이름 다시 정해
+      - 이름 재설정
+      - 루틴 이름 바꿔
+      - 루틴 이름 다시
+    루틴_설명재설정:
+      - 설명 다시 설정할래
+      - 설명 다시
+      - 설명 바꿀래
+      - 설명 변경
+      - 설명 수정해
+      - 설명 다시 정할래
+      - 설명 다시 정해
+      - 설명 재설정
+      - 루틴 설명 바꿔
+      - 루틴 설명 다시
+    루틴_보기:
+      - 루틴 보여줘
+      - 루틴 요약
+      - 요약해줘
+      - 상태 알려줘
+      - 루틴 상태
+      - 루틴 보여줄래
+    루틴_삭제:
+      - 루틴 삭제
+      - 삭제해
+      - 지워
+      - 제거해
+      - 삭제해줘
+    루틴_시간수정:
+      - 시간 바꿔
+      - 시간 수정
+      - 시간 변경
+      - 시간 설정해
+      - 시간을 바꿔줘
+      - 시간 다시
+    루틴_요일수정:
+      - 요일 바꿔
+      - 요일 수정
+      - 요일 변경
+      - 요일 설정해
+      - 요일 다시
+    루틴_설명수정:
+      - 설명 바꿔
+      - 설명 수정
+      - 설명 변경
+      - 설명 다시
+      - 설명 설정해
+    루틴_이름수정:
+      - 이름 바꿔
+      - 이름 수정
+      - 이름 변경
+      - 이름 다시
+      - 이름 재설정

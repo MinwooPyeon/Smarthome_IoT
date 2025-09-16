@@ -24,40 +24,41 @@ class VoiceUseCase(
     suspend fun run(intents: List<IntentResult>, raw: String): List<AppEffect> {
         if (intents.isEmpty()) return emptyList()
 
+        // 이름 기반 조회/삭제는 반복 필요 없음 (expectReply=false)
         intents.firstOrNull {
             it.intent == "ROUTINE_SHOW_BY_NAME" || it.intent == "ROUTINE_DELETE_BY_NAME"
         }?.let { hit ->
             val speech = handleRoutineByName(hit)
-            return listOf(AppEffect.Speak(speech))
+            return listOf(AppEffect.Speak(speech, /* expectReply = */ false))
         }
 
         // ── 루틴 생성 시작 ──
         intents.firstOrNull { it.intent == "ROUTINE_CREATE_START" }?.let {
             routineSession = RoutineSession() // 세션 초기화
-            return listOf(AppEffect.Speak("루틴 생성을 시작할게요. 루틴 이름을 말씀해 주세요."))
+            return listOf(AppEffect.Speak("루틴 생성을 시작할게요. 루틴 이름을 말씀해 주세요.", true))
         }
 
-        // ── 루틴 세션 진행 중이면 루틴 플로우 우선 처리 ──
+        // ── 루틴 세션 중이면 우선 처리 ──
         routineSession?.let { sess ->
             val say = handleRoutineFlow(sess, intents, raw)
-            return listOf(AppEffect.Speak(say))
+            return listOf(AppEffect.Speak(say.text, say.expectReply))
         }
 
-        // ── 일반 제어/질의 ──
+        // ── 일반 제어/질의: 반복 필요 없음 ──
         val effects = mutableListOf<AppEffect>()
         for (block in coalesceControlBlocks(intents)) {
             when (block) {
                 is ControlBlock -> {
                     val speech = applyComposite(block)
-                    if (speech.isNotBlank()) effects += AppEffect.Speak(speech)
+                    if (speech.isNotBlank()) effects += AppEffect.Speak(speech, false)
                 }
                 is ScopeBlock -> {
                     val speech = applyScope(block)
-                    if (speech.isNotBlank()) effects += AppEffect.Speak(speech)
+                    if (speech.isNotBlank()) effects += AppEffect.Speak(speech, false)
                 }
                 is QueryItem -> {
                     val speech = handleQuery(block.intent)
-                    if (speech.isNotBlank()) effects += AppEffect.Speak(speech)
+                    if (speech.isNotBlank()) effects += AppEffect.Speak(speech, false)
                 }
             }
         }
@@ -145,10 +146,13 @@ class VoiceUseCase(
         sess: RoutineSession,
         intents: List<IntentResult>,
         raw: String
-    ): String {
-        fun next(step: RoutineStep, prompt: String): String { sess.step = step; return prompt }
+    ): Speech {
+        fun next(step: RoutineStep, prompt: String): Speech {
+            sess.step = step
+            return Speech(prompt, expectReply = true)
+        }
 
-        // — 루틴 중단/건너뛰기/저장 같은 “메타” 인텐트는 기존 grammar에 맞춰 텍스트로 판정
+        // — 루틴 중단/건너뛰기/저장 같은 “메타” 인텐트
         val wantSave  = raw.contains("저장", true) || raw.contains("완료", true) || raw.contains("끝", true)
         val wantSkip  = raw.contains("건너뛰", true) || raw.contains("넘겨", true) || raw.contains("패스", true) || raw.contains("넘어가", true)
         val wantStop  = raw.contains("그만", true) || raw.contains("정지", true) || raw.contains("취소", true) || raw.contains("안할래", true)
@@ -163,42 +167,38 @@ class VoiceUseCase(
         // — 즉시 단계 전환 (이름/설명 재설정)
         if (wantRename) {
             sess.step = RoutineStep.NAME
-            return "새 루틴 이름을 말씀해 주세요."
+            return Speech("새 루틴 이름을 말씀해 주세요.", true)
         }
         if (wantRedesc) {
             sess.step = RoutineStep.DESCRIPTION
-            return "새 루틴 설명을 말씀해 주세요. 생략하려면 '건너뛰기'라고 말해 주세요."
+            return Speech("새 루틴 설명을 말씀해 주세요. 생략하려면 '건너뛰기'라고 말해 주세요.", true)
         }
 
         // — 세션 전체 중단
         if (wantStop) {
             routineSession = null
-            return "루틴 생성을 취소했어요."
+            return Speech("루틴 생성을 취소했어요.", false) // 종료 → 재청취 X
         }
 
         when (sess.step) {
             RoutineStep.NAME -> {
                 val hasNameIntent = intents.any { it.intent == "ROUTINE_SET_NAME" }
                 val name = if (hasNameIntent) extractAfter(raw, NAME_PREFIXES) else raw.trim()
-
-                if (name.isEmpty()) return "루틴 이름을 다시 말씀해 주세요. 예) '루틴 이름은 아침 루틴이야'"
+                if (name.isEmpty()) return Speech("루틴 이름을 다시 말씀해 주세요. 예) '루틴 이름은 아침 루틴이야'", true)
                 sess.name = name
-                sess.step = RoutineStep.DESCRIPTION
-                return "루틴 설명을 말씀해 주세요. 생략하시려면 '건너뛰기'라고 말해 주세요."
+                return next(RoutineStep.DESCRIPTION, "루틴 설명을 말씀해 주세요. 생략하시려면 '건너뛰기'라고 말해 주세요.")
             }
 
             RoutineStep.DESCRIPTION -> {
-                val skip = raw.contains("건너뛰", ignoreCase = true) || raw.contains("넘어가", ignoreCase = true) || raw.contains("패스", ignoreCase = true)
-                if (skip) {
+                if (wantSkip) {
                     sess.description = null
                 } else {
                     val hasDescIntent = intents.any { it.intent == "ROUTINE_SET_DESC" }
                     val desc = if (hasDescIntent) extractAfter(raw, DESC_PREFIXES) else raw.trim()
-                    if (desc.isEmpty()) return "설명을 이해하지 못했어요. 예) '루틴 설명은 평일 아침 준비야' 또는 '건너뛰기'"
+                    if (desc.isEmpty()) return Speech("설명을 이해하지 못했어요. 예) '루틴 설명은 평일 아침 준비야' 또는 '건너뛰기'", true)
                     sess.description = desc
                 }
-                sess.step = RoutineStep.WEEKDAY
-                return "요일을 말씀해 주세요. 예: 월 화 수, 또는 평일, 주말."
+                return next(RoutineStep.WEEKDAY, "요일을 말씀해 주세요. 예: 월 화 수, 또는 평일, 주말.")
             }
 
             RoutineStep.WEEKDAY -> {
@@ -206,7 +206,7 @@ class VoiceUseCase(
                     extractAfter(raw, WEEK_PREFIXES)
                 } else raw
                 val mask = parseWeekdays(weekText)
-                if (mask == null || mask == 0) return "요일을 이해하지 못했어요. 예: 월 화, 평일, 주말."
+                if (mask == null || mask == 0) return Speech("요일을 이해하지 못했어요. 예: 월 화, 평일, 주말.", true)
                 sess.weekdayMask = mask
                 return next(RoutineStep.TIME, "시간을 말씀해 주세요. 예: 오전 7시 30분, 밤 10시.")
             }
@@ -216,17 +216,16 @@ class VoiceUseCase(
                     extractAfter(raw, TIME_PREFIXES)
                 } else raw
                 val hhmm = parseTime(timeText)
-                if (hhmm == null) return "시간을 이해하지 못했어요. 예: 오전 7시, 오후 9시 15분."
+                if (hhmm == null) return Speech("시간을 이해하지 못했어요. 예: 오전 7시, 오후 9시 15분.", true)
                 sess.actTime = hhmm
-                sess.step = RoutineStep.ACTIONS
-                return "이제 동작을 말씀해 주세요. 예: 거실 전등 켜줘. 끝내려면 '저장'이라고 말해 주세요."
+                return next(RoutineStep.ACTIONS, "이제 동작을 말씀해 주세요. 예: 거실 전등 켜줘. 끝내려면 '저장'이라고 말해 주세요.")
             }
 
             RoutineStep.ACTIONS -> {
                 // 리스트/되돌리기/초기화 등 관리 명령
                 if (wantList) {
                     val n = sess.details.size
-                    if (n == 0) return "아직 추가된 동작이 없어요."
+                    if (n == 0) return Speech("아직 추가된 동작이 없어요.", true)
                     val preview = sess.details.take(3).mapIndexed { idx, d ->
                         val name = repo.getDeviceName(d.deviceId).getOrNull() ?: "디바이스 ${d.deviceId}"
                         val p = d.deviceDetail
@@ -237,18 +236,18 @@ class VoiceUseCase(
                         }.joinToString(", ")
                         "${idx + 1}. $name${if (bits.isNotEmpty()) " ($bits)" else ""}"
                     }.joinToString(" ")
-                    return if (n > 3) "동작은 총 ${n}개예요. 예: $preview …"
-                    else "동작은 총 ${n}개예요. $preview"
+                    return if (n > 3) Speech("동작은 총 ${n}개예요. 예: $preview …", true)
+                    else Speech("동작은 총 ${n}개예요. $preview", true)
                 }
                 if (wantUndo) {
-                    if (sess.details.isEmpty()) return "되돌릴 동작이 없어요."
+                    if (sess.details.isEmpty()) return Speech("되돌릴 동작이 없어요.", true)
                     sess.details.removeAt(sess.details.lastIndex)
-                    return "마지막 동작을 취소했어요. 더 추가하시겠어요, 아니면 '저장'할까요?"
+                    return Speech("마지막 동작을 취소했어요. 더 추가하시겠어요, 아니면 '저장'할까요?", true)
                 }
                 if (wantClear) {
-                    if (sess.details.isEmpty()) return "이미 동작이 비어 있어요."
+                    if (sess.details.isEmpty()) return Speech("이미 동작이 비어 있어요.", true)
                     sess.details.clear()
-                    return "동작을 모두 지웠어요. 새로 추가하시겠어요?"
+                    return Speech("동작을 모두 지웠어요. 새로 추가하시겠어요?", true)
                 }
 
                 // 저장 의사
@@ -257,7 +256,7 @@ class VoiceUseCase(
                     val w = sess.weekdayMask
                     val t = sess.actTime
                     if (n.isNullOrBlank() || w == null || t.isNullOrBlank() || sess.details.isEmpty()) {
-                        return "입력이 부족해요. 동작을 최소 1개 이상 추가해 주세요."
+                        return Speech("입력이 부족해요. 동작을 최소 1개 이상 추가해 주세요.", true)
                     }
                     val req = RoutineRequest(
                         name = n,
@@ -271,15 +270,15 @@ class VoiceUseCase(
                     val r = routineRepo.createRoutine(req)
                     routineSession = null
                     return r.fold(
-                        onSuccess = { "루틴이 등록되었어요." },
-                        onFailure = { friendlyFail(it) }
+                        onSuccess = { Speech("루틴이 등록되었어요.", false) }, // 완료 → 재청취 종료
+                        onFailure = { Speech(friendlyFail(it), true) }       // 실패 → 계속 듣기
                     )
                 }
 
                 // 이번 발화에서 제어 인텐트를 동작으로 수집
                 val controls = coalesceControlBlocks(intents).filterIsInstance<ControlBlock>()
                 if (controls.isEmpty()) {
-                    return "동작을 이해하지 못했어요. 다른 표현으로 말씀해 주세요. 저장하려면 '저장'이라고 말해 주세요."
+                    return Speech("동작을 이해하지 못했어요. 다른 표현으로 말씀해 주세요. 저장하려면 '저장'이라고 말해 주세요.", true)
                 }
 
                 var added = 0
@@ -302,9 +301,9 @@ class VoiceUseCase(
                     added++
                 }
                 return if (added > 0) {
-                    "동작 ${added}개를 추가했어요. 더 추가하시겠어요? 아니면 '저장'이라고 말해 주세요."
+                    Speech("동작 ${added}개를 추가했어요. 더 추가하시겠어요? 아니면 '저장'이라고 말해 주세요.", true)
                 } else {
-                    "동작을 이해하지 못했어요. 예: 침실1 에어컨 24도로 맞춰줘."
+                    Speech("동작을 이해하지 못했어요. 예: 침실1 에어컨 24도로 맞춰줘.", true)
                 }
             }
         }
@@ -634,6 +633,8 @@ class VoiceUseCase(
 
     // ───────────────────────── Internal exec model ─────────────────────────
     private sealed interface ExecItem
+
+    private data class Speech(val text: String, val expectReply: Boolean)
 
     private data class ControlBlock(
         val roomName: String?,

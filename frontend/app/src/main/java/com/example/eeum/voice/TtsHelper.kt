@@ -7,12 +7,14 @@ import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 
 class TtsHelper(ctx: Context) : TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = TextToSpeech(ctx, this)
     private var ready = false
-    private var onDone: (() -> Unit)? = null
+    private val callbacks = ConcurrentHashMap<String, () -> Unit>()
 
     override fun onInit(status: Int) {
         ready = (status == TextToSpeech.SUCCESS)
@@ -22,34 +24,36 @@ class TtsHelper(ctx: Context) : TextToSpeech.OnInitListener {
                 override fun onStart(utteranceId: String?) { /* no-op */ }
 
                 override fun onDone(utteranceId: String?) {
-                    // 메인 스레드에서 after 콜백 호출 (살짝 텀)
-                    val cb = onDone
-                    onDone = null
-                    if (cb != null) {
-                        Handler(Looper.getMainLooper()).postDelayed(cb, 150L)
+                    utteranceId?.let { id ->
+                        callbacks.remove(id)?.invoke()
                     }
                 }
 
+                // 에러 시에도 다음 로직 진행(재청취 등)하도록 onDone과 동일 처리
                 override fun onError(utteranceId: String?) {
-                    onDone = null
-                }
-
-                override fun onError(utteranceId: String?, errorCode: Int) {
-                    onDone = null
+                    utteranceId?.let { id ->
+                        callbacks.remove(id)?.invoke()
+                    }
                 }
             })
         }
     }
 
-    fun say(text: String, after: (() -> Unit)? = null) {
+    /**
+     * @param flush true면 기존 큐를 비우고 시작(첫 문장), false면 큐에 이어 붙임(후속 문장)
+     * @param onDone 해당 문장 재생 완료 콜백
+     */
+    fun say(text: String, flush: Boolean = true, onDone: (() -> Unit)? = null) {
         if (!ready) return
-        onDone = after
-        val params = Bundle()
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "utt-${System.nanoTime()}")
+        val id = UUID.randomUUID().toString()
+        if (onDone != null) callbacks[id] = onDone
+        val mode = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+        tts?.speak(text, mode, /* params */ null, /* utteranceId */ id)
     }
 
     fun shutdown() {
         tts?.shutdown()
         tts = null
+        callbacks.clear()
     }
 }
