@@ -37,10 +37,6 @@ public class FloorplanService {
     // 집의 평면도 목록
     public FloorplanListResponse listByAddressId(Integer userId, Integer addressId) {
         if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
-
-        if (addressId != null && !userHomeRepository.existsByUserIdAndAddressId(userId, addressId)) {
-            throw new IllegalArgumentException("해당 집에 대한 권한이 없습니다.");
-        }
         
         List<FloorplanRow> rows =
                 floorplanRepository.findAllByUserIdAndAddressIdWithHomeName(userId, addressId);
