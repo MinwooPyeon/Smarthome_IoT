@@ -78,7 +78,6 @@ fun EeumApp() {
             )
         }
 
-        // ✅ addressId를 받아서 SelectFloorplanScreen으로 전달
         composable(
             route = SELECT_FLOORPLAN_ROUTE,
             arguments = listOf(navArgument("addressId") { type = NavType.IntType })
@@ -86,7 +85,11 @@ fun EeumApp() {
             val addressId = backStackEntry.arguments?.getInt("addressId") ?: 0
             SelectFloorplanScreen(
                 addressId = addressId,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onNavigateHome = {
+                    // 등록 성공 시 메인 탭(Home)으로 이동
+                    navController.popBackStack(MAIN_TABS_ROUTE, inclusive = false)
+                }
             )
         }
 

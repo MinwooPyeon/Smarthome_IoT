@@ -33,6 +33,8 @@ private val BrandBlue = Color(0xFF007AFF)
 fun SelectFloorplanScreen(
     addressId: Int,
     onBack: () -> Unit = {},
+    // 등록 성공 시 홈으로 이동하는 콜백
+    onNavigateHome: () -> Unit = {},
     vm: FloorplansViewModel = viewModel()
 ) {
     val floorplans by vm.floorplans.observeAsState(initial = emptyList<FloorPlansList>())
@@ -65,6 +67,15 @@ fun SelectFloorplanScreen(
     val ctx = LocalContext.current
     val absoluteUrl = remember(selected?.imageUrl) {
         toAbsoluteUrl(ApplicationClass.SERVER_URL, selected?.imageUrl)
+    }
+
+    // 등록 성공 감지 → 한 번만 홈으로 이동
+    var navigated by remember { mutableStateOf(false) }
+    LaunchedEffect(registeredHomeId, status) {
+        if (!navigated && registeredHomeId != null) {
+            navigated = true
+            onNavigateHome()
+        }
     }
 
     Column(
@@ -168,12 +179,10 @@ fun SelectFloorplanScreen(
                 Text(text = "이전", fontSize = 14.sp)
             }
 
-            // 선택된 Chip의 homeId로 등록
+            // 다음: 선택된 Chip의 homeId로 등록
             val isNextEnabled = selected != null
             Button(
-                onClick = {
-                    selected?.let { vm.registerFloorplan(it.homeId) }
-                },
+                onClick = { selected?.let { vm.registerFloorplan(it.homeId) } },
                 enabled = isNextEnabled,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
