@@ -74,6 +74,8 @@ services:
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
+      - /srv/eeum/assets/floorplans:/usr/share/nginx/html/floorplans:ro
+
 
 
   adminer:
