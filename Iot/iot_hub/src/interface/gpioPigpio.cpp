@@ -39,7 +39,7 @@ bool GpioPigpio::open(const std::string& chip, int line, PinMode mode, int* err)
     
     if (mode == PinMode::INPUT) {
         gpioSetPullUpDown(pin_, PI_PUD_UP); // ✅ 풀업 필수
-        gpioGlitchFilter(pin_, 10);         // 5~20us 정도 권장
+        gpioGlitchFilter(pin_, 5);         // 5~20us 정도 권장
     } else {
         gpioSetPullUpDown(pin_, PI_PUD_OFF);
         gpioGlitchFilter(pin_, 0);
