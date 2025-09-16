@@ -6,8 +6,8 @@ import android.app.Dialog
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
-import com.example.eeum.data.SharedPreferencesUtil
 import com.example.eeum.data.remote.service.AuthService
+import com.example.eeum.util.SharedPreferencesUtil
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.naver.maps.map.NaverMapSdk
