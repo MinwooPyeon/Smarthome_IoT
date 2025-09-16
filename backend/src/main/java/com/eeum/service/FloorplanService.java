@@ -39,7 +39,7 @@ public class FloorplanService {
         if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
         
         List<FloorplanRow> rows =
-                floorplanRepository.findAllByUserIdAndAddressIdWithHomeName(userId, addressId);
+                floorplanRepository.findAllForMapByAddressId(addressId);
 
         List<FloorplanItemResponse> items = rows.stream()
                 .map(this::toItem)
