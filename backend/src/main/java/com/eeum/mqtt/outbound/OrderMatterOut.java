@@ -3,6 +3,7 @@ package com.eeum.mqtt.outbound;
 
 import java.util.Map;
 
+import com.eeum.mqtt.common.RetrySpec;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import jakarta.validation.constraints.NotBlank;
@@ -14,7 +15,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 // MQTT 토픽: hub/{deviceId}/order (type=matter)
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -28,6 +28,7 @@ public class OrderMatterOut {
     @NotBlank private String msgId;
     @NotBlank private String schema;   // "order/1.x"
     private   String corrId;
+    @Builder.Default
     @NotBlank private String type = "matter";
     private   Integer priority;
     private   Long    expiresAt;

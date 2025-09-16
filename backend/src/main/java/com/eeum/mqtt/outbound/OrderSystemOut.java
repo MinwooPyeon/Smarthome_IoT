@@ -25,6 +25,7 @@ public class OrderSystemOut {
     @NotBlank private String msgId;
     @NotBlank private String schema;
     private   String corrId;
+    @Builder.Default
     @NotBlank private String type = "system";
     private   Integer priority;
     private   Long    expiresAt;
