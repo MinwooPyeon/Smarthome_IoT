@@ -39,8 +39,10 @@ fun DeviceRegistrationBrandScreen(
     navController: NavController? = null,
     onNext: (String) -> Unit = {}
 ) {
-    var serial by rememberSaveable { mutableStateOf("") }
-    val trimmed = serial.trim()
+    var brand by rememberSaveable { mutableStateOf("") }
+    var model by rememberSaveable { mutableStateOf("") }
+    val brandTrim = brand.trim()
+    val modelTrim = model.trim()
 
     Column(
         modifier = Modifier
@@ -91,7 +93,7 @@ fun DeviceRegistrationBrandScreen(
                 Spacer(Modifier.height(24.dp))
 
                 Text(
-                    text = "모델명",
+                    text = "브랜드",
                     style = TextStyle(
                         fontSize = 14.sp,
                         fontFamily = FontFamily(Font(R.font.goormsansmedium)),
@@ -102,8 +104,8 @@ fun DeviceRegistrationBrandScreen(
                 Spacer(Modifier.height(8.dp))
 
                 OutlinedTextField(
-                    value = serial,
-                    onValueChange = { serial = it },
+                    value = brand,
+                    onValueChange = { brand = it },
                     placeholder = { Text("예: 삼성", fontSize = 14.sp, color = Gray400) },
                     singleLine = true,
                     textStyle = TextStyle(fontSize = 14.sp, fontFamily = FontFamily(Font(R.font.goormsansmedium))),
@@ -118,7 +120,7 @@ fun DeviceRegistrationBrandScreen(
                 Spacer(Modifier.height(24.dp))
 
                 Text(
-                    text = "브랜드",
+                    text = "모델명",
                     style = TextStyle(
                         fontSize = 14.sp,
                         fontFamily = FontFamily(Font(R.font.goormsansmedium)),
@@ -129,8 +131,8 @@ fun DeviceRegistrationBrandScreen(
                 Spacer(Modifier.height(8.dp))
 
                 OutlinedTextField(
-                    value = serial,
-                    onValueChange = { serial = it },
+                    value = model,
+                    onValueChange = { model = it },
                     placeholder = { Text("예: Q9000", fontSize = 14.sp, color = Gray400) },
                     singleLine = true,
                     textStyle = TextStyle(fontSize = 14.sp, fontFamily = FontFamily(Font(R.font.goormsansmedium))),
@@ -149,8 +151,8 @@ fun DeviceRegistrationBrandScreen(
 
         // 다음 버튼 (파란 배경)
         Button(
-            onClick = { onNext(trimmed) },
-            enabled = trimmed.isNotEmpty(),
+            onClick = { onNext("$brandTrim|$modelTrim") },
+            enabled = brandTrim.isNotEmpty() && modelTrim.isNotEmpty(),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF007AFF),

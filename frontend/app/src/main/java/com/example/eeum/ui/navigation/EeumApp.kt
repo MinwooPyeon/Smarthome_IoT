@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.navigation.compose.NavHost
+import androidx.navigation.navArgument
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -32,6 +33,8 @@ import com.example.eeum.ui.screens.PasswordChangeScreen
 import com.example.eeum.ui.screens.DeviceRegistrationScreen
 import com.example.eeum.ui.screens.DeviceRegistrationQRScreen
 import com.example.eeum.ui.screens.DeviceRegistrationCompleteScreen
+import com.example.eeum.ui.screens.DeviceRegistrationBrandScreen
+import com.example.eeum.ui.screens.DeviceRegistrationSerialScreen
 
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
@@ -51,6 +54,8 @@ private const val USER_INFORMATION_ROUTE = "user_information"
 private const val PASSWORD_CHANGE_ROUTE = "password_change"
 private const val DEVICE_REGISTRATION_ROUTE = "device_registration"
 private const val DEVICE_REGISTRATION_QR_ROUTE = "device_registration_qr"
+private const val DEVICE_REGISTRATION_SERIAL_ROUTE = "device_registration_serial"
+private const val DEVICE_REGISTRATION_BRAND_ROUTE = "device_registration_brand"
 private const val DEVICE_REGISTRATION_COMPLETE_ROUTE = "device_registration_complete"
 
 private const val MAP_ROUTE = "map"
@@ -65,8 +70,11 @@ fun EeumApp() {
         startDestination = MAIN_TABS_ROUTE  // 임시로 메인탭부터 시작 (나중에 LOGIN_ROUTE로 변경 가능)
     ) {
         // 1️⃣ BottomNavigation이 포함된 화면들 (메인 앱 화면)
-        composable(MAIN_TABS_ROUTE) {
-            MainTabsScreen(navController)
+        composable("$MAIN_TABS_ROUTE?tab={tab}", arguments = listOf(
+            navArgument("tab") { defaultValue = Tab.Home.route }
+        )) { backStackEntry ->
+            val targetTab = backStackEntry.arguments?.getString("tab")
+            MainTabsScreen(navController, initialTab = targetTab)
         }
 
         // 2️⃣ BottomNavigation이 없는 화면들
@@ -113,11 +121,29 @@ fun EeumApp() {
         // 디바이스 등록 플로우
         composable(DEVICE_REGISTRATION_ROUTE) {
             DeviceRegistrationScreen(navController) { kind ->
-                navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") { launchSingleTop = true }
+                navController.navigate("$DEVICE_REGISTRATION_QR_ROUTE/$kind") { launchSingleTop = true }
             }
         }
-        composable(DEVICE_REGISTRATION_QR_ROUTE) {
-            DeviceRegistrationQRScreen(navController)
+        composable("$DEVICE_REGISTRATION_QR_ROUTE/{kind}") { backStackEntry ->
+            val kind = backStackEntry.arguments?.getString("kind")
+            DeviceRegistrationQRScreen(
+                navController = navController,
+                kind = kind,
+                onManualInput = { navController.navigate("$DEVICE_REGISTRATION_SERIAL_ROUTE/$kind") }
+            )
+        }
+        composable("$DEVICE_REGISTRATION_SERIAL_ROUTE/{kind}") { backStackEntry ->
+            val kind = backStackEntry.arguments?.getString("kind")
+            DeviceRegistrationSerialScreen(navController) { serial ->
+                navController.navigate("$DEVICE_REGISTRATION_BRAND_ROUTE/$kind?serial=$serial") { launchSingleTop = true }
+            }
+        }
+        composable("$DEVICE_REGISTRATION_BRAND_ROUTE/{kind}?serial={serial}") { backStackEntry ->
+            val kind = backStackEntry.arguments?.getString("kind")
+            // serial은 필요시 꺼내서 프리필용으로 사용 가능
+            DeviceRegistrationBrandScreen(navController) { _ ->
+                navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") { launchSingleTop = true }
+            }
         }
         composable("$DEVICE_REGISTRATION_COMPLETE_ROUTE/{kind}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
@@ -128,8 +154,18 @@ fun EeumApp() {
 
 // BottomNavigation이 포함된 메인 탭 화면들을 관리하는 컴포저블
 @Composable
-private fun MainTabsScreen(mainNavController: androidx.navigation.NavController) {
+private fun MainTabsScreen(mainNavController: androidx.navigation.NavController, initialTab: String? = null) {
         val tabNavController = rememberNavController()
+
+        // 초기 탭 이동 (기본은 home)
+        androidx.compose.runtime.LaunchedEffect(initialTab) {
+            val target = initialTab ?: Tab.Home.route
+            if (target != Tab.Home.route) {
+                tabNavController.navigate(target) {
+                    launchSingleTop = true
+                }
+            }
+        }
 
         M2Scaffold(
             isFloatingActionButtonDocked = true,
