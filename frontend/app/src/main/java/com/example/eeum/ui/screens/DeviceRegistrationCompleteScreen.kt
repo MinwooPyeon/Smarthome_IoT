@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.eeum.ui.navigation.Tab
 import com.example.eeum.R
 import com.example.eeum.ui.theme.*
 
@@ -115,7 +116,9 @@ fun DeviceRegistrationCompleteScreen(
                 Image(
                     painter = painterResource(id = R.drawable.examplefloor),
                     contentDescription = "평면도",
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+
                 )
                 if (iconRes != null && !iconOffset.value.x.isNaN()) {
                     Surface(
@@ -152,7 +155,13 @@ fun DeviceRegistrationCompleteScreen(
         Spacer(Modifier.weight(1f))
 
         Button(
-            onClick = { onRegister() },
+            onClick = {
+                onRegister()
+                navController?.navigate("main_tabs?tab=${Tab.Device.route}") {
+                    launchSingleTop = true
+                    popUpTo("main_tabs") { inclusive = false }
+                }
+            },
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF007AFF),

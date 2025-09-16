@@ -51,6 +51,7 @@ import com.example.eeum.ui.components.QRScannerView
 @Composable
 fun DeviceRegistrationQRScreen(
     navController: NavController? = null,
+    kind: String? = null,
     onManualInput: () -> Unit = {}
 ) {
     val isScanningState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -133,7 +134,7 @@ fun DeviceRegistrationQRScreen(
             ) {
                 // QR 프레임 플레이스홀더 (모서리에 색상 코너 표시) + 클릭 시 스캔 시작
                 // 바깥(외부)에 코너를 배치하기 위해, 배경 박스와 코너들을 분리
-                Box(modifier = Modifier.size(280.dp).clip(RoundedCornerShape(12.dp))) {
+                Box(modifier = Modifier.size(280.dp)) {
                     // 배경 + 클릭 영역 (내부)
                     Box(
                         modifier = Modifier
@@ -185,15 +186,22 @@ fun DeviceRegistrationQRScreen(
                     )
 
                     if (isScanning) {
-                        // 박스 내부에 카메라 미리보기를 표시하고 스캔 수행
-                        QRScannerView(
+                        // 카메라 미리보기는 반드시 280dp 박스 안에서만 보이도록 클리핑
+                        Box(
                             modifier = Modifier
                                 .align(Alignment.Center)
-                                .fillMaxSize(),
-                        ) { code ->
-                            scanned = code
-                            isScanning = false
-                            // TODO: 스캔 결과 처리 (다음 화면 이동 등)
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp))
+                        ) {
+                            QRScannerView(
+                                modifier = Modifier.fillMaxSize(),
+                            ) { code ->
+                                scanned = code
+                                isScanning = false
+                                // 스캔 성공 시 브랜드 입력 화면으로 이동
+                                val k = kind ?: ""
+                                navController?.navigate("device_registration_brand/$k?serial=$code") { launchSingleTop = true }
+                            }
                         }
                     } else {
                         Image(
