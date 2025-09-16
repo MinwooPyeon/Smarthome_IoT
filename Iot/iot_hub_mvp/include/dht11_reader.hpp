@@ -16,6 +16,9 @@ public:
 
     // 한 번 읽기 (timeout_ms 내에 실패 시 std::nullopt)
     std::optional<Dht11Data> read_once(int timeout_ms = 1500);
+    std::optional<Dht11Data> read_with_retry(int attempts = 3,
+                                         int timeout_ms = 1500,
+                                         int cool_down_ms = 1200);
 
 private:
     int pin_;

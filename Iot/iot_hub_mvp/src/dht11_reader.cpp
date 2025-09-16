@@ -66,6 +66,23 @@ std::optional<Dht11Data> Dht11Reader::process_data(uint64_t Data) {
     return out;
 }
 
+std::optional<Dht11Data> Dht11Reader::read_with_retry(int attempts,
+                                                      int timeout_ms,
+                                                      int cool_down_ms) {
+    if (attempts < 1) attempts = 1;
+
+    for (int i = 0; i < attempts; ++i) {
+        auto r = read_once(timeout_ms);
+        if (r) return r;
+
+        // DHT11은 1Hz 제한 → 시도 사이 충분히 쉬어야 함
+        // pigpio gpioDelay 단위는 us
+        gpioDelay(cool_down_ms * 1000);
+    }
+    return std::nullopt;
+}
+
+
 std::optional<Dht11Data> Dht11Reader::read_once(int timeout_ms) {
     // pigpio는 µs 단위, 상한 보호
     const int MAX_US = std::max(1, timeout_ms) * 1000;
