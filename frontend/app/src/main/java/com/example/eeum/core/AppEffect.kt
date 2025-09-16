@@ -1,7 +1,10 @@
 package com.example.eeum.core
 
 sealed class AppEffect {
-    data class Speak(val text: String) : AppEffect()
+    data class Speak(
+        val text: String,
+        val expectReply: Boolean = false
+    ) : AppEffect()
 
     data class Toast(
         val text: String,

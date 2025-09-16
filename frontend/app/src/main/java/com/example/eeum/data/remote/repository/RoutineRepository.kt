@@ -34,6 +34,17 @@ class RoutineRepository(
         Result.success(api.data)
     }
 
+    fun findIdByName(name: String?): Int? =
+        name?.trim()?.takeIf { it.isNotEmpty() }?.let { n -> dir?.findIdByName(n) }
+
+    suspend fun deleteRoutineById(id: Int): Result<Unit> = withContext(Dispatchers.IO) {
+        val res = service.deleteRoutine(id)
+        if (!res.isSuccessful) return@withContext fail(httpMsg(res))
+        val api = res.body() ?: return@withContext fail("빈 응답")
+        if (api.status != "SUCCESS") return@withContext fail(apiError(res, "삭제 실패"))
+        Result.success(Unit)
+    }
+
     private fun <T> fail(msg: String): Result<T> = Result.failure(IllegalStateException(msg))
 
     private fun httpMsg(res: retrofit2.Response<*>): String =
