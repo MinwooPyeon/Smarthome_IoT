@@ -7,27 +7,34 @@
 #include <pigpio.h>
 #include <nlohmann/json.hpp>
 #include <iostream>
+#include <cmath>
 
 using json = nlohmann::json;
 
-int main(int argc, char** argv){
+int main(int argc, char **argv)
+{
     // 0) 기본 설정
     AppConfig cfg;
-    if(gpioInitialise() < 0){
-        std::cerr << "pigpio init failed\n"; return 1;
+    if (gpioInitialise() < 0)
+    {
+        std::cerr << "pigpio init failed\n";
+        return 1;
     }
 
     MqttClient mqtt;
     std::string clientId = "hub_agent_" + cfg.deviceId;
-    if(!mqtt.init(clientId, cfg.mqttHost, cfg.mqttPort, cfg.mqttUser, cfg.mqttPass)){
-        std::cerr << "mqtt init failed\n"; return 2;
+    if (!mqtt.init(clientId, cfg.mqttHost, cfg.mqttPort, cfg.mqttUser, cfg.mqttPass))
+    {
+        std::cerr << "mqtt init failed\n";
+        return 2;
     }
 
-    std::string reqTopic  = "hub/" + cfg.deviceId + "/measure/req";
+    std::string reqTopic = "hub/" + cfg.deviceId + "/measure/req";
     std::string respTopic = "hub/" + cfg.deviceId + "/measure/resp";
     mqtt.subscribe(reqTopic, 0);
 
-    mqtt.set_message_handler([&](const std::string& topic, const std::string& payload){
+    mqtt.set_message_handler([&](const std::string &topic, const std::string &payload)
+                             {
         try{
             auto j = json::parse(payload);
             std::string sensor = j.value("sensor", "");
@@ -49,14 +56,14 @@ int main(int argc, char** argv){
                 out["ts"]       = now_ms();
 
                 if(r){
-                    // (선택) 이슬점 간단 계산
-                    float T = r->tempC, RH = r->hum;
+                    float T  = r->tempC;
+                    float RH = r->hum;
                     float a=17.27f,b=237.7f;
-                    float alpha = (a*T)/(b+T) + log(RH/100.0f);
+                    float alpha = (a*T)/(b+T) + std::log(RH/100.0f); 
                     float dew = (b*alpha)/(a - alpha);
 
                     out["ok"]   = true;
-                    out["data"] = { {"tempC", T}, {"hum", RH}, {"dewPointC", dew} };
+                    out["data"] = json{ {"tempC", T}, {"hum", RH}, {"dewPointC", dew} }; 
                 }else{
                     out["ok"]    = false;
                     out["error"] = "read_failed_or_timeout";
@@ -79,10 +86,10 @@ int main(int argc, char** argv){
 
                 if(f){
                     out["ok"] = true;
-                    out["data"] = {
-                        {"carrierHz", nullptr},                   // 추정 안함
-                        {"rawData",    f->raw_us},
-                        {"gapUs",      f->gapUs}
+                    out["data"] = json{
+                        {"carrierHz", nullptr},
+                        {"rawData",   f->raw_us},
+                        {"gapUs",     f->gapUs}
                     };
                 }else{
                     out["ok"]    = false;
@@ -102,8 +109,7 @@ int main(int argc, char** argv){
             }
         }catch(std::exception& e){
             std::cerr << "handler exception: " << e.what() << "\n";
-        }
-    });
+        } });
 
     std::cout << "Listening on topic: " << reqTopic << "\n";
     mqtt.loop_forever();

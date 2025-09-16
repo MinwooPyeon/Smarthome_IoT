@@ -4,6 +4,7 @@
 #include <vector>
 #include <chrono>
 
+
 // 간단 DHT11 비트뽑기: pigpio로 엄격 타이밍
 // 참고: DHT11은 18ms Low -> High -> 읽기. 여기선 사용자 공간 근사치.
 
