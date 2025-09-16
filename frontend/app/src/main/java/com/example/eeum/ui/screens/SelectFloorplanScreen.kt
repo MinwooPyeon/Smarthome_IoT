@@ -1,31 +1,67 @@
 package com.example.eeum.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.eeum.R
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.eeum.base.ApplicationClass
+import com.example.eeum.data.model.response.floorplans.FloorPlansList
 import com.example.eeum.ui.theme.EeumTheme
 
 private val BrandBlue = Color(0xFF007AFF)
 
 @Composable
-fun SelectFloorplanScreen() {
-    var selectedSize by remember { mutableStateOf("79m² (24평형)") }
+fun SelectFloorplanScreen(
+    addressId: Int,
+    onBack: () -> Unit = {},
+    vm: FloorplansViewModel = viewModel()
+) {
+    val floorplans by vm.floorplans.observeAsState(initial = emptyList<FloorPlansList>())
+
+    // 진입 시 해당 addressId의 평면도 조회
+    LaunchedEffect(addressId) { vm.getFloorplans(addressId) }
+
+    // ✅ 선택 상태는 인덱스가 아니라 floorplanId로 유지 (리스트 순서/갱신 안정)
+    var selectedFloorplanId by remember { mutableStateOf<Int?>(null) }
+
+    // floorplans가 갱신되면 선택 보정: 기존 선택이 없거나 사라졌으면 첫 항목으로
+    LaunchedEffect(floorplans) {
+        if (floorplans.isNotEmpty()) {
+            if (selectedFloorplanId == null ||
+                floorplans.none { it.floorplanId == selectedFloorplanId }) {
+                selectedFloorplanId = floorplans.first().floorplanId
+            }
+        } else {
+            selectedFloorplanId = null
+        }
+    }
+
+    val selected: FloorPlansList? =
+        floorplans.firstOrNull { it.floorplanId == selectedFloorplanId }
+
+    val ctx = LocalContext.current
+    val absoluteUrl = remember(selected?.imageUrl) {
+        toAbsoluteUrl(ApplicationClass.SERVER_URL, selected?.imageUrl)
+    }
 
     Column(
         modifier = Modifier
@@ -43,7 +79,7 @@ fun SelectFloorplanScreen() {
                 tint = Color.Black,
                 modifier = Modifier
                     .size(24.dp)
-                    .clickable { /* TODO: 뒤로가기 */ }
+                    .clickable { onBack() }
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -54,7 +90,6 @@ fun SelectFloorplanScreen() {
             )
         }
 
-        // 안내 문구
         Text(
             text = "평면도를 선택해주세요.",
             fontSize = 16.sp,
@@ -62,33 +97,33 @@ fun SelectFloorplanScreen() {
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // 아파트명
+        // ✅ 아파트명 = 응답 homeName
         Text(
-            text = "비스타캐슬",
+            text = selected?.homeName ?: (floorplans.firstOrNull()?.homeName ?: "아파트명"),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        // 평수 선택 Row (단일 선택)
-        Row(
+        // ✅ Chip들을 응답 개수만큼 렌더링 (스크롤 가능)
+        LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(bottom = 16.dp)
         ) {
-            FloorplanChip(
-                label = "43m² (13평형)",
-                selected = selectedSize == "43m² (13평형)",
-                onClick = { selectedSize = "43m² (13평형)" }
-            )
-            FloorplanChip(
-                label = "79m² (24평형)",
-                selected = selectedSize == "79m² (24평형)",
-                onClick = { selectedSize = "79m² (24평형)" }
-            )
+            items(
+                items = floorplans,
+                key = { it.floorplanId } // 안정 키
+            ) { item ->
+                FloorplanChip(
+                    label = "${trimZero(item.square)}㎡",
+                    selected = item.floorplanId == selectedFloorplanId,
+                    onClick = { selectedFloorplanId = item.floorplanId }
+                )
+            }
         }
 
-        // 도면 이미지
+        // ✅ 도면 이미지 = 선택 항목의 imageUrl
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -96,8 +131,11 @@ fun SelectFloorplanScreen() {
             shape = RoundedCornerShape(8.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.examplefloor),
+            AsyncImage(
+                model = ImageRequest.Builder(ctx)
+                    .data(absoluteUrl) // 절대 URL 전달
+                    .crossfade(true)
+                    .build(),
                 contentDescription = "평면도",
                 modifier = Modifier.fillMaxSize()
             )
@@ -105,16 +143,14 @@ fun SelectFloorplanScreen() {
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // 이전 / 다음 버튼
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 🔹 테두리 없는 버튼 (흰 배경 + 파란 텍스트)
             Button(
-                onClick = { /* TODO: 이전 */ },
+                onClick = onBack,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White,
@@ -123,12 +159,11 @@ fun SelectFloorplanScreen() {
                 modifier = Modifier
                     .weight(1f)
                     .height(48.dp),
-                elevation = ButtonDefaults.buttonElevation(0.dp) // 그림자도 제거
+                elevation = ButtonDefaults.buttonElevation(0.dp)
             ) {
                 Text(text = "이전", fontSize = 14.sp)
             }
 
-            // 저장 버튼 (파란 배경 + 흰 텍스트)
             Button(
                 onClick = { /* TODO: 다음 */ },
                 shape = RoundedCornerShape(12.dp),
@@ -146,6 +181,11 @@ fun SelectFloorplanScreen() {
     }
 }
 
+private fun trimZero(d: Double): String {
+    val s = d.toString()
+    return if (s.endsWith(".0")) s.dropLast(2) else s
+}
+
 @Composable
 private fun FloorplanChip(
     label: String,
@@ -156,7 +196,7 @@ private fun FloorplanChip(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(if (selected) BrandBlue else Color.White)
-            .clickable { onClick() }
+            .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -168,11 +208,19 @@ private fun FloorplanChip(
         )
     }
 }
+private fun toAbsoluteUrl(base: String, path: String?): String? {
+    if (path.isNullOrBlank()) return null
+    val b = base.trimEnd('/')
+    val p = path.trim()
+    if (p.startsWith("http://") || p.startsWith("https://")) return p
+    return if (p.startsWith("/")) "$b$p" else "$b/$p"
+}
 
-@Composable
 @Preview(showBackground = true)
+@Composable
 private fun SelectFloorplanScreenPreview() {
     EeumTheme(dynamicColor = false) {
-        SelectFloorplanScreen()
+        // 프리뷰 더미
+        SelectFloorplanScreen(addressId = 1)
     }
 }

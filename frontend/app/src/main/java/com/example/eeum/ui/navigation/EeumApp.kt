@@ -4,31 +4,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.paint
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.eeum.R
+import androidx.navigation.navArgument
 import com.example.eeum.ui.components.EeumBottomAppBar
 import com.example.eeum.ui.components.EeumFloatingActionButton
-import com.example.eeum.ui.screens.DeviceScreen
-import com.example.eeum.ui.screens.HomeScreen
-import com.example.eeum.ui.screens.MenuScreen
-import com.example.eeum.ui.screens.EnergyScreen
-import com.example.eeum.ui.screens.VoiceScreen
-import com.example.eeum.ui.screens.RoutineScreen
-import com.example.eeum.ui.screens.CreateRoutineFirstScreen
-import com.example.eeum.ui.screens.CreateRoutineSecondScreen
-import com.example.eeum.ui.screens.LogManageScreen
-import com.example.eeum.ui.screens.AlarmManageScreen
-import com.example.eeum.ui.screens.MapScreen
-import com.example.eeum.ui.screens.UserInformationScreen
-import com.example.eeum.ui.screens.PasswordChangeScreen
-
+import com.example.eeum.ui.screens.*
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
 
@@ -48,119 +33,119 @@ private const val PASSWORD_CHANGE_ROUTE = "password_change"
 
 private const val MAP_ROUTE = "map"
 
+// ✅ addressId를 경로 파라미터로 넘기는 평면도 선택 화면
+private const val SELECT_FLOORPLAN_ROUTE = "select_floorplan/{addressId}"
+private fun selectFloorplanRoute(addressId: Int) = "select_floorplan/$addressId"
+
 @Composable
 fun EeumApp() {
     val navController = rememberNavController()
 
-    // 메인 NavHost - BottomNavigation 유무를 결정하는 최상위 네비게이션
     NavHost(
         navController = navController,
-        startDestination = MAIN_TABS_ROUTE  // 임시로 메인탭부터 시작 (나중에 LOGIN_ROUTE로 변경 가능)
+        startDestination = MAIN_TABS_ROUTE
     ) {
-        // 1️⃣ BottomNavigation이 포함된 화면들 (메인 앱 화면)
+        // 1) BottomNavigation 포함 영역
         composable(MAIN_TABS_ROUTE) {
             MainTabsScreen(navController)
         }
 
-        // 2️⃣ BottomNavigation이 없는 화면들
-        composable(LOGIN_ROUTE) {
-//            LoginScreen()
-        }
+        // 2) BottomNavigation 미포함 화면들
+        composable(LOGIN_ROUTE) { /* LoginScreen() */ }
 
-        composable(LOG_MANAGE_ROUTE) {
-            LogManageScreen(navController)
-        }
+        composable(LOG_MANAGE_ROUTE) { LogManageScreen(navController) }
 
-        composable(ALARM_MANAGE_ROUTE) {
-            AlarmManageScreen(navController)
-        }
+        composable(ALARM_MANAGE_ROUTE) { AlarmManageScreen(navController) }
 
-        composable(VOICE_ROUTE) {
-            VoiceScreen()
-        }
+        composable(VOICE_ROUTE) { VoiceScreen() }
 
-        composable(ROUTINE_ROUTE) {
-            RoutineScreen(navController)
-        }
+        composable(ROUTINE_ROUTE) { RoutineScreen(navController) }
 
-        composable(ROUTE_CREATE_ROUTINE_FIRST) {
-            CreateRoutineFirstScreen(navController)
-        }
+        composable(ROUTE_CREATE_ROUTINE_FIRST) { CreateRoutineFirstScreen(navController) }
 
-        composable(ROUTE_CREATE_ROUTINE_SECOND) {
-            CreateRoutineSecondScreen(navController)
-        }
+        composable(ROUTE_CREATE_ROUTINE_SECOND) { CreateRoutineSecondScreen(navController) }
 
-        composable(USER_INFORMATION_ROUTE) {
-            UserInformationScreen(navController)
-        }
+        composable(USER_INFORMATION_ROUTE) { UserInformationScreen(navController) }
 
         composable(MAP_ROUTE) {
             MapScreen(
+                onBack = { navController.popBackStack() },
+                onSelectAddress = { id ->
+                    navController.navigate(selectFloorplanRoute(id)) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
+        // ✅ addressId를 받아서 SelectFloorplanScreen으로 전달
+        composable(
+            route = SELECT_FLOORPLAN_ROUTE,
+            arguments = listOf(navArgument("addressId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val addressId = backStackEntry.arguments?.getInt("addressId") ?: 0
+            SelectFloorplanScreen(
+                addressId = addressId,
                 onBack = { navController.popBackStack() }
             )
         }
-        composable(PASSWORD_CHANGE_ROUTE) {
-            PasswordChangeScreen(navController)
-        }
+
+        composable(PASSWORD_CHANGE_ROUTE) { PasswordChangeScreen(navController) }
     }
 }
 
-    // BottomNavigation이 포함된 메인 탭 화면들을 관리하는 컴포저블
-    @Composable
-    private fun MainTabsScreen(mainNavController: androidx.navigation.NavController) {
-        val tabNavController = rememberNavController()
+// BottomNavigation이 포함된 메인 탭 화면들을 관리하는 컴포저블
+@Composable
+private fun MainTabsScreen(mainNavController: androidx.navigation.NavController) {
+    val tabNavController = rememberNavController()
 
-        M2Scaffold(
-            isFloatingActionButtonDocked = true,
-            floatingActionButtonPosition = M2FabPosition.Center,
-            backgroundColor = Color.Transparent,
-            floatingActionButton = {
-                EeumFloatingActionButton(
-                    onClick = {
-                        mainNavController.navigate(VOICE_ROUTE) {
+    M2Scaffold(
+        isFloatingActionButtonDocked = true,
+        floatingActionButtonPosition = M2FabPosition.Center,
+        backgroundColor = Color.Transparent,
+        floatingActionButton = {
+            EeumFloatingActionButton(
+                onClick = {
+                    mainNavController.navigate(VOICE_ROUTE) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            Column {
+                val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
+
+                EeumBottomAppBar(
+                    currentDestination = currentDestination,
+                    onTabClick = { route ->
+                        tabNavController.navigate(route) {
                             launchSingleTop = true
+                            restoreState = true
+                            popUpTo(tabNavController.graph.startDestinationId) {
+                                saveState = true
+                            }
                         }
                     }
                 )
-            },
-            bottomBar = {
-                //BottomAppBar 자체 높이는 그대로 두고,
-                //아래에 시스템 내비게이션 바 높이만큼 빈 공간을 추가
-                Column {
-                    val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
-                    val currentDestination = navBackStackEntry?.destination
-
-                    EeumBottomAppBar(
-                        currentDestination = currentDestination,
-                        onTabClick = { route ->
-                            tabNavController.navigate(route) {
-                                launchSingleTop = true
-                                restoreState = true
-                                popUpTo(tabNavController.graph.startDestinationId) {
-                                    saveState = true
-                                }
-                            }
-                        }
-                    )
-                    //Spacer가 '밖에' 생기는 여백이라 cutoutShape가 늘어나지 않습니다.
-                    Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-                }
-            }
-        ) { innerPadding ->
-            NavHost(
-                navController = tabNavController,
-                startDestination = Tab.Home.route,
-                modifier = Modifier.padding(innerPadding)
-            ) {
-                composable(Tab.Home.route) {
-                    HomeScreen(
-                        onOpenMap = { mainNavController.navigate(MAP_ROUTE) }
-                    )
-                }
-                composable(Tab.Device.route) { DeviceScreen() }
-                composable(Tab.Use.route) { EnergyScreen() }
-                composable(Tab.Menu.route) { MenuScreen(mainNavController) }
+                Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
             }
         }
+    ) { innerPadding ->
+        NavHost(
+            navController = tabNavController,
+            startDestination = Tab.Home.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(Tab.Home.route) {
+                HomeScreen(
+                    onOpenMap = { mainNavController.navigate(MAP_ROUTE) }
+                )
+            }
+            composable(Tab.Device.route) { DeviceScreen() }
+            composable(Tab.Use.route) { EnergyScreen() }
+            composable(Tab.Menu.route) { MenuScreen(mainNavController) }
+        }
     }
+}
