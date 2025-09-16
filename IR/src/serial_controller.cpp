@@ -302,7 +302,8 @@ bool SerialController::validateCommand(const std::string& command) const {
     // 허용된 명령어 목록
     static const std::vector<std::string> allowed_commands = {
         "ping", "status", "ir_send", "ir_receive", "config_get", "config_set",
-        "device_list", "device_control", "system_info", "restart"
+        "device_list", "device_control", "system_info", "restart",
+        "mqtt_status", "ir_status"
     };
 
     for (const auto& allowed : allowed_commands) {
