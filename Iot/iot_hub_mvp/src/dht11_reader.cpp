@@ -1,68 +1,109 @@
 #include "dht11_reader.hpp"
 #include <pigpio.h>
+#include <cstdint>
+#include <stdexcept>
 #include <thread>
-#include <vector>
 #include <chrono>
 
+// CDht11 구현을 Dht11Reader 내부로 이식
+// - 타이밍: pigpio gpioTick() 사용
+// - 비트 판정: (LowTime < HighTime) -> 1, else 0
+// - 성공 시 tempC/hum은 high 바이트 기준(float 캐스팅)
+// - DHT11 특성상 소수부(LL) 대부분 0이므로 high 바이트만 사용
 
-// 간단 DHT11 비트뽑기: pigpio로 엄격 타이밍
-// 참고: DHT11은 18ms Low -> High -> 읽기. 여기선 사용자 공간 근사치.
-
-bool Dht11Reader::init(){
-    return gpioSetMode(pin_, PI_OUTPUT) == 0;
+bool Dht11Reader::init() {
+    gpioSetMode(pin_, PI_OUTPUT);
+    gpioWrite(pin_, 1); // idle high
+    return true;
 }
 
-std::optional<Dht11Data> Dht11Reader::read_once(int timeout_ms){
-    using namespace std::chrono;
-    auto deadline = steady_clock::now() + milliseconds(timeout_ms);
-
-    // 1) Start signal
-    gpioSetMode(pin_, PI_OUTPUT);
+void Dht11Reader::send_start_signal() {
     gpioWrite(pin_, 0);
-    gpioDelay(18000); // 18ms
+    std::this_thread::sleep_for(std::chrono::milliseconds(20)); // ≥18ms
     gpioWrite(pin_, 1);
-    gpioDelay(40);
-    gpioSetMode(pin_, PI_INPUT);
+    // 센서가 응답 준비하도록 수십 µs 후 입력으로 전환
+}
 
-    // 2) 응답 파형 캡처
-    // 80us Low, 80us High 후 40bit(각 bit: 50us Low + 26~28us High=0, 70us High=1)
-    // 여기서는 busy-wait로 간단히 측정(실환경은 에러 보정 필요)
-    auto wait_level = [&](int level, int max_us)->int{
-        int t=0;
-        while(gpioRead(pin_)!=level){
-            gpioDelay(1); if(++t>max_us) return -1;
-            if(steady_clock::now() > deadline) return -1;
+int Dht11Reader::wait_for_low(int max_us) {
+    uint32_t start = gpioTick();
+    while (gpioRead(pin_) != 0) {
+        if ((int)(gpioTick() - start) > max_us) {
+            throw std::runtime_error("Timeout while waiting for LOW.");
         }
-        return t;
-    };
+    }
+    return (int)(gpioTick() - start);
+}
 
-    if(wait_level(0, 100)==-1) return std::nullopt; // 응답 Low
-    if(wait_level(1, 200)==-1) return std::nullopt; // 응답 High
-
-    std::vector<int> bits;
-    bits.reserve(40);
-    for(int i=0;i<40;i++){
-        if(wait_level(0, 100)==-1) return std::nullopt; // 50us Low
-        int t=0;
-        while(gpioRead(pin_)==1){
-            gpioDelay(1); t++;
-            if(t>150 || steady_clock::now()>deadline) return std::nullopt;
+int Dht11Reader::wait_for_high(int max_us) {
+    uint32_t start = gpioTick();
+    while (gpioRead(pin_) == 0) {
+        if ((int)(gpioTick() - start) > max_us) {
+            throw std::runtime_error("Timeout while waiting for HIGH.");
         }
-        // t(High 길이 us 유사치)로 0/1 판정
-        bits.push_back(t>50 ? 1 : 0); // 약식 임계
+    }
+    return (int)(gpioTick() - start);
+}
+
+uint8_t Dht11Reader::calc_checksum(uint8_t hh, uint8_t hl, uint8_t th, uint8_t tl) {
+    return static_cast<uint8_t>(hh + hl + th + tl);
+}
+
+std::optional<Dht11Data> Dht11Reader::process_data(uint64_t Data) {
+    uint8_t HumidityHigh    = (Data >> 32) & 0xFF;
+    uint8_t HumidityLow     = (Data >> 24) & 0xFF;
+    uint8_t TemperatureHigh = (Data >> 16) & 0xFF;
+    uint8_t TemperatureLow  = (Data >> 8)  & 0xFF;
+    uint8_t Parity          = (Data)       & 0xFF;
+
+    if (Parity != calc_checksum(HumidityHigh, HumidityLow, TemperatureHigh, TemperatureLow)) {
+        return std::nullopt; // checksum fail
     }
 
-    // 5 바이트 조립
-    int data[5]={0,};
-    for(int i=0;i<40;i++){
-        data[i/8] <<= 1;
-        data[i/8] |= bits[i];
-    }
-    int sum = (data[0]+data[1]+data[2]+data[3]) & 0xFF;
-    if(sum != data[4]) return std::nullopt;
-
+    // DHT11은 소수부(LL)가 거의 0. 안전하게 High 바이트만 사용.
     Dht11Data out;
-    out.hum   = (float)data[0];
-    out.tempC = (float)data[2];
+    out.hum   = static_cast<float>(HumidityHigh);
+    out.tempC = static_cast<float>(TemperatureHigh);
     return out;
+}
+
+std::optional<Dht11Data> Dht11Reader::read_once(int timeout_ms) {
+    // pigpio는 µs 단위, 상한 보호
+    const int MAX_US = std::max(1, timeout_ms) * 1000;
+
+    // Start signal
+    send_start_signal();
+    gpioSetMode(pin_, PI_INPUT);
+    gpioSetPullUpDown(pin_, PI_PUD_UP);
+
+    uint64_t data = 0;
+
+    try {
+        // Sensor response: ~80us Low -> ~80us High -> ~Low (프리엠블)
+        wait_for_low(MAX_US);
+        wait_for_high(MAX_US);
+        wait_for_low(MAX_US);
+
+        // 40 bits
+        for (int i = 0; i < 40; ++i) {
+            data <<= 1;
+            int LowTime  = wait_for_high(MAX_US); // 50us Low 구간
+            int HighTime = wait_for_low(MAX_US);  // (0: ~26-28us, 1: ~70us)
+            if (LowTime < HighTime) {
+                data |= 0x1; // bit=1
+            }
+        }
+        // 마무리 High로 돌아오는 구간 대기(선택)
+        wait_for_high(MAX_US);
+    } catch (...) {
+        // 핀을 안전 상태로 복구
+        gpioSetMode(pin_, PI_OUTPUT);
+        gpioWrite(pin_, 1);
+        throw;
+    }
+
+    // 핀을 idle로 복구
+    gpioSetMode(pin_, PI_OUTPUT);
+    gpioWrite(pin_, 1);
+
+    return process_data(data);
 }
