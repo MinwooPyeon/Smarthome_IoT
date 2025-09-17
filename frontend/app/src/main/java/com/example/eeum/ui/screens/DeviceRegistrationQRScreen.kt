@@ -198,9 +198,13 @@ fun DeviceRegistrationQRScreen(
                             ) { code ->
                                 scanned = code
                                 isScanning = false
-                                // 스캔 성공 시 브랜드 입력 화면으로 이동
+                                // 스캔 성공 시: 허브는 완료 화면으로, 그 외는 브랜드 입력 화면으로 이동
                                 val k = kind ?: ""
-                                navController?.navigate("device_registration_brand/$k?serial=$code") { launchSingleTop = true }
+                                if (k == "HUB") {
+                                    navController?.navigate("device_registration_complete/$k") { launchSingleTop = true }
+                                } else {
+                                    navController?.navigate("device_registration_brand/$k?serial=$code") { launchSingleTop = true }
+                                }
                             }
                         }
                     } else {
