@@ -7,6 +7,7 @@ import com.example.eeum.data.remote.service.FloorplansService
 import com.example.eeum.data.remote.service.RoutineService
 import com.example.eeum.data.remote.service.UserService
 import com.example.eeum.base.ApplicationClass
+import com.example.eeum.data.remote.service.HomeService
 
 class RetrofitUtil {
     companion object{
@@ -16,6 +17,7 @@ class RetrofitUtil {
         val energyService = ApplicationClass.retrofit.create(EnergyService::class.java)
         val routineService = ApplicationClass.retrofit.create(RoutineService::class.java)
         val floorplansService = ApplicationClass.retrofit.create(FloorplansService::class.java)
+        val homeService = ApplicationClass.retrofit.create(HomeService::class.java)
 
     }
 }
