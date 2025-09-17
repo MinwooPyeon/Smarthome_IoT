@@ -14,7 +14,7 @@ struct AppConfig {
 
     // --- TLS (서버 인증 필수) ---
     // NOTE: '~'는 mosquitto가 직접 확장 못 함 → 코드에서 확장 처리해줌
-    std::string mqttCAFile = "/home/eeum/broker_selfsigned_ca.crt;
+    std::string mqttCAFile = "/home/eeum/broker_selfsigned_ca.crt";
     std::string mqttClientCertFile = ""; // mTLS 필요 시
     std::string mqttClientKeyFile  = ""; // mTLS 필요 시
     bool        mqttTLSInsecure = true;  // SNI/호스트명 검증 off (테스트용)
