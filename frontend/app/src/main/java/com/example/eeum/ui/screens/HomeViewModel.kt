@@ -9,6 +9,7 @@ import com.example.eeum.data.model.response.floorplans.FloorPlan
 import com.example.eeum.data.model.response.floorplans.FloorPlansList
 import com.example.eeum.data.model.response.home.AllUserHome
 import com.example.eeum.data.model.response.home.Home
+import com.example.eeum.data.model.response.home.PrimaryHome
 import com.example.eeum.data.remote.RetrofitUtil
 import kotlinx.coroutines.launch
 
@@ -29,6 +30,12 @@ class HomeViewModel : ViewModel() {
 
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> get() = _error
+
+    private val _primaryHomeId = MutableLiveData<Int?>()
+    val primaryHomeId: LiveData<Int?> get() = _primaryHomeId
+
+    private val _primaryMessage = MutableLiveData<String?>()
+    val primaryMessage: LiveData<String?> get() = _primaryMessage
 
     //특정 집 평면도 조회
     fun fetchUserHomeFloorplans(homeId: Int) {
@@ -101,8 +108,46 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    /** 에러 초기화 */
+    // 대표 집 주소 변경
+    fun setPrimaryHome(homeId: Int) {
+        viewModelScope.launch {
+            runCatching {
+                RetrofitUtil.homeService.setPrimaryHome(homeId)
+            }.onSuccess { response ->
+                if (response.isSuccessful) {
+                    response.body()?.let { body: PrimaryHome ->
+                        _primaryHomeId.value = body.data.homeId
+                        _primaryMessage.value = body.data.massage // 서버 스펙 그대로 사용
+                        _status.value = body.status
+                        _error.value = null
+                        _selectedHomeId.value = body.data.homeId
+                        Log.d(
+                            "HomeViewModel",
+                            "대표 집 변경 성공: homeId=${body.data.homeId}, message=${body.data.massage}"
+                        )
+                        // 최신 상태 반영을 위해 집 목록 재조회
+                        fetchUserHomes()
+                    } ?: run {
+                        _error.value = "대표 집 변경 응답이 비어있습니다."
+                        Log.e("HomeViewModel", "대표 집 변경 응답이 비어있습니다.")
+                    }
+                } else {
+                    _error.value = "대표 집 변경 실패: ${response.code()}"
+                    Log.e("HomeViewModel", "대표 집 변경 실패 code=${response.code()}")
+                }
+            }.onFailure { e ->
+                _error.value = "네트워크 오류: ${e.message}"
+                Log.e("HomeViewModel", "대표 집 변경 실패", e)
+            }
+        }
+    }
+
+    //에러 초기화
     fun clearError() {
         _error.value = null
+    }
+
+    fun clearPrimaryMessage() {
+        _primaryMessage.value = null
     }
 }
