@@ -189,7 +189,7 @@ private fun iconResFor(kind: String?): Int? = when (kind) {
     "BEAM_PROJECTOR" -> R.drawable.ic_icon_beam_projector
     "AIR_PURIFIER" -> R.drawable.ic_icon_air_purifier
     "LIGHT" -> R.drawable.ic_icon_light
-    "HUB" -> R.drawable.ic_icon_hub
+    "HUB" -> null
     else -> null
 }
 
