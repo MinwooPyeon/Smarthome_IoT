@@ -23,18 +23,28 @@ int main(int argc, char **argv)
 
     MqttClient mqtt;
     std::string clientId = "hub_agent_" + cfg.deviceId;
-    if (!mqtt.init(clientId, cfg.mqttHost, cfg.mqttPort, cfg.mqttUser, cfg.mqttPass))
+
+    // ✅ 변경: AppConfig 기반 init
+    if (!mqtt.init(cfg, clientId))
     {
         std::cerr << "mqtt init failed\n";
+        gpioTerminate();
         return 2;
     }
 
-    std::string reqTopic = "hub/" + cfg.deviceId + "/measure/req";
+    std::string reqTopic  = "hub/" + cfg.deviceId + "/measure/req";
     std::string respTopic = "hub/" + cfg.deviceId + "/measure/resp";
-    mqtt.subscribe(reqTopic, 0);
 
-    mqtt.set_message_handler([&](const std::string &topic, const std::string &payload)
-                             {
+    // 잘못된 빈 publish 호출 제거
+    if (!mqtt.subscribe(reqTopic, 1))
+    {
+        std::cerr << "subscribe failed: " << reqTopic << "\n";
+        mqtt.cleanup();
+        gpioTerminate();
+        return 3;
+    }
+
+    mqtt.set_message_handler([&](const std::string &topic, const std::string &payload) {
         try{
             auto j = json::parse(payload);
             std::string sensor = j.value("sensor", "");
@@ -59,16 +69,16 @@ int main(int argc, char **argv)
                     float T  = r->tempC;
                     float RH = r->hum;
                     float a=17.27f,b=237.7f;
-                    float alpha = (a*T)/(b+T) + std::log(RH/100.0f); 
+                    float alpha = (a*T)/(b+T) + std::log(RH/100.0f);
                     float dew = (b*alpha)/(a - alpha);
 
                     out["ok"]   = true;
-                    out["data"] = json{ {"tempC", T}, {"hum", RH}, {"dewPointC", dew} }; 
+                    out["data"] = json{ {"tempC", T}, {"hum", RH}, {"dewPointC", dew} };
                 }else{
                     out["ok"]    = false;
                     out["error"] = "read_failed_or_timeout";
                 }
-                mqtt.publish(respTopic, out.dump(), 0, false);
+                mqtt.publish(respTopic, out.dump(), 1, false);
             }
             else if(sensor == "ir"){
                 int gapUs = cfg.irGapUs;
@@ -95,7 +105,7 @@ int main(int argc, char **argv)
                     out["ok"]    = false;
                     out["error"] = "timeout_or_noise";
                 }
-                mqtt.publish(respTopic, out.dump(), 0, false);
+                mqtt.publish(respTopic, out.dump(), 1, false);
             }
             else{
                 json out = {
@@ -105,11 +115,12 @@ int main(int argc, char **argv)
                     {"ok", false},
                     {"error", "unknown_sensor"}
                 };
-                mqtt.publish(respTopic, out.dump(), 0, false);
+                mqtt.publish(respTopic, out.dump(), 1, false);
             }
-        }catch(std::exception& e){
+        }catch(const std::exception& e){
             std::cerr << "handler exception: " << e.what() << "\n";
-        } });
+        }
+    });
 
     std::cout << "Listening on topic: " << reqTopic << "\n";
     mqtt.loop_forever();

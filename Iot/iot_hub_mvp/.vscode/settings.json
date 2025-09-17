@@ -1,5 +1,8 @@
 {
     "files.associations": {
-        "optional": "cpp"
+        "optional": "cpp",
+        "xstring": "cpp",
+        "ios": "cpp",
+        "thread": "cpp"
     }
 }

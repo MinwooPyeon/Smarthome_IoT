@@ -143,8 +143,18 @@ fun EeumApp() {
         composable("$DEVICE_REGISTRATION_SERIAL_ROUTE/{kind}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
             DeviceRegistrationSerialScreen(navController) { serial ->
+
                 navController.navigate("$DEVICE_REGISTRATION_BRAND_ROUTE/$kind?serial=$serial") {
                     launchSingleTop = true
+
+                if (kind == "HUB") {
+                    navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") {
+                        launchSingleTop = true
+                    }
+                } else {
+                    navController.navigate("$DEVICE_REGISTRATION_BRAND_ROUTE/$kind?serial=$serial") {
+                        launchSingleTop = true
+                    }
                 }
             }
         }
