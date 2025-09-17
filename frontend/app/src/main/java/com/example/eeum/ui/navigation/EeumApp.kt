@@ -83,7 +83,7 @@ fun EeumApp() {
         }
 
         // 2) BottomNavigation 미포함 화면들
-        composable(LOGIN_ROUTE) { /* TODO: Login screen here (placeholder) */ }
+        composable(LOGIN_ROUTE) { /* TODO: Login screen */ }
 
         composable(LOG_MANAGE_ROUTE) { LogManageScreen(navController) }
         composable(ALARM_MANAGE_ROUTE) { AlarmManageScreen(navController) }
@@ -130,23 +130,23 @@ fun EeumApp() {
                 }
             }
         }
+
         composable("$DEVICE_REGISTRATION_QR_ROUTE/{kind}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
             DeviceRegistrationQRScreen(
                 navController = navController,
                 kind = kind,
                 onManualInput = {
-                    navController.navigate("$DEVICE_REGISTRATION_SERIAL_ROUTE/$kind")
+                    navController.navigate("$DEVICE_REGISTRATION_SERIAL_ROUTE/$kind") {
+                        launchSingleTop = true
+                    }
                 }
             )
         }
+
         composable("$DEVICE_REGISTRATION_SERIAL_ROUTE/{kind}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
             DeviceRegistrationSerialScreen(navController) { serial ->
-
-                navController.navigate("$DEVICE_REGISTRATION_BRAND_ROUTE/$kind?serial=$serial") {
-                    launchSingleTop = true
-
                 if (kind == "HUB") {
                     navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") {
                         launchSingleTop = true
@@ -158,6 +158,7 @@ fun EeumApp() {
                 }
             }
         }
+
         composable("$DEVICE_REGISTRATION_BRAND_ROUTE/{kind}?serial={serial}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
             DeviceRegistrationBrandScreen(navController) {
@@ -166,6 +167,7 @@ fun EeumApp() {
                 }
             }
         }
+
         composable("$DEVICE_REGISTRATION_COMPLETE_ROUTE/{kind}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
             DeviceRegistrationCompleteScreen(navController, kind)
@@ -207,7 +209,6 @@ private fun MainTabsScreen(
             )
         },
         bottomBar = {
-            // BottomAppBar 높이는 유지하고, 시스템 내비게이션바 만큼만 아래에 여백 추가
             Column {
                 val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
@@ -224,6 +225,7 @@ private fun MainTabsScreen(
                         }
                     }
                 )
+                // 시스템 내비게이션바 높이만큼만 추가 여백
                 Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
             }
         }

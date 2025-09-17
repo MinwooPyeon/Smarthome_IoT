@@ -31,8 +31,8 @@ import com.example.eeum.ui.theme.EeumTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenMap: () -> Unit = {},   // 카드 클릭과 동일 동작 (요청: 새 집 추가 클릭 시 onCardClick() 실행)
-    onAddHome: () -> Unit = {},   // (기존 파라미터 유지, 아래에서는 사용 안 함)
+    onOpenMap: () -> Unit = {},   // 카드 클릭 동작
+    onAddHome: () -> Unit = {},
     vm: HomeViewModel = viewModel()
 ) {
     // 서버 데이터
@@ -42,7 +42,7 @@ fun HomeScreen(
     // 최초 진입 시 집 목록 조회
     LaunchedEffect(Unit) { vm.fetchUserHomes() }
 
-    // 선택된 집 이름 (UI 표시용)
+    // 선택된 집 이름
     var selectedHomeName by remember { mutableStateOf<String?>(null) }
 
     // homes 갱신 시 초기 선택 & 평면도 자동 조회
@@ -50,7 +50,7 @@ fun HomeScreen(
         if (homes.isNotEmpty()) {
             val initial = selectedHomeName?.let { n -> homes.find { it.homeName == n } } ?: homes.first()
             selectedHomeName = initial.homeName
-            vm.selectHome(initial.homeId) // 내부에서 중복 호출 방지
+            vm.selectHome(initial.homeId)
         } else {
             selectedHomeName = null
             vm.clearFloorplans()
@@ -102,15 +102,16 @@ fun HomeScreen(
             selectedName = selectedHomeName,
             homes = homes,
             onSelect = { home ->
+                //선택 즉시 UI 반영 + 서버에 대표집 설정
                 selectedHomeName = home.homeName
                 vm.selectHome(home.homeId)
+                vm.setPrimaryHome(home.homeId)
             },
             onAddNew = onOpenMap
         )
 
         Spacer(Modifier.height(12.dp))
 
-        // 평면도 카드 (이미지 URL 있으면 이미지, 없으면 + 아이콘)
         FloorplanCard(
             imageUrl = firstImageUrl,
             onCardClick = onOpenMap
@@ -169,7 +170,7 @@ private fun HomeDropdown(
             }
 
             Divider()
-            
+
             DropdownMenuItem(
                 leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
                 text = {
@@ -338,12 +339,13 @@ private fun FloorplanCard(
                         .build(),
                     contentDescription = "평면도",
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit // 평면도 비율 유지
+                    contentScale = ContentScale.Fit
                 )
             }
         }
     }
 }
+
 private fun toAbsoluteUrl(base: String, path: String?): String? {
     if (path.isNullOrBlank()) return null
     val b = base.trimEnd('/')
