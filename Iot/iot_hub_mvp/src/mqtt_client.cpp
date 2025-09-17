@@ -3,11 +3,14 @@
 #include <chrono>
 #include <thread>
 
-static const char* SYS_CA = "/etc/ssl/certs/ca-certificates.crt"; // Ubuntu/RPiOS 기본 CA 번들
-
 bool MqttClient::init(const AppConfig& cfg, const std::string& clientId){
     cfg_ = cfg;
+    const char* caf = cfg_.mqttCAFile.empty()
+                  ? "/etc/ssl/certs/ca-certificates.crt"
+                  : cfg_.mqttCAFile.c_str();
 
+    mosquitto_tls_set(m_, caf, nullptr, nullptr, nullptr, nullptr);
+    mosquitto_tls_insecure_set(m_, cfg_.mqttTLSInsecure);
     mosquitto_lib_init();
     m_ = mosquitto_new(clientId.c_str(), true, this);
     if(!m_) return false;
@@ -17,7 +20,7 @@ bool MqttClient::init(const AppConfig& cfg, const std::string& clientId){
 
     // TLS: 포트가 8883이면 시스템 CA로 TLS 세팅 + 호스트명 검증 생략(개발/테스트 편의)
     if(cfg_.mqttPort == 8883){
-        int trc = mosquitto_tls_set(m_, SYS_CA, nullptr, nullptr, nullptr, nullptr);
+        int trc = mosquitto_tls_set(m_, caf, nullptr, nullptr, nullptr, nullptr);
         if(trc != MOSQ_ERR_SUCCESS){
             std::cerr << "[mqtt] tls_set failed: " << mosquitto_strerror(trc)
                       << " (trying to continue)\n";
