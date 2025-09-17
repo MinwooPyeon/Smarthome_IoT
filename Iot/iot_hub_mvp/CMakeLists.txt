@@ -35,3 +35,11 @@ target_link_libraries(dht11_test pigpio rt pthread)
 add_executable(ir_test src/ir_test.cpp src/ir_receiver.cpp)
 target_include_directories(ir_test PRIVATE include)
 target_link_libraries(ir_test pigpio rt pthread)
+
+add_executable(mqtt_pub_test  src/mqtt_pub_test.cpp  src/mqtt_client.cpp)
+target_include_directories(mqtt_pub_test PRIVATE include)
+target_link_libraries(mqtt_pub_test mosquitto)
+
+add_executable(mqtt_sub_test  src/mqtt_sub_test.cpp  src/mqtt_client.cpp)
+target_include_directories(mqtt_sub_test PRIVATE include)
+target_link_libraries(mqtt_sub_test mosquitto)
