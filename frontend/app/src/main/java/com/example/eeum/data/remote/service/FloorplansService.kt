@@ -1,5 +1,6 @@
 package com.example.eeum.data.remote.service
 
+import com.example.eeum.data.model.response.floorplans.FloorPlan
 import com.example.eeum.data.model.response.floorplans.HouseFloorPlans
 import com.example.eeum.data.model.response.floorplans.MapData
 import com.example.eeum.data.model.response.floorplans.RegisterHome
@@ -25,4 +26,10 @@ interface FloorplansService {
     suspend fun uploadFloorplan(
         @Path("homeId") homeId: Int,
     ): Response<RegisterHome>
+
+    // 특정 평면도 검색
+    @GET("/api/users/homes/{homeId}/floorplans")
+    suspend fun getUserHomeFloorplans(
+        @Path("homeId") homeId: Int
+    ): Response<FloorPlan>
 }
