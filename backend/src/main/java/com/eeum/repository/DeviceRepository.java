@@ -24,7 +24,9 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
 		        irr.device_type               AS type,
 		        d.device_name                 AS deviceName,
 		        d.registered_at               AS registeredAt,
-		        CAST(d.device_detail AS TEXT) AS deviceDetail
+		        CAST(d.device_detail AS TEXT) AS deviceDetail,
+		        dp.x_coordinate               AS x, 
+			  	dp.y_coordinate               AS y 
 		    FROM eeum.device d
 		    JOIN eeum.device_positions dp
 		      ON dp.device_id = d.device_id
@@ -232,6 +234,8 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
         String  getDeviceName();
         Instant getRegisteredAt();
         String  getDeviceDetail(); 
+        Double  getX();
+        Double  getY();
     }
     
     
