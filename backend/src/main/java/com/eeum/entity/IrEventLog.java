@@ -1,12 +1,13 @@
 package com.eeum.entity;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,31 +15,32 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Entity
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder 
-@Table(name = "ir_event_log")
+@Builder
+@Entity
+@Table(schema = "eeum", name = "ir_event_log")
 public class IrEventLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "event_id")
+    private Long eventId;                     
 
-    private Integer txId;
+    @Column(name = "event_time")
+    private OffsetDateTime eventTime;         
 
-    private String deviceId;
+    @Column(name = "kind")
+    private String kind;                      
 
-    private String deviceType;
+    @Column(name = "ir_device_id", nullable = false)
+    private String irDeviceId;                
 
-    private String function;
+    @Column(name = "tx_id", nullable = false)
+    private UUID txId;                        
 
-    @Lob
-    private String rawData;
-
-    private String status;
-
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "model")
+    private String model;                     
 }
