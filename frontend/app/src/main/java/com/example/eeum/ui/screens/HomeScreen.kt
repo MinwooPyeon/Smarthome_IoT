@@ -1,5 +1,6 @@
 package com.example.eeum.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,10 +15,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,19 +30,22 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.eeum.R
 import com.example.eeum.base.ApplicationClass
+import com.example.eeum.data.model.response.device.DeviceItem
 import com.example.eeum.data.model.response.home.Home
 import com.example.eeum.ui.theme.EeumTheme
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenMap: () -> Unit = {},   // 카드 클릭 동작
+    onOpenMap: () -> Unit = {},
     onAddHome: () -> Unit = {},
     vm: HomeViewModel = viewModel()
 ) {
     // 서버 데이터
     val homes by vm.homes.observeAsState(emptyList())
     val floorplans by vm.floorplans.observeAsState(emptyList())
+    val devices by vm.devices.observeAsState(emptyList())
 
     // 최초 진입 시 집 목록 조회
     LaunchedEffect(Unit) { vm.fetchUserHomes() }
@@ -51,6 +59,7 @@ fun HomeScreen(
             val initial = selectedHomeName?.let { n -> homes.find { it.homeName == n } } ?: homes.first()
             selectedHomeName = initial.homeName
             vm.selectHome(initial.homeId)
+            vm.fetchDevicesIcon()
         } else {
             selectedHomeName = null
             vm.clearFloorplans()
@@ -106,6 +115,7 @@ fun HomeScreen(
                 selectedHomeName = home.homeName
                 vm.selectHome(home.homeId)
                 vm.setPrimaryHome(home.homeId)
+                vm.fetchDevicesIcon()
             },
             onAddNew = onOpenMap
         )
@@ -114,6 +124,7 @@ fun HomeScreen(
 
         FloorplanCard(
             imageUrl = firstImageUrl,
+            devices = devices,
             onCardClick = onOpenMap
         )
 
@@ -304,24 +315,39 @@ private fun FloorplanHeader(
 @Composable
 private fun FloorplanCard(
     imageUrl: String?,
+    devices: List<DeviceItem>,
     onCardClick: () -> Unit
 ) {
     val ctx = LocalContext.current
-    val absoluteUrl = remember(imageUrl) {
-        toAbsoluteUrl(ApplicationClass.SERVER_URL, imageUrl)
-    }
+    val absoluteUrl = remember(imageUrl) { toAbsoluteUrl(ApplicationClass.SERVER_URL, imageUrl) }
+
+    val clickableModifier = if (absoluteUrl.isNullOrBlank()) {
+        Modifier.clickable { onCardClick() }
+    } else Modifier
+
+    val density = LocalDensity.current
+    val iconSizeDp = 24.dp
+    val iconSizePx = with(density) { iconSizeDp.toPx() }
+
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+
+    // 이미지의 intrinsic 크기 (픽셀) 저장
+    var imageIntrinsic by remember { mutableStateOf(IntSize.Zero) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .height(300.dp)
-            .clickable { onCardClick() },
+            .then(clickableModifier),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF7FBFF)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .onGloballyPositioned { coords -> containerSize = coords.size },
             contentAlignment = Alignment.Center
         ) {
             if (absoluteUrl.isNullOrBlank()) {
@@ -332,20 +358,88 @@ private fun FloorplanCard(
                     modifier = Modifier.size(32.dp)
                 )
             } else {
+                // 바닥 이미지
                 AsyncImage(
                     model = ImageRequest.Builder(ctx)
                         .data(absoluteUrl)
                         .crossfade(true)
                         .build(),
                     contentDescription = "평면도",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Fit,
+                    onSuccess = { state ->
+                        val dw = state.result.drawable.intrinsicWidth
+                        val dh = state.result.drawable.intrinsicHeight
+                        if (dw > 0 && dh > 0) imageIntrinsic = IntSize(dw, dh)
+                    }
                 )
+
+                // 표시된 이미지(rect) 기준 픽셀로 변환
+                Box(modifier = Modifier.matchParentSize()) {
+                    if (imageIntrinsic.width > 0 && imageIntrinsic.height > 0 && containerSize.width > 0 && containerSize.height > 0) {
+                        // Fit 스케일 계산
+                        val scaleW = containerSize.width.toFloat() / imageIntrinsic.width.toFloat()
+                        val scaleH = containerSize.height.toFloat() / imageIntrinsic.height.toFloat()
+                        val scale = minOf(scaleW, scaleH)
+
+                        val drawnW = imageIntrinsic.width * scale
+                        val drawnH = imageIntrinsic.height * scale
+
+                        // 레터박스로 생긴 여백
+                        val leftMargin = (containerSize.width - drawnW) / 2f
+                        val topMargin  = (containerSize.height - drawnH) / 2f
+
+                        devices.forEach { item ->
+                            // 서버는 [0..1] 정규화 좌표 → 표시 영역으로 스케일
+                            val xPx = (item.x.toFloat() * drawnW)
+                            val yPx = (item.y.toFloat() * drawnH)
+
+                            // 1사분면(y 위로 증가) → Compose(top-down)로 변환
+                            val leftFromLeftPx = (leftMargin + xPx - iconSizePx / 2f)
+                                .coerceIn(0f, containerSize.width - iconSizePx)
+                            val topFromTopPx = (topMargin + (drawnH - yPx) - iconSizePx / 2f)
+                                .coerceIn(0f, containerSize.height - iconSizePx)
+
+                            iconResForDevice(item.deviceType)?.let { resId ->
+                                Image(
+                                    painter = painterResource(id = resId),
+                                    contentDescription = item.deviceName,
+                                    modifier = Modifier
+                                        .size(iconSizeDp)
+                                        .offset {
+                                            IntOffset(
+                                                leftFromLeftPx.toInt(),
+                                                topFromTopPx.toInt()
+                                            )
+                                        }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
 
+private fun iconResForDevice(deviceType: Any?): Int? {
+    val key = deviceType?.toString()?.trim()?.lowercase() ?: return null
+    return when (key) {
+        "에어컨" ->
+            R.drawable.ic_icon_air_conditioning
+        "선풍기" ->
+            R.drawable.ic_icon_electric_fan
+        "텔레비전" ->
+            R.drawable.ic_icon_television
+        "빔프로젝터" ->
+            R.drawable.ic_icon_beam_projector
+        "공기청정기" ->
+            R.drawable.ic_icon_air_purifier
+        "조명" ->
+            R.drawable.ic_icon_light
+        else -> null
+    }
+}
 private fun toAbsoluteUrl(base: String, path: String?): String? {
     if (path.isNullOrBlank()) return null
     val b = base.trimEnd('/')

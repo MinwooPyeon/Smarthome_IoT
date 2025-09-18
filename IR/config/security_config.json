@@ -2,7 +2,7 @@
     "security": {
         "api_token_required": true,
         "api_token": "CHANGE_THIS_SECRET_TOKEN_IN_PRODUCTION",
-        "tls_enabled": false,
+        "tls_enabled": true,
         "tls_cert_path": "/etc/ssl/certs/irremote.crt",
         "tls_key_path": "/etc/ssl/private/irremote.key",
         "tls_ca_path": "/etc/ssl/certs/ca.crt",
@@ -13,8 +13,7 @@
         "security_logging_enabled": true,
         "allowed_origins": [
             "http://localhost:3000",
-            "http://localhost:8080",
-            "https://yourdomain.com"
+            "http://localhost:8080"
         ],
         "password_policy": {
             "min_length": 8,
@@ -34,7 +33,7 @@
         }
     },
     "mqtt_security": {
-        "use_tls": false,
+        "use_tls": true,
         "username_required": true,
         "password_required": true,
         "client_cert_required": false,
@@ -66,4 +65,3 @@
         "log_file_path": "/var/log/irremote/security.log"
     }
 }
-

@@ -4,10 +4,18 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.eeum.entity.IrButton;
+import com.eeum.entity.IrSignal;
 import com.eeum.mqtt.inbound.EnvIn;
+import com.eeum.mqtt.inbound.ErrorIn;
+import com.eeum.mqtt.inbound.IrProtocolIn;
 import com.eeum.mqtt.inbound.IrSignalIn;
+import com.eeum.mqtt.inbound.RequestIn;
+import com.eeum.repository.IrButtonRepository;
+import com.eeum.repository.IrSignalRepository;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -30,7 +38,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 public class MqttIoService {
-
+	
+	@Autowired
+    private IrSignalRepository irSignalRepository;
+	@Autowired
+	private IrButtonRepository irButtonRepository;
+	
     // 알 수 없는 필드는 무시
     private final ObjectMapper om = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -51,11 +64,18 @@ public class MqttIoService {
             if (topic.endsWith("/env")) {
                 handleEnv(payload);
             } 
-            
-            else if (topic.endsWith("/irsignal")) {
+            else if (topic.endsWith("/irSignal")) {
                 handleIr(payload);
             } 
-            
+            else if (topic.endsWith("/irProtocol")) {
+                handleIrProtocol(payload);
+            }
+            else if (topic.endsWith("/error")) {
+                handleError(payload);
+            }
+            else if (topic.endsWith("/request")) {
+                handleRequest(payload);
+            }
             else {
                 log.debug("[MQTT] bypass: {} -> {}", topic, payload);
             }
@@ -65,7 +85,7 @@ public class MqttIoService {
         }
     }
 
-    // hub/{deviceId}/env 처리
+    // hub/{deviceId}/env
     public void handleEnv(String json) {
         try {
             EnvIn m = om.readValue(json, EnvIn.class);
@@ -85,58 +105,126 @@ public class MqttIoService {
                 return;
             }
 
-            // 교정 적용(있으면)
-            Double t = applyOffset(m.getTemperature(), m.getCalib() != null ? m.getCalib().getTOffset() : null);
-            Double h = applyOffset(m.getHumidity(),   m.getCalib() != null ? m.getCalib().getHOffset() : null);
-
             // (TODO) DB 저장/메트릭/알림 등
-            log.info("[ENV] ok device={} ts={} t={} h={} gas={}",
-                    m.getDeviceId(), m.getTs(), t, h, m.getGasDensity());
+            log.info("[ENV] ok device={} ts={} t={} h={} dew={} hi={} abs={} pmv={} ppd={} wbgt={}",
+                    m.getDeviceId(), m.getTs(),
+                    m.getTemperature(), m.getHumidity(),
+                    m.getDewPoint(), m.getHeadIndex(), m.getAbsHumidity(),
+                    m.getPmv(), m.getPpd(), m.getWbgt());
 
         } catch (Exception e) {
             log.error("[ENV] parse/handle error: {}", e.getMessage(), e);
         }
     }
 
-    /**
-     * hub/{deviceId}/irsignal 처리:
-     *  - 파싱 → 검증 → (data 또는 rawData+timing 확인) → 멱등 → (TODO 저장/학습통계)
-     */
+    // hub/{deviceId}/irSignal
     public void handleIr(String json) {
         try {
             IrSignalIn m = om.readValue(json, IrSignalIn.class);
 
-            if (m.getSchema() == null || !m.getSchema().startsWith("irsignal/")) {
-                log.warn("[IR ] invalid schema: {}", m.getSchema());
+            // 필수 방어 (문서 스펙만 사용)
+            if (m.getRawData() == null || m.getRawData().length == 0) {
+                log.warn("[IR] rawData 누락 -> drop");
                 return;
             }
+            if (m.getFunction() == null || m.getFunction().isBlank()) {
+                log.warn("[IR] function 누락 -> drop (device={}, brand={})", m.getDevice(), m.getBrand());
+                return;
+            }
+            if (m.getMsgId() != null && !m.getMsgId().isBlank() && isDup(m.getMsgId())) return;
+
+            final String model = m.getDevice();     // 모델명(예: "AC_123" / "Samsung AC")
+            final String name  = m.getFunction();   // 기능명 → ir_signal.name
+
+            // 1) ir_button upsert (model + category)
+            IrButton button = irButtonRepository.findByModelAndCategory(model, name)
+                .orElseGet(() -> irButtonRepository.save(
+                    IrButton.builder()
+                            .model(model)
+                            .category(name)
+                            .label(name) // 라벨 없으면 기능명과 동일
+                            .build()
+                ));
+
+            // 2) protocol_id 결정 (현재 미정 → 임시 0)
+            final int protocolId = 0;
+
+            // 3) ir_signal upsert (model + name)
+            IrSignal entity = irSignalRepository.findByModelAndName(model, name)
+                .map(sig -> {
+                    sig.setSamplesUs(m.getRawData());
+                    sig.setButtonId(button.getButtonId());   // NOT NULL 충족
+                    if (sig.getProtocolId() == null) sig.setProtocolId(protocolId);
+                    return sig;
+                })
+                .orElseGet(() ->
+                    IrSignal.builder()
+                            .name(name)                        // 기능명
+                            .samplesUs(m.getRawData())
+                            .model(model)
+                            .buttonId(button.getButtonId())    // NOT NULL
+                            .protocolId(protocolId)            // NOT NULL
+                            .frameCount(null)                  // 문서에 없음 → null
+                            .frameLenUs(null)                  // 문서에 없음 → null
+                            .build()
+                );
+
+            irSignalRepository.save(entity);
+            log.info("[IR] {}: model={}, name={}, samples={}",
+                    entity.getSignalId() != null ? "UPSERT" : "INSERT",
+                    model, name, m.getRawData().length);
+
+        } catch (Exception e) {
+            log.error("[IR] 파싱/저장 오류: {}", e.getMessage(), e);
+        }
+    }
+    
+    // hub/{deviceId}/irProtocol
+    public void handleIrProtocol(String json) {
+        try {
+            IrProtocolIn m = om.readValue(json, IrProtocolIn.class);
 
             if (!validate(m)) return;
 
-            boolean hasData = m.getData() != null && !m.getData().isBlank();
-            boolean hasRaw  = m.getRawData() != null && !m.getRawData().isEmpty() && m.getTiming() != null;
-            if (!hasData && !hasRaw) {
-                log.warn("[IR ] neither data nor rawData+timing present (msgId={})", m.getMsgId());
-                return;
-            }
-
-            if (isDup(m.getMsgId())) {
-                log.debug("[IR ] dup msgId={}, drop", m.getMsgId());
-                return;
-            }
-
-            // (TODO) 저장/사전 업데이트/품질 통계
-            int rawCount = (m.getRawData() == null ? 0 : m.getRawData().size());
-            log.info("[IR ] ok device={} ts={} enc={} repeat={} quality={} dataLen={} raw#={}",
-                    m.getDeviceId(), m.getTs(), m.getEncoding(),
-                    m.getRepeat(), m.getQuality(),
-                    (m.getData() == null ? 0 : m.getData().length()),
-                    rawCount);
+            // (TODO) 2단계: protocol DB upsert 정책 반영
+            log.info("[IRP] brand={} device={} proto={} unit={} gap={} avg_len={} header=[{},{}] zero=[{},{}] one=[{},{}]",
+                m.getBrand(), m.getDevice(), m.getProtocolName(), m.getUnit(), m.getGap(), m.getAvgLen(),
+                safe(m.getHeader(),0), safe(m.getHeader(),1), safe(m.getZero(),0), safe(m.getZero(),1),
+                safe(m.getOne(),0), safe(m.getOne(),1));
 
         } catch (Exception e) {
-            log.error("[IR ] parse/handle error: {}", e.getMessage(), e);
+            log.warn("[IRP] parse/handle error: {}", e.getMessage(), e);
         }
     }
+
+    // hub/{deviceId}/error
+    public void handleError(String json) {
+        try {
+            ErrorIn m = om.readValue(json, ErrorIn.class);
+            if (!validate(m)) return;
+
+            // 문서 명세 그대로 출력
+            log.warn("[ERR] tx_id={} error={} msg={}",
+            		m.getTxId(), m.getError(), m.getMessage());
+
+        } catch (Exception e) {
+            log.warn("[ERR] parse/handle error: {}", e.getMessage(), e);
+        }
+    }
+
+    // hub/{deviceId}/request
+    public void handleRequest(String json) {
+        try {
+            RequestIn m = om.readValue(json, RequestIn.class);
+            if (!validate(m)) return;
+
+            log.info("[REQ] type={} streaming={}", m.getType(), m.isStreaming());
+            // (TODO) 2단계: type=env일 때 streaming=true면 서버측 정책에 따라 제어 메시지 발행 or 단순 수신 허용
+        } catch (Exception e) {
+            log.warn("[REQ] parse/handle error: {}", e.getMessage(), e);
+        }
+    }
+    
 
     // ---------- 내부 유틸 ----------
 
@@ -167,9 +255,8 @@ public class MqttIoService {
         return false;
     }
 
-    private static Double applyOffset(Double value, Double offset) {
-        if (value == null) return null;
-        if (offset == null) return value;
-        return value + offset;
+    private static int safe(int[] a, int idx) {
+        if (a == null || a.length <= idx) return -1;
+        return a[idx];
     }
 }

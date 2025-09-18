@@ -32,6 +32,6 @@ public class OrderSystemOut {
     private   RetrySpec retry;
     private   String  replyTo;
 
-    // payload.system
+ 
     @NotBlank private String action;
 }
