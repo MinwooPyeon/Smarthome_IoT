@@ -22,13 +22,9 @@ import lombok.Setter;
 public class IrDevice {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "ir_device_id", nullable = false)
-    private Integer irDeviceId;
-
-    @Column(name = "device_addr")
-    private Integer deviceAddr;
+    private String irDeviceId;
     
     @Column(name = "hub_device_id", nullable = false)
-    private Integer hubDevice;
+    private String hubDevice;
 }
