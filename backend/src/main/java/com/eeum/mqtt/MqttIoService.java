@@ -122,7 +122,7 @@ public class MqttIoService {
         try {
             IrSignalIn m = om.readValue(json, IrSignalIn.class);
 
-            // 최소 방어
+            // 필수 방어 (문서 스펙만 사용)
             if (m.getRawData() == null || m.getRawData().length == 0) {
                 log.warn("[IR] rawData 누락 -> drop");
                 return;
@@ -133,48 +133,46 @@ public class MqttIoService {
             }
             if (m.getMsgId() != null && !m.getMsgId().isBlank() && isDup(m.getMsgId())) return;
 
-            final String model = m.getDevice();      
-            final String func  = m.getFunction();    
+            final String model = m.getDevice();     // 모델명(예: "AC_123" / "Samsung AC")
+            final String name  = m.getFunction();   // 기능명 → ir_signal.name
 
-            
-            IrButton button = irButtonRepository
-                    .findByModelAndCategory(model, func)
-                    .orElseGet(() -> {
-                        IrButton b = IrButton.builder()
-                                .model(model)
-                                .category(func)
-                                .label(func)       // 라벨 없으면 기능명과 동일
-                                .build();
-                        return irButtonRepository.save(b);
-                    });
+            // 1) ir_button upsert (model + category)
+            IrButton button = irButtonRepository.findByModelAndCategory(model, name)
+                .orElseGet(() -> irButtonRepository.save(
+                    IrButton.builder()
+                            .model(model)
+                            .category(name)
+                            .label(name) // 라벨 없으면 기능명과 동일
+                            .build()
+                ));
 
-            // 2) protocol_id 결정 (unknown=0)
-            final int protocolId = 0; // 추후 irProtocol 수신 시 업데이트 가능
+            // 2) protocol_id 결정 (현재 미정 → 임시 0)
+            final int protocolId = 0;
 
-            // 3) ir_signal upsert (model + name=function)
-            IrSignal existing = irSignalRepository.findByModelAndName(model, func).orElse(null);
-
-            IrSignal entity;
-            if (existing != null) {
-                existing.setSamplesUs(m.getRawData());
-                existing.setButtonId(button.getButtonId());
-                existing.setProtocolId(protocolId);
-                entity = existing;
-                log.info("[IR] ♻️ 덮어쓰기: model={}, name={}, samples={}", model, func, m.getRawData().length);
-            } else {
-                entity = IrSignal.builder()
-                        .name(func)
-                        .samplesUs(m.getRawData())
-                        .model(model)
-                        .buttonId(button.getButtonId()) 
-                        .protocolId(protocolId)         
-                        .frameCount(null)               
-                        .frameLenUs(null)               
-                        .build();
-                log.info("[IR] 새로 저장: model={}, name={}, samples={}", model, func, m.getRawData().length);
-            }
+            // 3) ir_signal upsert (model + name)
+            IrSignal entity = irSignalRepository.findByModelAndName(model, name)
+                .map(sig -> {
+                    sig.setSamplesUs(m.getRawData());
+                    sig.setButtonId(button.getButtonId());   // NOT NULL 충족
+                    if (sig.getProtocolId() == null) sig.setProtocolId(protocolId);
+                    return sig;
+                })
+                .orElseGet(() ->
+                    IrSignal.builder()
+                            .name(name)                        // 기능명
+                            .samplesUs(m.getRawData())
+                            .model(model)
+                            .buttonId(button.getButtonId())    // NOT NULL
+                            .protocolId(protocolId)            // NOT NULL
+                            .frameCount(null)                  // 문서에 없음 → null
+                            .frameLenUs(null)                  // 문서에 없음 → null
+                            .build()
+                );
 
             irSignalRepository.save(entity);
+            log.info("[IR] {}: model={}, name={}, samples={}",
+                    entity.getSignalId() != null ? "UPSERT" : "INSERT",
+                    model, name, m.getRawData().length);
 
         } catch (Exception e) {
             log.error("[IR] 파싱/저장 오류: {}", e.getMessage(), e);
