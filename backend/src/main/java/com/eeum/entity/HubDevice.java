@@ -1,7 +1,6 @@
 package com.eeum.entity;
 
-import com.vladmihalcea.hibernate.type.basic.PostgreSQLInetType;
-import org.hibernate.annotations.Type;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -11,11 +10,13 @@ import lombok.*;
 @Table(name = "hub_device", schema = "eeum")
 public class HubDevice {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "hub_device_id")
     private Integer hubDeviceId;
 
-    @Type(PostgreSQLInetType.class)
-    @Column(name = "device_addr", columnDefinition = "inet")
+    @Column(name = "device_addr", columnDefinition = "inet", nullable = false)
+    @JsonAlias("device_addr")
     private String deviceAddr;
+    
+    @Column(name = "user_home_id")
+    private Integer userHomeId;
 }
