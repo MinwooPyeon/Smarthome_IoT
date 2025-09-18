@@ -7,6 +7,7 @@ import com.eeum.dto.response.RoutineDetailResponse;
 import com.eeum.dto.response.RoutineResponse;
 import com.eeum.entity.Routine;
 import com.eeum.entity.RoutineDetail;
+import com.eeum.entity.RoutineIcon;
 import com.eeum.repository.RoutineIconRepository;
 import com.eeum.repository.RoutineRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,9 +19,13 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -125,16 +130,36 @@ public class RoutineService {
             return (actTime == null)
                     ? LocalTime.MAX
                     : actTime.atZone(ZoneId.of("Asia/Seoul")).toLocalTime();
-        })
-                .thenComparing(r -> r.getRoutineId() == null ? Integer.MAX_VALUE : r.getRoutineId());
+        }).thenComparing(r -> r.getRoutineId() == null ? Integer.MAX_VALUE : r.getRoutineId());
 
-        return routineRepository.findAllWithDetailsByUserId(userId).stream()
+        // 루틴 목록 조회
+        List<Routine> routines = routineRepository.findAllWithDetailsByUserId(userId).stream()
                 .filter(r -> weekday == null || weekday == 0
                         || (r.getRoutineWeekday() != null && ((r.getRoutineWeekday() & weekday) != 0)))
                 .sorted(cmp)
-                .map(this::toResponseWithDetails)
+                .toList();
+
+        // 아이콘 id 수집
+        Set<Integer> iconIds = routines.stream()
+                .map(Routine::getIconId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        // 아이콘 URL 매핑
+        Map<Integer, String> iconUrlMap = iconIds.isEmpty()
+                ? Collections.emptyMap()
+                : routineIconRepository.findAllById(iconIds).stream()
+                    .collect(Collectors.toMap(
+                            RoutineIcon::getIconId,
+                            RoutineIcon::getIconUrl
+                    ));
+
+        // 4) DTO 변환
+        return routines.stream()
+                .map(r -> toResponseWithDetails(r, iconUrlMap.get(r.getIconId())))
                 .toList();
     }
+
 
     // 루틴 단건 조회
     @Transactional(readOnly = true)
@@ -146,7 +171,13 @@ public class RoutineService {
         Routine entity = routineRepository.findWithDetailsByRoutineIdAndUserId(routineId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("루틴이 존재하지 않거나 접근 권한이 없습니다."));
 
-        return toResponseWithDetails(entity);
+        String iconUrl = null;
+        if (entity.getIconId() != null) {
+            iconUrl = routineIconRepository.findById(entity.getIconId())
+                    .map(ri -> ri.getIconUrl())
+                    .orElse(null);
+        }
+        return toResponseWithDetails(entity, iconUrl);
     }
 
     // ====================== 내부 헬퍼 ======================
@@ -178,7 +209,7 @@ public class RoutineService {
     }
 
 
-    private RoutineResponse toResponseWithDetails(Routine e) {
+    private RoutineResponse toResponseWithDetails(Routine e, String iconUrl) {
         List<RoutineDetailResponse> detailDtos =
                 (e.getDetails() == null ? List.<RoutineDetailResponse>of()
                         : e.getDetails().stream()
@@ -201,6 +232,7 @@ public class RoutineService {
                 e.getUpdatedAt(),
                 e.getIconId(),
                 e.getIsAi(),
+                iconUrl,
                 detailDtos
         );
     }
