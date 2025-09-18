@@ -46,6 +46,11 @@ bool MqttClient::subscribe(const std::string& topic, int qos){
     return mosquitto_subscribe(m_, nullptr, topic.c_str(), qos) == MOSQ_ERR_SUCCESS;
 }
 
+bool MqttClient::unsubscribe(const std::string &topic)
+{
+    return mosquitto_unsubscribe(m_, nullptr, topic.c_str());
+}
+
 bool MqttClient::publish(const std::string& topic, const std::string& payload, int qos, bool retain){
     return mosquitto_publish(m_, nullptr, topic.c_str(), (int)payload.size(),
                              payload.data(), qos, retain) == MOSQ_ERR_SUCCESS;
