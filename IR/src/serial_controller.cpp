@@ -76,15 +76,46 @@ void SerialController::loop() {
             char c = data[i];
 
             if (c == '\n' || c == '\r') {
-                if (!m_input_buffer.empty()) {
-                    processInput();
-                    m_input_buffer.clear();
-                }
+                // 개행 문자는 무시하고 계속 누적
+                continue;
             } else if (m_input_buffer.length() < MAX_BUFFER_SIZE - 1) {
                 m_input_buffer += c;
             } else {
                 // 버퍼 오버플로우
                 ESP_LOGW(TAG, "입력 버퍼 오버플로우");
+                m_input_buffer.clear();
+            }
+        }
+
+        // JSON 완성도 체크 (중괄호 균형 확인)
+        if (!m_input_buffer.empty()) {
+            int open_braces = 0;
+            int close_braces = 0;
+            bool in_string = false;
+            bool escaped = false;
+
+            for (char c : m_input_buffer) {
+                if (escaped) {
+                    escaped = false;
+                    continue;
+                }
+                if (c == '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (c == '"') {
+                    in_string = !in_string;
+                    continue;
+                }
+                if (!in_string) {
+                    if (c == '{') open_braces++;
+                    else if (c == '}') close_braces++;
+                }
+            }
+
+            // JSON이 완성되었는지 확인 (중괄호 균형 + 최소 길이)
+            if (open_braces > 0 && open_braces == close_braces && m_input_buffer.length() > 10) {
+                processInput();
                 m_input_buffer.clear();
             }
         }
@@ -166,8 +197,13 @@ void SerialController::processCommand(const std::string& json_str) {
     // 입력 데이터 sanitization
     std::string sanitized_input = sanitizeInput(json_str);
 
+    if (m_debug_mode) {
+        ESP_LOGI(TAG, "Sanitized input: %s", sanitized_input.c_str());
+    }
+
     // JSON 유효성 검증
     if (!validateJson(sanitized_input)) {
+        ESP_LOGE(TAG, "JSON 유효성 검증 실패: %s", sanitized_input.c_str());
         sendError("INVALID_JSON", "잘못된 JSON 형식");
         return;
     }
@@ -175,7 +211,7 @@ void SerialController::processCommand(const std::string& json_str) {
     cJSON *doc = cJSON_Parse(sanitized_input.c_str());
 
     if (doc == NULL) {
-        ESP_LOGE(TAG, "JSON 파싱 오류");
+        ESP_LOGE(TAG, "JSON 파싱 오류: %s", sanitized_input.c_str());
         sendError("JSON_PARSE_ERROR", "JSON 파싱 실패");
         return;
     }
@@ -246,6 +282,7 @@ std::string SerialController::handleDefaultCommand(const std::string& command, c
         cJSON_AddItemToArray(commands, cJSON_CreateString("status"));
         cJSON_AddItemToArray(commands, cJSON_CreateString("help"));
         cJSON_AddItemToArray(commands, cJSON_CreateString("ir_send"));
+        cJSON_AddItemToArray(commands, cJSON_CreateString("raw_send"));
         cJSON_AddItemToArray(commands, cJSON_CreateString("ir_receive"));
         cJSON_AddItemToArray(commands, cJSON_CreateString("wifi_info"));
         cJSON_AddItemToObject(help, "available_commands", commands);
@@ -301,7 +338,7 @@ void SerialController::setRateLimit(int max_messages_per_second) {
 bool SerialController::validateCommand(const std::string& command) const {
     // 허용된 명령어 목록
     static const std::vector<std::string> allowed_commands = {
-        "ping", "status", "ir_send", "ir_receive", "config_get", "config_set",
+        "ping", "status", "ir_send", "raw_send", "ir_receive", "config_get", "config_set",
         "device_list", "device_control", "system_info", "restart",
         "mqtt_status", "ir_status"
     };
