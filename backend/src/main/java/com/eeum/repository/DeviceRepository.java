@@ -21,7 +21,7 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
 		        d.ir_device_id                AS irDeviceId,
 		        irr.brand                     AS brand,
 		        d.model                       AS model,
-		        irr.device_type               AS type,
+		        irr.device_type               AS deviceType,
 		        d.device_name                 AS deviceName,
 		        d.registered_at               AS registeredAt,
 		        CAST(d.device_detail AS TEXT) AS deviceDetail
