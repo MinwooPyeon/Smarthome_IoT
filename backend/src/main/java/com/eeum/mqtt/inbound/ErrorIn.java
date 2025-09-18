@@ -1,7 +1,7 @@
 package com.eeum.mqtt.inbound;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,11 +16,16 @@ import lombok.Setter;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ErrorIn {
 
-    @NotNull
-    @JsonAlias("tx_id")
-    private Integer txId;       
+	@NotNull
+    @JsonProperty("tx_id")   
+    private Integer txId;
 
     @NotBlank
-    private String error;       
+    @JsonProperty("error")
+    private String error;
+
+    @NotBlank
+    @JsonProperty("message")
+    private String message;
 
 }
