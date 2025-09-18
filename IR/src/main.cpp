@@ -742,6 +742,14 @@ void setup() {
     ESP_LOGI(TAG, "Free heap: %d bytes", esp_get_free_heap_size());
     ESP_LOGI(TAG, "Chip revision: %d", esp_chip_info_t().revision);
 
+    // 보안 시스템 초기화 (현재 비활성화 - 컴파일 오류 방지)
+    // if (Security::initialize()) {
+    //     ESP_LOGI(TAG, "보안 시스템 초기화 성공");
+    // } else {
+    //     ESP_LOGE(TAG, "보안 시스템 초기화 실패");
+    // }
+    ESP_LOGI(TAG, "보안 시스템 초기화 건너뜀 (개발 중)");
+
     // 독립 실행을 위한 설정
     ESP_LOGI(TAG, "독립 실행 모드 활성화");
 
