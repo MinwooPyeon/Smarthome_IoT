@@ -1,0 +1,11 @@
+# ESP32 IR Remote Controller - Python Dependencies
+# Python 스크립트 실행에 필요한 라이브러리들
+
+# MQTT 클라이언트 라이브러리
+paho-mqtt>=1.6.1
+
+# QR 코드 생성 라이브러리
+qrcode[pil]>=7.4.2
+
+# 추가 유틸리티 (선택사항)
+# Pillow>=9.0.0  # 이미지 처리 (qrcode[pil]에 포함됨)

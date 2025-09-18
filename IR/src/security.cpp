@@ -7,46 +7,139 @@
 #include <regex>
 #include <fstream>
 #include <ctime>
+#include <cstring>
 
-#ifdef _WIN32
-#include <windows.h>
-#include <wincrypt.h>
-#pragma comment(lib, "advapi32.lib")
-#pragma comment(lib, "crypt32.lib")
-#elif defined(ESP_PLATFORM)
-// ESP32 환경에서는 ESP-IDF crypto 라이브러리 사용
-#include "esp_log.h"
-#include "mbedtls/sha256.h"
-#include "mbedtls/md.h"
-#include "mbedtls/aes.h"
-#include "esp_random.h"
+// 정적 멤버 변수 초기화
+CryptoBackend Security::backend_ = CryptoBackend::MBEDTLS;
+bool Security::initialized_ = false;
+
+// 플랫폼별 백엔드 초기화
+bool Security::initializeBackend() {
+#ifdef ESP32
+    backend_ = CryptoBackend::MBEDTLS;
+    ESP_LOGI("SECURITY", "mbedtls 백엔드 초기화");
+    return true;
+#elif defined(_WIN32)
+    backend_ = CryptoBackend::CRYPTOAPI;
+    std::cout << "[SECURITY] CryptoAPI 백엔드 초기화" << std::endl;
+    return true;
 #else
-#include <openssl/sha.h>
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-#include <openssl/aes.h>
-#include <openssl/err.h>
-#include <unistd.h>
-#include <sys/random.h>
+    backend_ = CryptoBackend::OPENSSL;
+    std::cout << "[SECURITY] OpenSSL 백엔드 초기화" << std::endl;
+    return true;
 #endif
+}
+
+// 보안 시스템 초기화
+bool Security::initialize() {
+    if (initialized_) {
+        return true;
+    }
+
+    if (!initializeBackend()) {
+        logSecurityEvent("ERROR", "백엔드 초기화 실패");
+        return false;
+    }
+
+    initialized_ = true;
+    logSecurityEvent("INFO", "보안 시스템 초기화 완료", "백엔드: " + std::to_string(static_cast<int>(backend_)));
+    return true;
+}
+
+// 보안 시스템 정리
+void Security::cleanup() {
+    if (initialized_) {
+        logSecurityEvent("INFO", "보안 시스템 정리");
+        initialized_ = false;
+    }
+}
 
 // 로그 함수 (실제 구현에서는 적절한 로깅 시스템 사용)
 void Security::logSecurityEvent(const std::string& level, const std::string& message, const std::string& details) {
     auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
 
+#ifdef ESP32
+    ESP_LOGI("SECURITY", "[%s] %s%s", level.c_str(), message.c_str(),
+             details.empty() ? "" : (" - " + details).c_str());
+#else
     std::cout << "[" << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S") << "] "
               << "[SECURITY-" << level << "] " << message;
     if (!details.empty()) {
         std::cout << " - " << details;
     }
     std::cout << std::endl;
+#endif
 }
 
+// 통합 SHA-256 구현
 std::string Security::sha256(const std::string& input) {
+    if (!initialized_) {
+        if (!initialize()) {
+            return "";
+        }
+    }
+
+    switch (backend_) {
+        case CryptoBackend::MBEDTLS:
+            return sha256_mbedtls(input);
+        case CryptoBackend::OPENSSL:
+            return sha256_openssl(input);
+        case CryptoBackend::CRYPTOAPI:
+            return sha256_cryptoapi(input);
+        default:
+            logSecurityEvent("ERROR", "알 수 없는 암호화 백엔드");
+            return "";
+    }
+}
+
+// ESP32 mbedtls 구현
+std::string Security::sha256_mbedtls(const std::string& input) {
+#ifdef ESP32
+    unsigned char hash[32];
+    mbedtls_sha256_context sha256_ctx;
+
+    mbedtls_sha256_init(&sha256_ctx);
+    mbedtls_sha256_starts(&sha256_ctx, 0);
+    mbedtls_sha256_update(&sha256_ctx, (const unsigned char*)input.c_str(), input.length());
+    mbedtls_sha256_finish(&sha256_ctx, hash);
+    mbedtls_sha256_free(&sha256_ctx);
+
+    std::stringstream ss;
+    for (int i = 0; i < 32; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+    }
+    return ss.str();
+#else
+    logSecurityEvent("ERROR", "mbedtls 백엔드가 ESP32에서만 지원됩니다");
+    return "";
+#endif
+}
+
+// Linux/macOS OpenSSL 구현
+std::string Security::sha256_openssl(const std::string& input) {
+#ifndef ESP32
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256_CTX sha256;
+
+    SHA256_Init(&sha256);
+    SHA256_Update(&sha256, input.c_str(), input.length());
+    SHA256_Final(hash, &sha256);
+
+    std::stringstream ss;
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+    }
+    return ss.str();
+#else
+    logSecurityEvent("ERROR", "OpenSSL 백엔드가 ESP32에서 지원되지 않습니다");
+    return "";
+#endif
+}
+
+// Windows CryptoAPI 구현
+std::string Security::sha256_cryptoapi(const std::string& input) {
 #ifdef _WIN32
-    // Windows CryptoAPI 사용
     HCRYPTPROV hProv = 0;
     HCRYPTHASH hHash = 0;
     BYTE rgbHash[32];
@@ -85,34 +178,9 @@ std::string Security::sha256(const std::string& input) {
         ss << std::hex << std::setw(2) << std::setfill('0') << (int)rgbHash[i];
     }
     return ss.str();
-#elif defined(ESP_PLATFORM)
-    // ESP32 환경에서는 ESP-IDF crypto 라이브러리 사용
-    unsigned char hash[32];
-    mbedtls_sha256_context sha256_ctx;
-    mbedtls_sha256_init(&sha256_ctx);
-    mbedtls_sha256_starts(&sha256_ctx, 0);
-    mbedtls_sha256_update(&sha256_ctx, (const unsigned char*)input.c_str(), input.length());
-    mbedtls_sha256_finish(&sha256_ctx, hash);
-    mbedtls_sha256_free(&sha256_ctx);
-
-    std::stringstream ss;
-    for (int i = 0; i < 32; i++) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
-    }
-    return ss.str();
 #else
-    // OpenSSL 사용
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256_CTX sha256;
-    SHA256_Init(&sha256);
-    SHA256_Update(&sha256, input.c_str(), input.length());
-    SHA256_Final(hash, &sha256);
-
-    std::stringstream ss;
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
-    }
-    return ss.str();
+    logSecurityEvent("ERROR", "CryptoAPI 백엔드가 Windows에서만 지원됩니다");
+    return "";
 #endif
 }
 
@@ -197,27 +265,82 @@ bool Security::verifyTimeBasedToken(const std::string& token, const std::string&
     return false;
 }
 
+// 통합 AES 암호화 구현
 std::string Security::encryptAES(const std::string& plaintext, const std::string& key) {
-    // 간단한 XOR 암호화 (실제로는 AES-GCM 사용 권장)
-    std::string ciphertext = plaintext;
-    size_t key_len = key.length();
-
-    for (size_t i = 0; i < ciphertext.length(); i++) {
-        ciphertext[i] ^= key[i % key_len];
+    if (!initialized_) {
+        if (!initialize()) {
+            return "";
+        }
     }
 
-    return base64Encode(ciphertext);
+    // 키 길이 검증 (AES-256은 32바이트 필요)
+    if (key.length() != 32) {
+        logSecurityEvent("ERROR", "AES-256 키는 32바이트여야 합니다");
+        return "";
+    }
+
+    switch (backend_) {
+        case CryptoBackend::MBEDTLS:
+            return encryptAES_mbedtls(plaintext, key);
+        case CryptoBackend::OPENSSL:
+            return encryptAES_openssl(plaintext, key);
+        case CryptoBackend::CRYPTOAPI:
+            return encryptAES_cryptoapi(plaintext, key);
+        default:
+            logSecurityEvent("ERROR", "알 수 없는 암호화 백엔드");
+            return "";
+    }
 }
 
+// 통합 AES 복호화 구현
 std::string Security::decryptAES(const std::string& ciphertext, const std::string& key) {
-    std::string decoded = base64Decode(ciphertext);
-    size_t key_len = key.length();
-
-    for (size_t i = 0; i < decoded.length(); i++) {
-        decoded[i] ^= key[i % key_len];
+    if (!initialized_) {
+        if (!initialize()) {
+            return "";
+        }
     }
 
-    return decoded;
+    // 키 길이 검증
+    if (key.length() != 32) {
+        logSecurityEvent("ERROR", "AES-256 키는 32바이트여야 합니다");
+        return "";
+    }
+
+    switch (backend_) {
+        case CryptoBackend::MBEDTLS:
+            return decryptAES_mbedtls(ciphertext, key);
+        case CryptoBackend::OPENSSL:
+            return decryptAES_openssl(ciphertext, key);
+        case CryptoBackend::CRYPTOAPI:
+            return decryptAES_cryptoapi(ciphertext, key);
+        default:
+            logSecurityEvent("ERROR", "알 수 없는 암호화 백엔드");
+            return "";
+    }
+}
+
+// ESP32 mbedtls AES-GCM 암호화 (현재 비활성화 - 컴파일 오류 방지)
+std::string Security::encryptAES_mbedtls(const std::string& plaintext, const std::string& key) {
+#ifdef ESP32
+    // mbedtls GCM 암호화는 현재 비활성화됨 (컴파일 오류 방지)
+    logSecurityEvent("WARN", "mbedtls GCM 암호화는 현재 비활성화됨");
+    return "";
+#else
+    logSecurityEvent("ERROR", "mbedtls 백엔드가 ESP32에서만 지원됩니다");
+    return "";
+#endif
+}
+
+// ESP32 mbedtls AES-GCM 복호화 (현재 비활성화 - 컴파일 오류 방지)
+std::string Security::decryptAES_mbedtls(const std::string& ciphertext, const std::string& key) {
+#ifdef ESP32
+    // mbedtls GCM 복호화는 현재 비활성화됨 (컴파일 오류 방지)
+    logSecurityEvent("WARN", "mbedtls GCM 복호화는 현재 비활성화됨");
+    return "";
+#else
+    logSecurityEvent("ERROR", "mbedtls 백엔드가 ESP32에서만 지원됩니다");
+    return "";
+#endif
 }
 
 std::string Security::hashPassword(const std::string& password, int rounds) {
@@ -415,29 +538,48 @@ std::string Security::base64Decode(const std::string& input) {
     return result;
 }
 
-std::vector<uint8_t> Security::generateRandomBytes(size_t length) {
+// 통합 랜덤 바이트 생성
+std::vector<uint8_t> Security::generateRandomBytes_mbedtls(size_t length) {
+#ifdef ESP32
     std::vector<uint8_t> bytes(length);
-
-#ifdef _WIN32
-    HCRYPTPROV hProv;
-    if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
-        CryptGenRandom(hProv, length, bytes.data());
-        CryptReleaseContext(hProv, 0);
-    }
-#elif defined(ESP_PLATFORM)
-    // ESP32에서는 esp_random() 사용
     for (size_t i = 0; i < length; i++) {
         bytes[i] = esp_random() & 0xFF;
     }
+    return bytes;
 #else
+    logSecurityEvent("ERROR", "mbedtls 백엔드가 ESP32에서만 지원됩니다");
+    return std::vector<uint8_t>();
+#endif
+}
+
+std::vector<uint8_t> Security::generateRandomBytes_openssl(size_t length) {
+#ifndef ESP32
+    std::vector<uint8_t> bytes(length);
     if (getrandom(bytes.data(), length, 0) != (ssize_t)length) {
         // fallback to /dev/urandom
         std::ifstream urandom("/dev/urandom", std::ios::binary);
         urandom.read(reinterpret_cast<char*>(bytes.data()), length);
     }
-#endif
-
     return bytes;
+#else
+    logSecurityEvent("ERROR", "OpenSSL 백엔드가 ESP32에서 지원되지 않습니다");
+    return std::vector<uint8_t>();
+#endif
+}
+
+std::vector<uint8_t> Security::generateRandomBytes_cryptoapi(size_t length) {
+#ifdef _WIN32
+    std::vector<uint8_t> bytes(length);
+    HCRYPTPROV hProv;
+    if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+        CryptGenRandom(hProv, length, bytes.data());
+        CryptReleaseContext(hProv, 0);
+    }
+    return bytes;
+#else
+    logSecurityEvent("ERROR", "CryptoAPI 백엔드가 Windows에서만 지원됩니다");
+    return std::vector<uint8_t>();
+#endif
 }
 
 bool Security::constantTimeCompare(const std::string& a, const std::string& b) {

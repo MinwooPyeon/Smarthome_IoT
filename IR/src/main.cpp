@@ -14,7 +14,7 @@
 #include "esp_timer.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
-#include "cJSON.h"
+#include "ArduinoJson.h"
 #include "WiFiClientSecure.h"
 #include "PubSubClient.h"
 
@@ -32,38 +32,38 @@ MqttClient* g_mqtt_client = nullptr;
 SerialController* g_serial_controller = nullptr;
 IRSend* g_ir_sender = nullptr;
 
-// SSL MQTT 클라이언트
+// TLS MQTT 클라이언트
 WiFiClientSecure g_secure_client;
 PubSubClient g_mqtt_client_ssl(g_secure_client);
 
 // WiFi 및 MQTT 설정은 platformio.ini에서 정의됨
 // 매크로가 정의되지 않은 경우를 위한 기본값
 #ifndef WIFI_SSID
-#define WIFI_SSID "iPhone"
+#define WIFI_SSID "default_wifi"
 #endif
 #ifndef WIFI_PASSWORD
-#define WIFI_PASSWORD "49555412"
+#define WIFI_PASSWORD "default_password"
 #endif
 #ifndef MQTT_BROKER
-#define MQTT_BROKER "43.201.62.254"
+#define MQTT_BROKER "localhost"
 #endif
 #ifndef MQTT_PORT
-#define MQTT_PORT 8883
+#define MQTT_PORT 1883
 #endif
 #ifndef MQTT_CLIENT_ID
 #define MQTT_CLIENT_ID "esp32_ir_controller"
 #endif
 #ifndef DEVICE_ID
-#define DEVICE_ID "test-device"
+#define DEVICE_ID "esp32_ir_01"
 #endif
 #ifndef MQTT_USERNAME
-#define MQTT_USERNAME "eeum"
+#define MQTT_USERNAME ""
 #endif
 #ifndef MQTT_PASSWORD
-#define MQTT_PASSWORD "ssafy2086eeum"
+#define MQTT_PASSWORD ""
 #endif
-#ifndef MQTT_USE_SSL
-#define MQTT_USE_SSL 1
+#ifndef MQTT_USE_TLS
+#define MQTT_USE_TLS 0
 #endif
 
 // task 핸들
@@ -73,16 +73,16 @@ TaskHandle_t mqtt_task_handle = NULL;
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                               int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        ESP_LOGI(TAG, "WiFi Station 시작됨");
+        ESP_LOGI(TAG, "WiFi Station 시작");
         // 자동 연결 비활성화 - initWiFi()에서 수동으로 연결
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        ESP_LOGI(TAG, "WiFi 연결 끊어짐, 재연결 시도...");
+        ESP_LOGI(TAG, "WiFi 재연결 시도");
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
-        ESP_LOGI(TAG, "WiFi AP에 연결됨, IP 할당 대기 중...");
+        ESP_LOGI(TAG, "WiFi AP에 연결됨, IP 할당 대기");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "WiFi 연결 성공!");
+        ESP_LOGI(TAG, "WiFi 연결 성공");
         ESP_LOGI(TAG, "IP 주소: " IPSTR, IP2STR(&event->ip_info.ip));
         ESP_LOGI(TAG, "게이트웨이: " IPSTR, IP2STR(&event->ip_info.gw));
         ESP_LOGI(TAG, "넷마스크: " IPSTR, IP2STR(&event->ip_info.netmask));
@@ -91,7 +91,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 
 // WiFi 연결 함수
 void initWiFi() {
-    ESP_LOGI(TAG, "WiFi 초기화 시작...");
+    ESP_LOGI(TAG, "WiFi 초기화 시작");
 
     esp_err_t ret = esp_netif_init();
     if (ret != ESP_OK) {
@@ -143,7 +143,7 @@ void initWiFi() {
         return;
     }
 
-    ESP_LOGI(TAG, "WiFi 초기화 완료 대기 중...");
+    ESP_LOGI(TAG, "WiFi 초기화 완료 대기");
     vTaskDelay(pdMS_TO_TICKS(2000)); // 2초 대기
 
     // WiFi 모듈 상태 확인
@@ -152,7 +152,7 @@ void initWiFi() {
     ESP_LOGI(TAG, "WiFi 모드: %d", wifi_mode);
 
     // WiFi 스캔으로 사용 가능한 네트워크 확인 (ESP32-WROOM-32E 최적화)
-    ESP_LOGI(TAG, "WiFi 네트워크 스캔 중... (ESP32-WROOM-32E)");
+    ESP_LOGI(TAG, "WiFi 네트워크 스캔 (ESP32-WROOM-32E)");
     wifi_scan_config_t scan_config = {};
     scan_config.ssid = NULL;
     scan_config.bssid = NULL;
@@ -205,14 +205,14 @@ void initWiFi() {
         ESP_LOGW(TAG, "WiFi 네트워크를 찾을 수 없습니다. iPhone 핫스팟을 확인해주세요.");
     }
 
-    ESP_LOGI(TAG, "WiFi 연결 시도 중...");
+    ESP_LOGI(TAG, "WiFi 연결 시도");
     ESP_LOGI(TAG, "SSID: %s", WIFI_SSID);
 
     // WiFi 스캔 완료 후 연결 시도
     esp_wifi_connect();
 
     // 연결 대기 (최대 10초)
-    ESP_LOGI(TAG, "WiFi 연결 대기 중...");
+    ESP_LOGI(TAG, "WiFi 연결 대기");
     vTaskDelay(pdMS_TO_TICKS(10000)); // 10초 대기
 
     // 연결 상태 확인
@@ -243,72 +243,29 @@ void initWiFi() {
         }
 
         if (!target_found) {
-            ESP_LOGE(TAG, "목표 네트워크 '%s'를 찾을 수 없습니다!", WIFI_SSID);
+            ESP_LOGE(TAG, "목표 네트워크 '%s'를 찾을 수 없음", WIFI_SSID);
         } else {
-            ESP_LOGW(TAG, "네트워크는 발견되었지만 연결에 실패했습니다. 재시도 중...");
+            ESP_LOGW(TAG, "네트워크는 발견되었지만 연결에 실패, 재시도");
             esp_wifi_connect();
         }
     }
 }
 
-// MQTT 메시지 콜백
-void onMQTTMessage(const std::string& topic, const std::string& message) {
-    ESP_LOGI(TAG, "MQTT 메시지 수신: %s -> %s", topic.c_str(), message.c_str());
 
-    // 먼저 JSON 형식인지 확인
-    cJSON *doc = cJSON_Parse(message.c_str());
-    if (doc != NULL) {
-        // JSON 형식인 경우
-        cJSON *ir_code = cJSON_GetObjectItem(doc, "ir_code");
+// 오류 메시지 전송 함수 (에러 타입 + 에러 메시지)
+void sendErrorMessage(int tx_id, const std::string& error_type, const std::string& error_message) {
+    DynamicJsonDocument error_doc(512);
+    error_doc["tx_id"] = tx_id;
+    error_doc["error"] = error_type.c_str();
+    error_doc["message"] = error_message.c_str();
 
-        if (cJSON_IsString(ir_code)) {
-            // IR 코드가 직접 전달된 경우 - 그대로 전송
-            std::string ir_code_str = std::string(ir_code->valuestring);
-            ESP_LOGI(TAG, "JSON IR 코드 전송: %s", ir_code_str.c_str());
+    std::string error_str;
+    serializeJson(error_doc, error_str);
+    std::string error_topic = "hub/" + std::string(DEVICE_ID) + "/error";
 
-            if (g_ir_sender) {
-                auto result = g_ir_sender->sendIRCode(ir_code_str);
-                ESP_LOGI(TAG, "IR 송신 결과: %s", result.result == IRSendResult::SUCCESS ? "성공" : "실패");
-
-                // 결과를 MQTT로 전송
-                if (g_mqtt_client && g_mqtt_client->isConnected()) {
-                    cJSON *response = cJSON_CreateObject();
-                    cJSON_AddStringToObject(response, "ir_code", ir_code_str.c_str());
-                    cJSON_AddBoolToObject(response, "success", (result.result == IRSendResult::SUCCESS));
-                    cJSON_AddNumberToObject(response, "timestamp", esp_timer_get_time() / 1000);
-
-                char *response_str = cJSON_Print(response);
-                g_mqtt_client->publish("eeum/test", response_str);
-                free(response_str);
-                cJSON_Delete(response);
-                }
-            }
-        } else {
-            ESP_LOGW(TAG, "JSON 메시지에 ir_code가 없음: %s", message.c_str());
-        }
-        cJSON_Delete(doc);
-    } else {
-        // JSON이 아닌 경우 - 텍스트 메시지로 처리
-        ESP_LOGI(TAG, "텍스트 메시지 수신: %s", message.c_str());
-
-        // 텍스트 메시지를 IR 코드로 처리
-        if (g_ir_sender) {
-            auto result = g_ir_sender->sendIRCode(message);
-            ESP_LOGI(TAG, "텍스트 IR 송신 결과: %s", result.result == IRSendResult::SUCCESS ? "성공" : "실패");
-
-            // 결과를 MQTT로 전송
-            if (g_mqtt_client && g_mqtt_client->isConnected()) {
-                cJSON *response = cJSON_CreateObject();
-                cJSON_AddStringToObject(response, "message", message.c_str());
-                cJSON_AddBoolToObject(response, "success", (result.result == IRSendResult::SUCCESS));
-                cJSON_AddNumberToObject(response, "timestamp", esp_timer_get_time() / 1000);
-
-                char *response_str = cJSON_Print(response);
-                g_mqtt_client->publish("eeum/test", response_str);
-                free(response_str);
-                cJSON_Delete(response);
-            }
-        }
+    if (g_mqtt_client_ssl.connected()) {
+        g_mqtt_client_ssl.publish(error_topic.c_str(), error_str.c_str());
+        ESP_LOGI(TAG, "오류 메시지 전송: %s", error_str.c_str());
     }
 }
 
@@ -316,417 +273,350 @@ void onMQTTMessage(const std::string& topic, const std::string& message) {
 void sendAckMessage(const std::string& msgId, const std::string& corrId,
                    const std::string& status, const std::string& detail,
                    int durationMs = 0, int retries = 0) {
-    cJSON *ack = cJSON_CreateObject();
-    cJSON_AddNumberToObject(ack, "ts", esp_timer_get_time() / 1000);
-    cJSON_AddStringToObject(ack, "deviceId", DEVICE_ID);
-    cJSON_AddStringToObject(ack, "schema", "ack/1.0");
-    cJSON_AddStringToObject(ack, "corrId", corrId.c_str());
-    cJSON_AddStringToObject(ack, "msgId", msgId.c_str());
-    cJSON_AddStringToObject(ack, "status", status.c_str());
+    DynamicJsonDocument ack_doc(1024);
+    ack_doc["ts"] = esp_timer_get_time() / 1000;
+    ack_doc["deviceId"] = DEVICE_ID;
+    ack_doc["schema"] = "ack/1.0";
+    ack_doc["corrId"] = corrId.c_str();
+    ack_doc["msgId"] = msgId.c_str();
+    ack_doc["status"] = status.c_str();
 
-    cJSON *result = cJSON_CreateObject();
-    cJSON_AddNumberToObject(result, "code", 0);
-    cJSON_AddStringToObject(result, "detail", detail.c_str());
-    cJSON_AddItemToObject(ack, "result", result);
+    JsonObject result = ack_doc.createNestedObject("result");
+    result["code"] = 0;
+    result["detail"] = detail.c_str();
 
-    cJSON_AddNumberToObject(ack, "durationMs", durationMs);
-    cJSON_AddNumberToObject(ack, "retries", retries);
+    ack_doc["durationMs"] = durationMs;
+    ack_doc["retries"] = retries;
 
-    char *ack_str = cJSON_Print(ack);
+    std::string ack_str;
+    serializeJson(ack_doc, ack_str);
     std::string ack_topic = "hub/" + std::string(DEVICE_ID) + "/order/ack";
 
     if (g_mqtt_client_ssl.connected()) {
-        g_mqtt_client_ssl.publish(ack_topic.c_str(), ack_str);
-        ESP_LOGI(TAG, "응답 메시지 전송: %s", ack_str);
+        g_mqtt_client_ssl.publish(ack_topic.c_str(), ack_str.c_str());
+        ESP_LOGI(TAG, "응답 메시지 전송: %s", ack_str.c_str());
     }
-
-    free(ack_str);
-    cJSON_Delete(ack);
 }
 
 // 에러 메시지 전송 함수
 void sendErrorMessage(const std::string& level, const std::string& code,
                      const std::string& detail, const std::string& orderMsgId = "") {
-    cJSON *error = cJSON_CreateObject();
-    cJSON_AddNumberToObject(error, "ts", esp_timer_get_time() / 1000);
-    cJSON_AddStringToObject(error, "deviceId", DEVICE_ID);
-    cJSON_AddStringToObject(error, "schema", "error/1.0");
-    cJSON_AddStringToObject(error, "level", level.c_str());
-    cJSON_AddStringToObject(error, "code", code.c_str());
-    cJSON_AddStringToObject(error, "detail", detail.c_str());
+    DynamicJsonDocument error_doc(512);
+    error_doc["ts"] = esp_timer_get_time() / 1000;
+    error_doc["deviceId"] = DEVICE_ID;
+    error_doc["schema"] = "error/1.0";
+    error_doc["level"] = level.c_str();
+    error_doc["code"] = code.c_str();
+    error_doc["detail"] = detail.c_str();
 
     if (!orderMsgId.empty()) {
-        cJSON *ctx = cJSON_CreateObject();
-        cJSON_AddStringToObject(ctx, "orderMsgId", orderMsgId.c_str());
-        cJSON_AddItemToObject(error, "ctx", ctx);
+        JsonObject ctx = error_doc.createNestedObject("ctx");
+        ctx["orderMsgId"] = orderMsgId.c_str();
     }
 
-    char *error_str = cJSON_Print(error);
+    std::string error_str;
+    serializeJson(error_doc, error_str);
     std::string error_topic = "hub/" + std::string(DEVICE_ID) + "/error";
 
     if (g_mqtt_client_ssl.connected()) {
-        g_mqtt_client_ssl.publish(error_topic.c_str(), error_str);
-        ESP_LOGI(TAG, "에러 메시지 전송: %s", error_str);
+        g_mqtt_client_ssl.publish(error_topic.c_str(), error_str.c_str());
+        ESP_LOGI(TAG, "에러 메시지 전송: %s", error_str.c_str());
     }
-
-    free(error_str);
-    cJSON_Delete(error);
 }
 
-// SSL MQTT 메시지 콜백 (새로운 스키마용)
+// MQTT 메시지 콜백 (새로운 스키마용)
 void onMQTTMessage(char* topic, unsigned char* payload, unsigned int length) {
     std::string message((char*)payload, length);
     std::string topic_str = std::string(topic);
     ESP_LOGI(TAG, "MQTT 메시지 수신 - 토픽: %s, 내용: %s", topic, message.c_str());
 
-    // irsignal 토픽 처리
-    if (topic_str.find("/irsignal") != std::string::npos) {
-        ESP_LOGI(TAG, "IR 신호 토픽 메시지 수신");
+    // hub/{deviceId}/order/control 토픽 처리
+    if (topic_str.find("/order/control") != std::string::npos) {
+        ESP_LOGI(TAG, "IR 제어 명령 메시지 수신");
 
         // JSON 파싱
-        cJSON *json = cJSON_Parse(message.c_str());
-        if (json == nullptr) {
-            ESP_LOGE(TAG, "JSON 파싱 실패");
+        DynamicJsonDocument doc(2048);
+        DeserializationError error = deserializeJson(doc, message);
+        if (error) {
+            ESP_LOGE(TAG, "JSON 파싱 실패: %s", error.c_str());
+            // tx_id를 추출할 수 없으므로 -1로 설정
+            sendErrorMessage(-1, "INVALID_COMMAND", "JSON 파싱 실패 - 잘못된 JSON 형식입니다");
             return;
         }
 
-        // IR 신호 데이터 추출
-        cJSON *encoding = cJSON_GetObjectItem(json, "encoding");
-        cJSON *carrierHz = cJSON_GetObjectItem(json, "carrierHz");
-        cJSON *data = cJSON_GetObjectItem(json, "data");
-        cJSON *repeat = cJSON_GetObjectItem(json, "repeat");
-
-        if (cJSON_IsString(encoding) && cJSON_IsString(data)) {
-            std::string encoding_str = std::string(encoding->valuestring);
-            std::string ir_data = std::string(data->valuestring);
-            int repeat_count = cJSON_IsNumber(repeat) ? repeat->valueint : 1;
-            int carrier_freq = cJSON_IsNumber(carrierHz) ? carrierHz->valueint : 38000;
-
-            ESP_LOGI(TAG, "IR 신호 수신 - 인코딩: %s, 반송파: %dHz, 데이터: %s, 반복: %d",
-                    encoding_str.c_str(), carrier_freq, ir_data.c_str(), repeat_count);
-
-            // IR 코드 송신
-            if (g_ir_sender) {
-                auto start_time = esp_timer_get_time();
-                g_ir_sender->sendIRCode(ir_data);
-                auto duration = (esp_timer_get_time() - start_time) / 1000;
-
-                ESP_LOGI(TAG, "IR 송신 완료 (소요시간: %lldms)", duration);
-            } else {
-                ESP_LOGE(TAG, "IR 송신기 초기화되지 않음");
-            }
-        } else {
-            ESP_LOGE(TAG, "IR 신호 데이터 필드 누락");
+        // 필수 필드 확인
+        if (!doc.containsKey("tx_id") || !doc.containsKey("device_type") || !doc.containsKey("raw_data") ||
+            !doc["tx_id"].is<int>() || !doc["device_type"].is<std::string>() || !doc["raw_data"].is<JsonArray>()) {
+            ESP_LOGE(TAG, "필수 필드 누락 (tx_id, device_type, raw_data)");
+            int error_tx_id = doc.containsKey("tx_id") && doc["tx_id"].is<int>() ? doc["tx_id"].as<int>() : -1;
+            sendErrorMessage(error_tx_id, "INVALID_COMMAND", "필수 필드 누락 - tx_id, device_type, raw_data 중 일부가 없습니다");
+            return;
         }
 
-        cJSON_Delete(json);
-        return;
-    }
+        int transaction_id = doc["tx_id"].as<int>();
+        std::string device_type_str = doc["device_type"].as<std::string>();
+        std::string function_str = doc.containsKey("function") && doc["function"].is<std::string>() ? doc["function"].as<std::string>() : "";
 
-    // order 토픽 처리 (기존 로직)
-    // JSON 파싱
-    cJSON *json = cJSON_Parse(message.c_str());
-    if (json == nullptr) {
-        ESP_LOGE(TAG, "JSON 파싱 실패");
-        sendErrorMessage("ERROR", "JSON_PARSE_FAILED", "Invalid JSON format");
-        return;
-    }
+        ESP_LOGI(TAG, "트랜잭션 ID: %d", transaction_id);
+        ESP_LOGI(TAG, "가전 타입: %s", device_type_str.c_str());
+        ESP_LOGI(TAG, "기능: %s", function_str.c_str());
 
-    // 필수 필드 확인
-    cJSON *msgId = cJSON_GetObjectItem(json, "msgId");
-    cJSON *corrId = cJSON_GetObjectItem(json, "corrId");
-    cJSON *type = cJSON_GetObjectItem(json, "type");
-    cJSON *payload_obj = cJSON_GetObjectItem(json, "payload");
-
-    if (!cJSON_IsString(msgId) || !cJSON_IsString(corrId) ||
-        !cJSON_IsString(type) || !cJSON_IsObject(payload_obj)) {
-        ESP_LOGE(TAG, "필수 필드 누락");
-        sendErrorMessage("ERROR", "MISSING_FIELDS", "Required fields missing");
-        cJSON_Delete(json);
-        return;
-    }
-
-    std::string msgId_str = std::string(msgId->valuestring);
-    std::string corrId_str = std::string(corrId->valuestring);
-    std::string type_str = std::string(type->valuestring);
-
-    // IR 명령 처리
-    if (type_str == "ir") {
-        cJSON *ir = cJSON_GetObjectItem(payload_obj, "ir");
-        if (cJSON_IsObject(ir)) {
-            // JSON 형태의 IR 신호 데이터 파싱
-            cJSON *encoding = cJSON_GetObjectItem(ir, "encoding");
-            cJSON *carrierHz = cJSON_GetObjectItem(ir, "carrierHz");
-            cJSON *dutyCycle = cJSON_GetObjectItem(ir, "dutyCycle");
-            cJSON *address = cJSON_GetObjectItem(ir, "address");
-            cJSON *command = cJSON_GetObjectItem(ir, "command");
-            cJSON *timing = cJSON_GetObjectItem(ir, "timing");
-            cJSON *rawData = cJSON_GetObjectItem(ir, "rawData");
-            cJSON *data = cJSON_GetObjectItem(ir, "data");
-            cJSON *repeat = cJSON_GetObjectItem(ir, "repeat");
-            cJSON *quality = cJSON_GetObjectItem(ir, "quality");
-
-            std::string encoding_str = cJSON_IsString(encoding) ? std::string(encoding->valuestring) : "NEC";
-            int carrier_freq = cJSON_IsNumber(carrierHz) ? carrierHz->valueint : 38000;
-            float duty_cycle = cJSON_IsNumber(dutyCycle) ? dutyCycle->valuedouble : 0.33;
-            int repeat_count = cJSON_IsNumber(repeat) ? repeat->valueint : 1;
-            float signal_quality = cJSON_IsNumber(quality) ? quality->valuedouble : 1.0;
-
-            ESP_LOGI(TAG, "IR 신호 수신 - 인코딩: %s, 반송파: %dHz, 듀티: %.2f, 반복: %d, 품질: %.2f",
-                    encoding_str.c_str(), carrier_freq, duty_cycle, repeat_count, signal_quality);
-
-            // 주소와 명령어 정보 로깅
-            if (cJSON_IsString(address)) {
-                ESP_LOGI(TAG, "주소: %s", address->valuestring);
-            } else if (cJSON_IsNumber(address)) {
-                ESP_LOGI(TAG, "주소: 0x%X", address->valueint);
+        // 메타데이터 로깅
+        if (doc.containsKey("meta_data") && doc["meta_data"].is<JsonArray>()) {
+            JsonArray meta_data = doc["meta_data"];
+            ESP_LOGI(TAG, "메타데이터 (%d개):", meta_data.size());
+            int i = 0;
+            for (JsonVariant item : meta_data) {
+                if (item.is<std::string>()) {
+                    ESP_LOGI(TAG, "  [%d]: %s", i, item.as<std::string>().c_str());
+                }
+                i++;
             }
+        }
 
-            if (cJSON_IsString(command)) {
-                ESP_LOGI(TAG, "명령: %s", command->valuestring);
-            } else if (cJSON_IsNumber(command)) {
-                ESP_LOGI(TAG, "명령: 0x%X", command->valueint);
-            }
+        // Raw 데이터 처리
+        JsonArray raw_data = doc["raw_data"];
+        std::vector<int> raw_data_array;
 
-            // 타이밍 정보 로깅
-            if (cJSON_IsObject(timing)) {
-                cJSON *header = cJSON_GetObjectItem(timing, "header");
-                cJSON *one = cJSON_GetObjectItem(timing, "one");
-                cJSON *zero = cJSON_GetObjectItem(timing, "zero");
-                cJSON *gap = cJSON_GetObjectItem(timing, "gap");
-
-                if (cJSON_IsArray(header) && cJSON_GetArraySize(header) >= 2) {
-                    ESP_LOGI(TAG, "헤더 타이밍: [%d, %d]",
-                            cJSON_GetArrayItem(header, 0)->valueint,
-                            cJSON_GetArrayItem(header, 1)->valueint);
-                }
-                if (cJSON_IsArray(one) && cJSON_GetArraySize(one) >= 2) {
-                    ESP_LOGI(TAG, "1 비트 타이밍: [%d, %d]",
-                            cJSON_GetArrayItem(one, 0)->valueint,
-                            cJSON_GetArrayItem(one, 1)->valueint);
-                }
-                if (cJSON_IsArray(zero) && cJSON_GetArraySize(zero) >= 2) {
-                    ESP_LOGI(TAG, "0 비트 타이밍: [%d, %d]",
-                            cJSON_GetArrayItem(zero, 0)->valueint,
-                            cJSON_GetArrayItem(zero, 1)->valueint);
-                }
-                if (cJSON_IsNumber(gap)) {
-                    ESP_LOGI(TAG, "갭: %d", gap->valueint);
+        ESP_LOGI(TAG, "Raw 데이터 (%d개):", raw_data.size());
+        int i = 0;
+        for (JsonVariant item : raw_data) {
+            if (item.is<int>()) {
+                raw_data_array.push_back(item.as<int>());
+                if (i < 10) { // 처음 10개만 로깅
+                    ESP_LOGI(TAG, "  [%d]: %d", i, item.as<int>());
                 }
             }
+            i++;
+        }
 
-            // Raw 데이터 로깅
-            if (cJSON_IsArray(rawData)) {
-                int array_size = cJSON_GetArraySize(rawData);
-                ESP_LOGI(TAG, "Raw 데이터 길이: %d", array_size);
-                if (array_size > 0) {
-                    ESP_LOGI(TAG, "Raw 데이터 시작: [%d, %d, %d, ...]",
-                            cJSON_GetArrayItem(rawData, 0)->valueint,
-                            cJSON_GetArrayItem(rawData, 1)->valueint,
-                            cJSON_GetArrayItem(rawData, 2)->valueint);
-                }
-            }
+        if (raw_data.size() > 10) {
+            ESP_LOGI(TAG, "  ... (총 %d개 데이터)", raw_data.size());
+        }
 
-            // 데이터 필드 처리 (hex 문자열 또는 raw 데이터)
-            if (cJSON_IsString(data)) {
-                std::string ir_data = std::string(data->valuestring);
-                ESP_LOGI(TAG, "데이터 (hex): %s", ir_data.c_str());
+        // IR 신호 송신
+        if (g_ir_sender && !raw_data_array.empty()) {
+            auto start_time = esp_timer_get_time();
 
-                // IR 코드 송신
-                if (g_ir_sender) {
-                    auto start_time = esp_timer_get_time();
-                    g_ir_sender->sendIRCode(ir_data);
-                    auto duration = (esp_timer_get_time() - start_time) / 1000;
+            ESP_LOGI(TAG, "IR 신호 송신 시작 (Raw 데이터: %d개 펄스)", (int)raw_data_array.size());
+            auto result = g_ir_sender->sendRawData(raw_data_array);
 
-                    ESP_LOGI(TAG, "IR 송신 완료");
-                    sendAckMessage(msgId_str, corrId_str, "done", "IR send success", duration);
-                } else {
-                    sendErrorMessage("ERROR", "IR_SENDER_NOT_AVAILABLE", "IR sender not initialized", msgId_str);
-                }
-            } else if (cJSON_IsArray(rawData)) {
-                // Raw 데이터 배열 처리
-                int array_size = cJSON_GetArraySize(rawData);
-                std::vector<int> raw_data_array;
+            auto duration = (esp_timer_get_time() - start_time) / 1000;
+            ESP_LOGI(TAG, "IR 송신 완료 (소요시간: %lldms, 결과: %s)", duration,
+                     result.result == IRSendResult::SUCCESS ? "성공" : "실패");
 
-                for (int i = 0; i < array_size; i++) {
-                    cJSON *item = cJSON_GetArrayItem(rawData, i);
-                    if (cJSON_IsNumber(item)) {
-                        raw_data_array.push_back(item->valueint);
-                    }
-                }
+            // IR 전송 결과에 따른 응답 처리
+            if (result.result == IRSendResult::SUCCESS) {
+                // 성공 응답 전송
+                if (g_mqtt_client_ssl.connected()) {
+                    DynamicJsonDocument response_doc(512);
+                    response_doc["tx_id"] = transaction_id;
+                    response_doc["status"] = "success";
+                    response_doc["device_type"] = device_type_str.c_str();
+                    response_doc["function"] = function_str.c_str();
+                    response_doc["duration_ms"] = duration;
+                    response_doc["timestamp"] = esp_timer_get_time() / 1000;
 
-                ESP_LOGI(TAG, "Raw 데이터 배열 처리: %d개 펄스", raw_data_array.size());
-
-                // Raw 데이터로 IR 송신 (실제 구현은 IR 라이브러리에 따라 다름)
-                if (g_ir_sender) {
-                    auto start_time = esp_timer_get_time();
-                    // g_ir_sender->sendRawData(raw_data_array); // 실제 구현 필요
-                    g_ir_sender->sendIRCode("RAW_DATA"); // 임시 처리
-                    auto duration = (esp_timer_get_time() - start_time) / 1000;
-
-                    ESP_LOGI(TAG, "Raw IR 송신 완료");
-                    sendAckMessage(msgId_str, corrId_str, "done", "Raw IR send success", duration);
-                } else {
-                    sendErrorMessage("ERROR", "IR_SENDER_NOT_AVAILABLE", "IR sender not initialized", msgId_str);
+                    std::string response_str;
+                    serializeJson(response_doc, response_str);
+                    std::string response_topic = "hub/" + std::string(DEVICE_ID) + "/order/response";
+                    g_mqtt_client_ssl.publish(response_topic.c_str(), response_str.c_str());
+                    ESP_LOGI(TAG, "성공 응답 메시지 전송: %s", response_str.c_str());
                 }
             } else {
-                sendErrorMessage("ERROR", "INVALID_IR_DATA", "IR data field missing or invalid", msgId_str);
+                // IR 전송 실패 시 오류 메시지 전송
+                sendErrorMessage(transaction_id, "HARDWARE_ERROR", "IR 신호 전송 실패: " + result.message);
             }
         } else {
-            sendErrorMessage("ERROR", "INVALID_IR_PAYLOAD", "IR payload missing or invalid", msgId_str);
+            ESP_LOGE(TAG, "IR 송신기 초기화되지 않았거나 Raw 데이터가 비어있음");
+            sendErrorMessage(transaction_id, "HARDWARE_ERROR", "IR 송신기 초기화되지 않았거나 Raw 데이터가 비어있음");
         }
-    } else if (type_str == "system") {
-        cJSON *system = cJSON_GetObjectItem(payload_obj, "system");
-        if (cJSON_IsObject(system)) {
-            cJSON *action = cJSON_GetObjectItem(system, "action");
-            if (cJSON_IsString(action)) {
-                std::string action_str = std::string(action->valuestring);
-                ESP_LOGI(TAG, "시스템 명령: %s", action_str.c_str());
 
-                if (action_str == "reboot") {
-                    sendAckMessage(msgId_str, corrId_str, "accepted", "Reboot command received");
-                    vTaskDelay(pdMS_TO_TICKS(1000));
-                    esp_restart();
-                } else {
-                    sendErrorMessage("ERROR", "UNKNOWN_SYSTEM_ACTION", "Unknown system action: " + action_str, msgId_str);
-                }
-            }
-        }
-    } else {
-        sendErrorMessage("ERROR", "UNKNOWN_COMMAND_TYPE", "Unknown command type: " + type_str, msgId_str);
+        return;
     }
 
-    cJSON_Delete(json);
+    ESP_LOGW(TAG, "알 수 없는 토픽: %s", topic_str.c_str());
 }
 
 // 시리얼 명령 처리 콜백
-std::string onSerialCommand(const std::string& command, const cJSON* params) {
+std::string onSerialCommand(const std::string& command, const JsonObject& params) {
     ESP_LOGI(TAG, "시리얼 명령 수신: %s", command.c_str());
 
-    if (command == "ir_send") {
-        cJSON *ir_code = cJSON_GetObjectItem(params, "ir_code");
-
-        if (!cJSON_IsString(ir_code)) {
-            return "오류: ir_code가 필요합니다";
+    if (command == "raw_send") {
+        if (!params.containsKey("raw_data") || !params["raw_data"].is<JsonArray>()) {
+            return "오류: raw_data 배열이 필요";
         }
 
-        std::string ir_code_str = std::string(ir_code->valuestring);
+        // Raw 데이터 배열 처리
+        JsonArray raw_data = params["raw_data"];
+        std::vector<int> raw_data_array;
 
-        if (g_ir_sender) {
-            auto result = g_ir_sender->sendIRCode(ir_code_str);
+        for (JsonVariant item : raw_data) {
+            if (item.is<int>()) {
+                raw_data_array.push_back(item.as<int>());
+            }
+        }
 
-            cJSON *response = cJSON_CreateObject();
-            cJSON_AddBoolToObject(response, "success", (result.result == IRSendResult::SUCCESS));
-            cJSON_AddStringToObject(response, "ir_code", ir_code_str.c_str());
-            cJSON_AddStringToObject(response, "message", (result.result == IRSendResult::SUCCESS) ? "성공" : "실패");
+        if (g_ir_sender && !raw_data_array.empty()) {
+            auto result = g_ir_sender->sendRawData(raw_data_array);
 
-            char *response_str = cJSON_Print(response);
-            std::string result_str = response_str;
-            free(response_str);
-            cJSON_Delete(response);
+            DynamicJsonDocument response_doc(512);
+            response_doc["success"] = (result.result == IRSendResult::SUCCESS);
+            response_doc["raw_data_count"] = raw_data.size();
+            response_doc["message"] = result.message.c_str();
+
+            std::string result_str;
+            serializeJson(response_doc, result_str);
             return result_str;
         } else {
-            return "오류: IR 송신기가 초기화되지 않았습니다";
+            return "오류: IR 송신기가 초기화되지 않았거나 Raw 데이터가 비어있음";
         }
     } else if (command == "ir_status") {
         // IR 송신 상태 반환
-        cJSON *ir_status = cJSON_CreateObject();
-        cJSON_AddBoolToObject(ir_status, "sending", (g_ir_sender != nullptr));
-        cJSON_AddNumberToObject(ir_status, "tx_pin", 23);
+        DynamicJsonDocument ir_doc(256);
+        ir_doc["sending"] = (g_ir_sender != nullptr);
+        ir_doc["tx_pin"] = 23;
 
-        char *ir_status_str = cJSON_Print(ir_status);
-        std::string result_str = ir_status_str;
-        free(ir_status_str);
-        cJSON_Delete(ir_status);
+        std::string result_str;
+        serializeJson(ir_doc, result_str);
         return result_str;
     } else if (command == "mqtt_status") {
-        cJSON *mqtt_status = cJSON_CreateObject();
-        cJSON_AddBoolToObject(mqtt_status, "connected", (g_mqtt_client && g_mqtt_client->isConnected()));
-        cJSON_AddStringToObject(mqtt_status, "broker", g_config ? g_config->getString("mqtt.broker", "").c_str() : "");
-        cJSON_AddNumberToObject(mqtt_status, "port", g_config ? g_config->getInt("mqtt.port", 1883) : 1883);
+        DynamicJsonDocument mqtt_doc(256);
+        mqtt_doc["connected"] = (g_mqtt_client && g_mqtt_client->isConnected());
+        mqtt_doc["broker"] = g_config ? g_config->getString("mqtt.broker", "").c_str() : "";
+        mqtt_doc["port"] = g_config ? g_config->getInt("mqtt.port", 1883) : 1883;
 
-        char *mqtt_status_str = cJSON_Print(mqtt_status);
-        std::string result_str = mqtt_status_str;
-        free(mqtt_status_str);
-        cJSON_Delete(mqtt_status);
+        std::string result_str;
+        serializeJson(mqtt_doc, result_str);
         return result_str;
     } else if (command == "device_list") {
-        cJSON *device_list = cJSON_CreateObject();
-        cJSON *devices = cJSON_CreateArray();
+        DynamicJsonDocument device_doc(512);
+        JsonArray devices = device_doc.createNestedArray("devices");
 
         // Samsung TV
-        cJSON *tv = cJSON_CreateObject();
-        cJSON_AddStringToObject(tv, "id", "samsung_tv");
-        cJSON_AddStringToObject(tv, "name", "Samsung TV");
-        cJSON_AddStringToObject(tv, "type", "tv");
-        cJSON_AddItemToArray(devices, tv);
+        JsonObject tv = devices.createNestedObject();
+        tv["id"] = "samsung_tv";
+        tv["name"] = "Samsung TV";
+        tv["type"] = "tv";
 
         // Samsung AC
-        cJSON *ac = cJSON_CreateObject();
-        cJSON_AddStringToObject(ac, "id", "samsung_ac");
-        cJSON_AddStringToObject(ac, "name", "Samsung AC");
-        cJSON_AddStringToObject(ac, "type", "air_conditioner");
-        cJSON_AddItemToArray(devices, ac);
+        JsonObject ac = devices.createNestedObject();
+        ac["id"] = "samsung_ac";
+        ac["name"] = "Samsung AC";
+        ac["type"] = "air_conditioner";
 
-        cJSON_AddItemToObject(device_list, "devices", devices);
-
-        char *device_list_str = cJSON_Print(device_list);
-        std::string result_str = device_list_str;
-        free(device_list_str);
-        cJSON_Delete(device_list);
+        std::string result_str;
+        serializeJson(device_doc, result_str);
         return result_str;
     } else if (command == "restart") {
         ESP_LOGI(TAG, "시스템 재시작 요청");
         vTaskDelay(pdMS_TO_TICKS(1000));
         esp_restart();
-        return "재시작 중...";
+        return "재시작 중";
     }
 
     return "알 수 없는 명령어: " + command;
 }
 
-// SSL MQTT 연결 함수
-bool connectSSL() {
-    // SSL 클라이언트 설정
-    g_secure_client.setInsecure(); // 인증서 검증 비활성화 (--insecure 옵션과 동일)
+// TLS MQTT 연결 함수
+bool connectMQTT() {
+    ESP_LOGI(TAG, "TLS MQTT 연결 시도: %s:%d", MQTT_BROKER, MQTT_PORT);
+
+    // WiFi 연결 상태 확인 (더 정확한 방법 사용)
+    wifi_ap_record_t ap_info;
+    esp_err_t wifi_status = esp_wifi_sta_get_ap_info(&ap_info);
+
+    if (wifi_status != ESP_OK) {
+        ESP_LOGE(TAG, "WiFi가 연결되지 않음. esp_wifi_sta_get_ap_info 결과: %s", esp_err_to_name(wifi_status));
+        ESP_LOGE(TAG, "WiFi.status(): %d", WiFi.status());
+        return false;
+    }
+
+    ESP_LOGI(TAG, "WiFi 연결됨. IP: %s", WiFi.localIP().toString().c_str());
+    ESP_LOGI(TAG, "연결된 SSID: %s, RSSI: %d dBm", ap_info.ssid, ap_info.rssi);
+
+    // TLS 클라이언트 설정
+    g_secure_client.setInsecure(); // 인증서 검증 비활성화 (개발 환경용)
+    g_secure_client.setTimeout(10000); // 10초 타임아웃 설정
 
     // MQTT 클라이언트 설정
     g_mqtt_client_ssl.setServer(MQTT_BROKER, MQTT_PORT);
     g_mqtt_client_ssl.setCallback([](char* topic, unsigned char* payload, unsigned int length) {
         onMQTTMessage(topic, payload, length);
     });
+    g_mqtt_client_ssl.setKeepAlive(60);
+    g_mqtt_client_ssl.setSocketTimeout(10);
 
-    // 연결 시도
-    if (g_mqtt_client_ssl.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD)) {
-        ESP_LOGI(TAG, "SSL MQTT 연결 성공!");
+    // 연결 시도 (최대 3회 재시도)
+    int retry_count = 0;
+    const int max_retries = 3;
 
-        // 새로운 토픽 구조로 구독
-        std::string order_topic = "hub/" + std::string(DEVICE_ID) + "/order";
-        std::string irsignal_topic = "hub/" + std::string(DEVICE_ID) + "/irsignal";
+    while (retry_count < max_retries) {
+        ESP_LOGI(TAG, "TLS MQTT 연결 시도 %d/%d", retry_count + 1, max_retries);
 
-        g_mqtt_client_ssl.subscribe(order_topic.c_str());
-        g_mqtt_client_ssl.subscribe(irsignal_topic.c_str());
+        if (g_mqtt_client_ssl.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD)) {
+            ESP_LOGI(TAG, "TLS MQTT 연결 성공!");
 
-        ESP_LOGI(TAG, "MQTT 토픽 구독: %s", order_topic.c_str());
-        ESP_LOGI(TAG, "MQTT 토픽 구독: %s", irsignal_topic.c_str());
+            // 새로운 토픽 구조로 구독
+            std::string control_topic = "hub/" + std::string(DEVICE_ID) + "/order/control";
 
-        return true;
-    } else {
-        ESP_LOGE(TAG, "SSL MQTT 연결 실패");
-        return false;
+            g_mqtt_client_ssl.subscribe(control_topic.c_str());
+
+            ESP_LOGI(TAG, "MQTT 토픽 구독: %s", control_topic.c_str());
+
+            return true;
+        } else {
+            retry_count++;
+            ESP_LOGE(TAG, "TLS MQTT 연결 실패 (%d/%d)", retry_count, max_retries);
+
+            if (retry_count < max_retries) {
+                ESP_LOGI(TAG, "3초 후 재시도");
+                delay(3000);
+            }
+        }
     }
+
+    ESP_LOGE(TAG, "TLS MQTT 연결 최종 실패");
+    return false;
 }
 
 // MQTT task
 void mqtt_task(void* parameter) {
+    // WiFi 연결 완료까지 대기
+    ESP_LOGI(TAG, "MQTT task 시작 - WiFi 연결 대기 중");
+
+    // WiFi 연결 완료까지 최대 30초 대기
+    int wifi_wait_count = 0;
+    const int max_wifi_wait = 30;
+
+    while (wifi_wait_count < max_wifi_wait) {
+        wifi_ap_record_t ap_info;
+        esp_err_t wifi_status = esp_wifi_sta_get_ap_info(&ap_info);
+
+        if (wifi_status == ESP_OK) {
+            ESP_LOGI(TAG, "WiFi 연결 확인됨. MQTT 연결 시작");
+            break;
+        }
+
+        ESP_LOGI(TAG, "WiFi 연결 대기 중... (%d/%d)", wifi_wait_count + 1, max_wifi_wait);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        wifi_wait_count++;
+    }
+
+    if (wifi_wait_count >= max_wifi_wait) {
+        ESP_LOGE(TAG, "WiFi 연결 대기 시간 초과. MQTT task 종료");
+        vTaskDelete(NULL);
+        return;
+    }
+
     while (true) {
         if (!g_mqtt_client_ssl.connected()) {
-            ESP_LOGI(TAG, "[IR_REMOTE_MAIN] SSL MQTT 재연결 시도...");
+            ESP_LOGI(TAG, "[IR_REMOTE_MAIN] TLS MQTT 재연결 시도");
 
-            if (connectSSL()) {
-                ESP_LOGI(TAG, "[IR_REMOTE_MAIN] SSL MQTT 연결 성공!");
+            if (connectMQTT()) {
+                ESP_LOGI(TAG, "[IR_REMOTE_MAIN] TLS MQTT 연결 성공");
             } else {
-                ESP_LOGE(TAG, "[IR_REMOTE_MAIN] SSL MQTT 연결 실패");
+                ESP_LOGE(TAG, "[IR_REMOTE_MAIN] TLS MQTT 연결 실패");
             }
         } else {
             // MQTT 루프 처리
@@ -741,7 +631,7 @@ void mqtt_task(void* parameter) {
 
 // 설정 로드
 void loadConfiguration() {
-    ESP_LOGI(TAG, "설정 로드 중...");
+    ESP_LOGI(TAG, "설정 로드 중");
 
     // 기본 설정 생성
     g_config = new Config();
@@ -758,7 +648,7 @@ void loadConfiguration() {
 
 // 하드웨어 초기화
 void initHardware() {
-    ESP_LOGI(TAG, "하드웨어 초기화 중...");
+    ESP_LOGI(TAG, "하드웨어 초기화 중");
 
     // 시리얼 컨트롤러 초기화 (USB-C 연결)
     g_serial_controller = new SerialController(115200);
@@ -768,14 +658,33 @@ void initHardware() {
 
     // IR 송신기 초기화 (GPIO 22번)
     g_ir_sender = new IRSend();
-    g_ir_sender->initialize();
+    bool ir_init_result = g_ir_sender->initialize();
     g_ir_sender->setDebugMode(true);
 
-    // MQTT 클라이언트 초기화 (SSL MQTT 클라이언트 사용으로 인해 주석 처리)
+    if (ir_init_result) {
+        ESP_LOGI(TAG, "IR 송신기 초기화 성공");
+
+        // 테스트용 IR 신호 송신 (초기화 후 3초 뒤)
+        vTaskDelay(pdMS_TO_TICKS(3000));
+        ESP_LOGI(TAG, "테스트 IR 신호 송신 ");
+
+        // 여러 테스트 코드 송신
+        g_ir_sender->sendIRCode("0x20DF10EF"); // 전원 버튼
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        g_ir_sender->sendIRCode("0x20DF40BF"); // 채널 업
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        g_ir_sender->sendIRCode("0x20DFC03F"); // 채널 다운
+
+        ESP_LOGI(TAG, "테스트 IR 신호 송신 완료");
+    } else {
+        ESP_LOGE(TAG, "IR 송신기 초기화 실패");
+    }
+
+    // MQTT 클라이언트 초기화 (TLS MQTT 클라이언트 사용으로 인해 주석 처리)
     // g_mqtt_client = new MqttClient();
     // g_mqtt_client->setMessageCallback(onMQTTMessage);
 
-    // ESP32 전용: 전역 인스턴스 설정 (SSL MQTT 클라이언트 사용으로 인해 주석 처리)
+    // ESP32 전용: 전역 인스턴스 설정 (TLS MQTT 클라이언트 사용으로 인해 주석 처리)
     // MqttClient::setGlobalInstance(g_mqtt_client);
 
     ESP_LOGI(TAG, "하드웨어 초기화 완료");
@@ -783,7 +692,7 @@ void initHardware() {
 
 // task 생성
 void createTasks() {
-    ESP_LOGI(TAG, "task 생성 중...");
+    ESP_LOGI(TAG, "task 생성 중");
 
     // MQTT task 생성
     xTaskCreate(
@@ -804,6 +713,20 @@ void setup() {
     ESP_LOGI(TAG, "모델: ESP32-WROOM-32E");
     ESP_LOGI(TAG, "Free heap: %d bytes", esp_get_free_heap_size());
     ESP_LOGI(TAG, "Chip revision: %d", esp_chip_info_t().revision);
+
+    // 보안 시스템 초기화 (현재 비활성화 - 컴파일 오류 방지)
+    // if (Security::initialize()) {
+    //     ESP_LOGI(TAG, "보안 시스템 초기화 성공");
+    // } else {
+    //     ESP_LOGE(TAG, "보안 시스템 초기화 실패");
+    // }
+    ESP_LOGI(TAG, "보안 시스템 초기화 건너뜀 (개발 중)");
+
+    // 독립 실행을 위한 설정
+    ESP_LOGI(TAG, "독립 실행 모드 활성화");
+
+    // 시리얼 모니터 비활성화 (전력 절약)
+    // Serial.end(); // 필요시 주석 해제
 
     // NVS 초기화
     esp_err_t ret = nvs_flash_init();
@@ -835,10 +758,15 @@ void loop() {
         g_serial_controller->loop();
     }
 
-    // 상태 LED 제어
+    // 상태 LED 제어 (독립 실행용 - 느린 깜빡임)
+    static uint32_t last_led_time = 0;
     static bool led_state = false;
-    led_state = !led_state;
-    gpio_set_level(GPIO_NUM_2, led_state ? 1 : 0);
+
+    if (millis() - last_led_time > 2000) { // 2초마다 깜빡임
+        led_state = !led_state;
+        gpio_set_level(GPIO_NUM_2, led_state ? 1 : 0);
+        last_led_time = millis();
+    }
 
     // WiFi 연결 상태 확인 (재연결 시도 제한)
     static uint32_t last_wifi_check = 0;
@@ -861,7 +789,7 @@ void loop() {
                 wifi_reconnect_count++;
                 last_reconnect_time = millis();
             } else if (wifi_reconnect_count >= 3) {
-                ESP_LOGE(TAG, "WiFi 재연결 시도 횟수 초과. 수동 재시작 필요.");
+                ESP_LOGE(TAG, "WiFi 재연결 시도 횟수 초과. 수동 재시작 필요");
             }
         } else {
             wifi_reconnect_count = 0; // 연결 성공 시 카운터 리셋
@@ -870,5 +798,6 @@ void loop() {
         last_wifi_check = millis();
     }
 
-    delay(100);
+    // 독립 실행을 위한 딜레이 (전력 절약)
+    delay(1000); // 1초 딜레이로 전력 절약
 }

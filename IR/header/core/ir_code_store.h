@@ -4,7 +4,7 @@
 #include <map>
 #include <vector>
 #include <memory>
-#include "nlohmann/json.hpp"
+#include <ArduinoJson.h>
 
 
 
@@ -16,16 +16,16 @@ struct ControlMapping {
     std::string ir_signal;       // IR 신호 (예: "0xE0E040BF")
     std::string description;     // 설명
     std::string device_type;     // 기기 타입 (예: "aircon", "tv")
-    
+
     ControlMapping() = default;
-    ControlMapping(const std::string& control, const std::string& ir, 
+    ControlMapping(const std::string& control, const std::string& ir,
                    const std::string& desc = "", const std::string& type = "")
         : control_signal(control), ir_signal(ir), description(desc), device_type(type) {}
 };
 
 /**
  * @brief 제어신호-IR신호 저장소 클래스
- * 
+ *
  * 허브에서 받은 제어신호와 IR 신호를 key-value 형태로 저장하고 관리합니다.
  * 제어 요청 시 key로 IR 신호를 가져와서 즉시 전송할 수 있습니다.
  */
@@ -49,7 +49,7 @@ public:
      * @param description 설명
      * @param device_type 기기 타입
      */
-    void addControlMapping(const std::string& control_signal, 
+    void addControlMapping(const std::string& control_signal,
                           const std::string& ir_signal,
                           const std::string& description = "",
                           const std::string& device_type = "");
@@ -167,18 +167,18 @@ public:
      * @param ir_signal IR 신호
      * @param device_type 기기 타입
      */
-    void processHubIRSignal(const std::string& control_signal, 
+    void processHubIRSignal(const std::string& control_signal,
                            const std::string& ir_signal,
                            const std::string& device_type = "");
 
 private:
     // 저장소 구조: control_signal -> ControlMapping
     std::map<std::string, ControlMapping> control_mappings_;
-    
+
     // 역방향 검색을 위한 IR 신호 -> 제어신호 맵
     std::map<std::string, std::string> ir_to_control_map_;
-    
+
     // JSON 파싱 헬퍼 메서드들
-    bool parseJsonObject(const nlohmann::json& json_obj);
-    void addJsonMapping(const std::string& control_signal, const nlohmann::json& mapping);
+    bool parseJsonObject(const JsonObject& json_obj);
+    void addJsonMapping(const std::string& control_signal, const JsonObject& mapping);
 };

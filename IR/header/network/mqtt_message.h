@@ -2,13 +2,13 @@
 #define MQTT_MESSAGE_H
 
 #include <string>
-#include "nlohmann/json.hpp"
+#include <ArduinoJson.h>
 
 struct MQTTMessage {
     std::string topic;
     std::string payload;
     int qos;
-    
+
     MQTTMessage(const std::string& t = "", const std::string& p = "", int q = 1)
         : topic(t), payload(p), qos(q) {}
 };
@@ -17,20 +17,28 @@ struct IRCommandMessage {
     std::string device_id;
     std::string command;
     std::string remote_id;
-    
-    nlohmann::json toJson() const {
-        nlohmann::json j;
-        j["device_id"] = device_id;
-        j["command"] = command;
-        j["remote_id"] = remote_id;
-        return j;
+
+    std::string toJson() const {
+        DynamicJsonDocument doc(512);
+        doc["device_id"] = device_id.c_str();
+        doc["command"] = command.c_str();
+        doc["remote_id"] = remote_id.c_str();
+
+        std::string result;
+        serializeJson(doc, result);
+        return result;
     }
-    
-    static IRCommandMessage fromJson(const nlohmann::json& j) {
+
+    static IRCommandMessage fromJson(const std::string& json) {
         IRCommandMessage msg;
-        msg.device_id = j.value("device_id", "");
-        msg.command = j.value("command", "");
-        msg.remote_id = j.value("remote_id", "");
+        DynamicJsonDocument doc(512);
+        DeserializationError error = deserializeJson(doc, json);
+
+        if (!error) {
+            msg.device_id = doc["device_id"].as<std::string>();
+            msg.command = doc["command"].as<std::string>();
+            msg.remote_id = doc["remote_id"].as<std::string>();
+        }
         return msg;
     }
 };
@@ -41,24 +49,32 @@ struct IRSignalMessage {
     std::string command;
     std::string code;
     bool success;
-    
-    nlohmann::json toJson() const {
-        nlohmann::json j;
-        j["device_id"] = device_id;
-        j["remote_id"] = remote_id;
-        j["command"] = command;
-        j["code"] = code;
-        j["success"] = success;
-        return j;
+
+    std::string toJson() const {
+        DynamicJsonDocument doc(512);
+        doc["device_id"] = device_id.c_str();
+        doc["remote_id"] = remote_id.c_str();
+        doc["command"] = command.c_str();
+        doc["code"] = code.c_str();
+        doc["success"] = success;
+
+        std::string result;
+        serializeJson(doc, result);
+        return result;
     }
-    
-    static IRSignalMessage fromJson(const nlohmann::json& j) {
+
+    static IRSignalMessage fromJson(const std::string& json) {
         IRSignalMessage msg;
-        msg.device_id = j.value("device_id", "");
-        msg.remote_id = j.value("remote_id", "");
-        msg.command = j.value("command", "");
-        msg.code = j.value("code", "");
-        msg.success = j.value("success", false);
+        DynamicJsonDocument doc(512);
+        DeserializationError error = deserializeJson(doc, json);
+
+        if (!error) {
+            msg.device_id = doc["device_id"].as<std::string>();
+            msg.remote_id = doc["remote_id"].as<std::string>();
+            msg.command = doc["command"].as<std::string>();
+            msg.code = doc["code"].as<std::string>();
+            msg.success = doc["success"];
+        }
         return msg;
     }
 };

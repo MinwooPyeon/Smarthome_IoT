@@ -1,5 +1,5 @@
 {
-    "ir_receiver": {
+    "ir_transmitter": {
         "gpio_pin": 22,
         "protocol": "NEC",
         "timeout_ms": 1000,
@@ -8,7 +8,7 @@
     "mqtt": {
         "broker": "localhost",
         "port": 1883,
-        "client_id": "esp32_ir_receiver",
+        "client_id": "esp32_ir_controller",
         "username": "",
         "password": "",
         "keepalive": 60,

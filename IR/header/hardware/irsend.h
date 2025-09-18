@@ -38,6 +38,7 @@ public:
 
     IRSendStatus sendControlSignal(const std::string& control_signal);
     IRSendStatus sendIRCode(const std::string& ir_code);
+    IRSendStatus sendRawData(const std::vector<int>& raw_data);
     std::vector<IRSendStatus> sendControlSignals(const std::vector<std::string>& control_signals, int delay_ms = 100);
 
     void setCodeStore(IRCodeStore* code_store);

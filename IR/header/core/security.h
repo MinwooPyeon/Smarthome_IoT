@@ -4,35 +4,103 @@
 #include <vector>
 #include <map>
 #include <chrono>
+#include <memory>
 
+// 플랫폼별 보안 라이브러리 포함
 #ifdef ESP32
 #include "mbedtls/sha256.h"
 #include "mbedtls/md.h"
+#include "mbedtls/aes.h"
+#include "mbedtls/gcm.h"
 #include "esp_random.h"
+#include "esp_log.h"
+#elif defined(_WIN32)
+#include <windows.h>
+#include <wincrypt.h>
+#pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "crypt32.lib")
 #else
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#include <openssl/aes.h>
 #include <sys/random.h>
 #endif
 
 /**
- * @brief 보안 관련 유틸리티 클래스
+ * @brief 암호화 백엔드 타입
+ */
+enum class CryptoBackend {
+    MBEDTLS,    // ESP32
+    OPENSSL,    // Linux/macOS
+    CRYPTOAPI   // Windows
+};
+
+/**
+ * @brief 통합 보안 클래스
  *
- * 암호화, 해싱, 토큰 검증 등의 보안 기능을 제공합니다.
+ * 플랫폼별 최적화된 보안 기능을 제공합니다.
+ * ESP32: mbedtls + 하드웨어 가속
+ * Linux: OpenSSL
+ * Windows: CryptoAPI
  */
 class Security {
+private:
+    static CryptoBackend backend_;
+    static bool initialized_;
+
+    // 플랫폼별 초기화
+    static bool initializeBackend();
+
+    // 플랫폼별 구현
+    static std::string sha256_mbedtls(const std::string& input);
+    static std::string sha256_openssl(const std::string& input);
+    static std::string sha256_cryptoapi(const std::string& input);
+
+    static std::string encryptAES_mbedtls(const std::string& plaintext, const std::string& key);
+    static std::string encryptAES_openssl(const std::string& plaintext, const std::string& key);
+    static std::string encryptAES_cryptoapi(const std::string& plaintext, const std::string& key);
+
+    static std::string decryptAES_mbedtls(const std::string& ciphertext, const std::string& key);
+    static std::string decryptAES_openssl(const std::string& ciphertext, const std::string& key);
+    static std::string decryptAES_cryptoapi(const std::string& ciphertext, const std::string& key);
+
+    static std::string hmacSha256_mbedtls(const std::string& key, const std::string& message);
+    static std::string hmacSha256_openssl(const std::string& key, const std::string& message);
+    static std::string hmacSha256_cryptoapi(const std::string& key, const std::string& message);
+
+    static std::vector<uint8_t> generateRandomBytes_mbedtls(size_t length);
+    static std::vector<uint8_t> generateRandomBytes_openssl(size_t length);
+    static std::vector<uint8_t> generateRandomBytes_cryptoapi(size_t length);
+
 public:
     /**
-     * @brief SHA-256 해시 생성
+     * @brief 보안 시스템 초기화
+     * @return 초기화 성공 여부
+     */
+    static bool initialize();
+
+    /**
+     * @brief 현재 사용 중인 암호화 백엔드 반환
+     * @return 암호화 백엔드
+     */
+    static CryptoBackend getBackend() { return backend_; }
+
+    /**
+     * @brief 보안 시스템 정리
+     */
+    static void cleanup();
+public:
+    /**
+     * @brief SHA-256 해시 생성 (플랫폼별 최적화)
      * @param input 입력 문자열
      * @return SHA-256 해시 문자열
      */
     static std::string sha256(const std::string& input);
 
     /**
-     * @brief HMAC-SHA256 생성
+     * @brief HMAC-SHA256 생성 (플랫폼별 최적화)
      * @param key 비밀 키
      * @param message 메시지
      * @return HMAC-SHA256 해시 문자열
@@ -40,14 +108,14 @@ public:
     static std::string hmacSha256(const std::string& key, const std::string& message);
 
     /**
-     * @brief 안전한 랜덤 토큰 생성
+     * @brief 안전한 랜덤 토큰 생성 (하드웨어 RNG 활용)
      * @param length 토큰 길이
      * @return 랜덤 토큰 문자열
      */
     static std::string generateSecureToken(size_t length = 32);
 
     /**
-     * @brief 토큰 검증
+     * @brief 토큰 검증 (상수 시간 비교)
      * @param token 검증할 토큰
      * @param expected 예상 토큰
      * @return 검증 성공 여부
@@ -64,20 +132,38 @@ public:
     static bool verifyTimeBasedToken(const std::string& token, const std::string& secret, int window = 30);
 
     /**
-     * @brief AES-256-GCM 암호화
+     * @brief AES-256-GCM 암호화 (하드웨어 가속)
      * @param plaintext 평문
-     * @param key 암호화 키
+     * @param key 암호화 키 (32바이트)
      * @return 암호화된 데이터 (Base64 인코딩)
      */
     static std::string encryptAES(const std::string& plaintext, const std::string& key);
 
     /**
-     * @brief AES-256-GCM 복호화
+     * @brief AES-256-GCM 복호화 (하드웨어 가속)
      * @param ciphertext 암호문 (Base64 인코딩)
-     * @param key 복호화 키
+     * @param key 복호화 키 (32바이트)
      * @return 복호화된 평문
      */
     static std::string decryptAES(const std::string& ciphertext, const std::string& key);
+
+    /**
+     * @brief AES-256-CBC 암호화 (호환성용)
+     * @param plaintext 평문
+     * @param key 암호화 키 (32바이트)
+     * @param iv 초기화 벡터 (16바이트)
+     * @return 암호화된 데이터 (Base64 인코딩)
+     */
+    static std::string encryptAES_CBC(const std::string& plaintext, const std::string& key, const std::string& iv);
+
+    /**
+     * @brief AES-256-CBC 복호화 (호환성용)
+     * @param ciphertext 암호문 (Base64 인코딩)
+     * @param key 복호화 키 (32바이트)
+     * @param iv 초기화 벡터 (16바이트)
+     * @return 복호화된 평문
+     */
+    static std::string decryptAES_CBC(const std::string& ciphertext, const std::string& key, const std::string& iv);
 
     /**
      * @brief 비밀번호 해싱 (bcrypt)

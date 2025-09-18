@@ -11,11 +11,11 @@
 static const char* TAG = "IR_LEARNER";
 
 IRLearner::IRLearner() : learning_mode_(false), ir_receiver_(nullptr) {
-    LOG_INFO("IR 학습기 초기화 완료");
+    ESP_LOGI(TAG, "IR 학습기 초기화 완료");
 }
 
 IRLearner::IRLearner(IRReceiver* ir_receiver) : learning_mode_(false), ir_receiver_(ir_receiver) {
-    LOG_INFO("IR 학습기 초기화 완료 (IR 수신기 연동)");
+    ESP_LOGI(TAG, "IR 학습기 초기화 완료 (IR 수신기 연동)");
 
     // IR 수신기 콜백 설정
     if (ir_receiver_) {
@@ -35,13 +35,13 @@ bool IRLearner::startLearningMode() {
     }
 
     learning_mode_ = true;
-    LOG_INFO("IR 학습 모드 시작");
+    ESP_LOGI(TAG, "IR 학습 모드 시작");
     return true;
 }
 
 void IRLearner::stopLearningMode() {
     learning_mode_ = false;
-    LOG_INFO("IR 학습 모드 중지");
+    ESP_LOGI(TAG, "IR 학습 모드 중지");
 }
 
 bool IRLearner::isLearningMode() const {
@@ -55,17 +55,17 @@ bool IRLearner::learnIRCode(const std::string& appliance_id, const std::string& 
 bool IRLearner::learnIRCode(const std::string& appliance_id, const std::string& command_name,
                            const std::string& description) {
     if (!learning_mode_) {
-        LOG_ERROR("학습 모드가 활성화되지 않음");
+        ESP_LOGE(TAG, "학습 모드가 활성화되지 않음");
         return false;
     }
 
     if (!ir_receiver_) {
-        LOG_ERROR("IR 수신기가 설정되지 않음");
+        ESP_LOGE(TAG, "IR 수신기가 설정되지 않음");
         return false;
     }
 
-    LOG_INFO("IR 코드 학습 시작: %s - %s", appliance_id.c_str(), command_name.c_str());
-    LOG_INFO("리모컨 버튼을 눌러주세요...");
+    ESP_LOGI(TAG, "IR 코드 학습 시작: %s - %s", appliance_id.c_str(), command_name.c_str());
+    ESP_LOGI(TAG, "리모컨 버튼을 눌러주세요...");
 
     current_appliance_id_ = appliance_id;
     current_command_name_ = command_name;
@@ -110,7 +110,7 @@ bool IRLearner::deleteLearnedCommand(const std::string& appliance_id, const std:
         commands.end()
     );
 
-    LOG_INFO("학습된 명령 삭제: %s - %s", appliance_id.c_str(), command_name.c_str());
+    ESP_LOGI(TAG, "학습된 명령 삭제: %s - %s", appliance_id.c_str(), command_name.c_str());
     return true;
 }
 
@@ -152,7 +152,7 @@ bool IRLearner::saveLearnedCodes(const std::string& filename) const {
     try {
         std::ofstream file(filename);
         if (!file.is_open()) {
-            LOG_ERROR("파일 열기 실패: %s", filename.c_str());
+            ESP_LOGE(TAG, "파일 열기 실패: %s", filename.c_str());
             return false;
         }
 
@@ -181,11 +181,11 @@ bool IRLearner::saveLearnedCodes(const std::string& filename) const {
         file << "\n  ]\n";
         file << "}\n";
 
-        LOG_INFO("학습된 IR 코드 저장 완료: %s", filename.c_str());
+        ESP_LOGI(TAG, "학습된 IR 코드 저장 완료: %s", filename.c_str());
         return true;
 
     } catch (const std::exception& e) {
-        LOG_ERROR("IR 코드 저장 실패: %s", e.what());
+        ESP_LOGE(TAG, "IR 코드 저장 실패: %s", e.what());
         return false;
     }
 }
@@ -194,7 +194,7 @@ bool IRLearner::loadLearnedCodes(const std::string& filename) {
     try {
         std::ifstream file(filename);
         if (!file.is_open()) {
-            LOG_ERROR("파일 열기 실패: %s", filename.c_str());
+            ESP_LOGE(TAG, "파일 열기 실패: %s", filename.c_str());
             return false;
         }
 
@@ -202,7 +202,7 @@ bool IRLearner::loadLearnedCodes(const std::string& filename) {
         DeserializationError error = deserializeJson(doc, file);
 
         if (error) {
-            LOG_ERROR("JSON 파싱 오류: %s", error.c_str());
+            ESP_LOGE(TAG, "JSON 파싱 오류: %s", error.c_str());
             return false;
         }
 
@@ -229,11 +229,11 @@ bool IRLearner::loadLearnedCodes(const std::string& filename) {
             }
         }
 
-        LOG_INFO("학습된 IR 코드 로드 완료: %d개 명령어", learned_commands_.size());
+        ESP_LOGI(TAG, "학습된 IR 코드 로드 완료: %d개 명령어", learned_commands_.size());
         return true;
 
     } catch (const std::exception& e) {
-        LOG_ERROR("IR 코드 로드 실패: %s", e.what());
+        ESP_LOGE(TAG, "IR 코드 로드 실패: %s", e.what());
         return false;
     }
 }
@@ -286,7 +286,7 @@ void IRLearner::setIRReceiver(IRReceiver* ir_receiver) {
         ir_receiver_->setIRCodeCallback([this](const std::string& ir_code) {
             this->onIRCodeReceived(ir_code);
         });
-        LOG_INFO("IR 수신기 연동 완료");
+        ESP_LOGI(TAG, "IR 수신기 연동 완료");
     }
 }
 
@@ -300,7 +300,7 @@ void IRLearner::onIRCodeReceived(const std::string& ir_code) {
         return;
     }
 
-    LOG_INFO("IR 코드 수신됨: %s", ir_code.c_str());
+    ESP_LOGI(TAG, "IR 코드 수신됨: %s", ir_code.c_str());
 
     // IR 코드 분석
     IRCode analyzed_code = analyzeIRCode(ir_code);
@@ -308,7 +308,7 @@ void IRLearner::onIRCodeReceived(const std::string& ir_code) {
 
     // 코드 검증
     if (validation_callback_ && !validation_callback_(analyzed_code)) {
-        LOG_ERROR("IR 코드 검증 실패: %s", ir_code.c_str());
+        ESP_LOGE(TAG, "IR 코드 검증 실패: %s", ir_code.c_str());
         return;
     }
 
@@ -331,7 +331,7 @@ void IRLearner::onIRCodeReceived(const std::string& ir_code) {
         learned_commands_[current_appliance_id_].push_back(command);
     }
 
-    LOG_INFO("IR 코드 학습 완료: %s -> %s (%s)",
+    ESP_LOGI(TAG, "IR 코드 학습 완료: %s -> %s (%s)",
              analyzed_code.code.c_str(), current_appliance_id_.c_str(), current_command_name_.c_str());
 
     // 콜백 호출

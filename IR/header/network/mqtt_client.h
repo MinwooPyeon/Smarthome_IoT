@@ -6,7 +6,10 @@
 #ifdef _WIN32
 // Windows 환경에서는 시뮬레이션
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-// ESP32 환경에서는 시뮬레이션 MQTT 클라이언트 사용
+// ESP32 Arduino 환경에서는 PubSubClient 사용
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
 #include "stdint.h"
 #else
 // Linux 환경에서는 실제 mosquitto 사용
@@ -30,10 +33,14 @@ public:
                       const std::string& client_key = "");
     void disconnect();
     bool isConnected() const;
+    bool connected() const { return isConnected(); }  // 호환성을 위한 별칭
 
     bool publish(const std::string& topic, const std::string& message);
     bool publishSecure(const std::string& topic, const std::string& message, bool retain = false);
     bool subscribe(const std::string& topic);
+
+    // 에러 메시지 전송 함수
+    bool publishError(int tx_id, const std::string& error_type, const std::string& error_message);
 
     // 보안 관련 메서드
     void setCredentials(const std::string& username, const std::string& password);
@@ -46,6 +53,10 @@ public:
 
     // 전역 인스턴스 관리 (ESP32 PubSubClient용)
     static void setGlobalInstance(MqttClient* instance);
+    static MqttClient* global_instance_;
+
+    // 메시지 콜백 함수
+    std::function<void(const std::string&, const std::string&)> messageCallback;
 
 private:
 #ifdef _WIN32
@@ -64,9 +75,9 @@ private:
     std::string client_id;
     std::function<void(const std::string&, const std::string&)> messageCallback;
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-            // ESP32 시뮬레이션 MQTT 클라이언트
-            void* mqtt_client_;  // 시뮬레이션용 포인터
-            bool connected;
+            // ESP32 Arduino PubSubClient
+            PubSubClient* mqtt_client_;
+            bool is_connected_;
             std::string username_;
             std::string password_;
             std::string will_topic_;
@@ -78,7 +89,6 @@ private:
             std::string broker;
             int port;
             std::string client_id;
-            std::function<void(const std::string&, const std::string&)> messageCallback;
 #else
     // Linux mosquitto
     struct mosquitto* mosq;
@@ -99,6 +109,4 @@ private:
     void onMQTTMessage(char* topic, uint8_t* payload, unsigned int length);
     static void staticOnMQTTMessage(char* topic, uint8_t* payload, unsigned int length);
 
-    // 전역 인스턴스 관리 (ESP32 PubSubClient용)
-    static MqttClient* global_instance_;
 };

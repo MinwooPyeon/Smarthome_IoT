@@ -11,8 +11,10 @@
 #include <thread>
 #include <atomic>
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-// ESP32 환경에서는 시뮬레이션 MQTT 클라이언트 사용
-#include "esp_log.h"
+// ESP32 Arduino 환경에서는 PubSubClient 사용
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
 #else
 // Linux 환경에서는 실제 mosquitto 사용
 #include <mosquitto.h>
@@ -21,9 +23,20 @@
 // 전역 인스턴스 초기화 (ESP32 PubSubClient용)
 MqttClient* MqttClient::global_instance_ = nullptr;
 
+#ifdef ESP32
+// Arduino PubSubClient 콜백 함수
+void mqtt_callback(char* topic, byte* payload, unsigned int length) {
+    if (MqttClient::global_instance_ && MqttClient::global_instance_->messageCallback) {
+        std::string topic_str(topic);
+        std::string message((char*)payload, length);
+        MqttClient::global_instance_->messageCallback(topic_str, message);
+    }
+}
+#endif
+
 MqttClient::MqttClient() {
 #ifdef _WIN32
-    connected = false;
+    is_connected_ = false;
     port = 1883;
     client_id = "irremote_client";
     use_tls_ = false;
@@ -32,20 +45,27 @@ MqttClient::MqttClient() {
     will_topic_ = "";
     will_message_ = "";
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-    // ESP32 환경 초기화
-    mqtt_client_ = nullptr;
-    connected = false;
+    // ESP32 Arduino 환경 초기화
+    mqtt_client_ = new PubSubClient();
+    is_connected_ = false;
     port = 1883;
     client_id = "irremote_client";
+    use_tls_ = false;
+    username_ = "";
+    password_ = "";
+    will_topic_ = "";
+    will_message_ = "";
+
+    // 전역 인스턴스 설정
+    global_instance_ = this;
 #else
     mosq = nullptr;
-    connected = false;
+    is_connected_ = false;
     port = 1883;
     client_id = "irremote_client";
 
     mosquitto_lib_init();
     mosq = mosquitto_new(nullptr, true, this);
-
     if (mosq) {
         // 콜백 함수 설정
         mosquitto_connect_callback_set(mosq, onConnect);
@@ -57,13 +77,14 @@ MqttClient::MqttClient() {
 
 MqttClient::~MqttClient() {
 #ifdef _WIN32
-    connected = false;
+    is_connected_ = false;
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-    // ESP32 환경 정리
+    // ESP32 Arduino 환경 정리
     if (mqtt_client_) {
+        delete static_cast<PubSubClient*>(mqtt_client_);
         mqtt_client_ = nullptr;
-        ESP_LOGI("MQTT", "MQTT 클라이언트 시뮬레이션 정리 완료");
     }
+    Serial.println("MQTT 클라이언트 정리 완료");
 #else
     if (mosq) {
         mosquitto_destroy(mosq);
@@ -79,15 +100,41 @@ bool MqttClient::connect(const std::string& broker, int port) {
 
 #ifdef _WIN32
     // Windows 시뮬레이션
-    connected = true;
+    is_connected_ = true;
     std::cout << "MQTT 연결 시뮬레이션: " << broker << ":" << port << std::endl;
     return true;
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-    // ESP32 환경에서는 시뮬레이션 MQTT 클라이언트 사용
-    mqtt_client_ = (void*)0x12345678;  // 시뮬레이션용 포인터
-    connected = true;
-    ESP_LOGI("MQTT", "MQTT 연결 시뮬레이션: %s:%d", broker.c_str(), port);
-    return true;
+    // ESP32 Arduino 환경에서는 PubSubClient 사용
+    this->broker = broker;
+    this->port = port;
+
+    PubSubClient* client = static_cast<PubSubClient*>(mqtt_client_);
+    client->setServer(broker.c_str(), port);
+    client->setCallback(mqtt_callback);
+
+    // MQTT 연결 시도
+    bool connected = false;
+    if (!username_.empty() && !password_.empty()) {
+        connected = client->connect(client_id.c_str(), username_.c_str(), password_.c_str());
+    } else {
+        connected = client->connect(client_id.c_str());
+    }
+
+    if (connected) {
+        is_connected_ = true;
+        Serial.printf("MQTT 연결 성공: %s:%d\n", broker.c_str(), port);
+
+        // Will 메시지 설정 (연결 후)
+        if (!will_topic_.empty() && !will_message_.empty()) {
+            client->publish(will_topic_.c_str(), will_message_.c_str(), true);
+        }
+
+        return true;
+    } else {
+        is_connected_ = false;
+        Serial.printf("MQTT 연결 실패: %s:%d\n", broker.c_str(), port);
+        return false;
+    }
 #else
     // Linux mosquitto
     if (!mosq) {
@@ -108,20 +155,23 @@ bool MqttClient::connect(const std::string& broker, int port) {
 
 void MqttClient::disconnect() {
 #ifdef _WIN32
-    connected = false;
+    is_connected_ = false;
     std::cout << "MQTT 연결 해제 시뮬레이션" << std::endl;
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-    connected = false;
-    ESP_LOGI("MQTT", "MQTT 연결 해제 시뮬레이션");
+    if (mqtt_client_) {
+        static_cast<PubSubClient*>(mqtt_client_)->disconnect();
+    }
+    is_connected_ = false;
+    Serial.println("MQTT 연결 해제");
 #else
-    if (mosq && connected) {
+    if (mosq && is_connected_) {
         mosquitto_disconnect(mosq);
     }
 #endif
 }
 
 bool MqttClient::isConnected() const {
-    return connected;
+    return is_connected_;
 }
 
 bool MqttClient::connectSecure(const std::string& broker, int port,
@@ -137,13 +187,13 @@ bool MqttClient::connectSecure(const std::string& broker, int port,
 
 #ifdef _WIN32
     // Windows 시뮬레이션
-    connected = true;
+    is_connected_ = true;
     std::cout << "MQTT 보안 연결 시뮬레이션: " << broker << ":" << port << " (TLS)" << std::endl;
     return true;
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-    // ESP32 환경에서는 시뮬레이션 MQTT 보안 연결
-    connected = true;
-    ESP_LOGI("MQTT", "MQTT 보안 연결 시뮬레이션: %s:%d (TLS)", broker.c_str(), port);
+    // ESP32 Arduino 환경에서는 TLS 지원 PubSubClient 사용
+    is_connected_ = true;
+    Serial.printf("MQTT 보안 연결 시뮬레이션: %s:%d (TLS)\n", broker.c_str(), port);
     return true;
 #else
     // Linux mosquitto TLS 구현
@@ -179,7 +229,7 @@ void MqttClient::setCredentials(const std::string& username, const std::string& 
 
 #ifdef ESP32
     // ESP32 환경에서는 시뮬레이션
-    ESP_LOGI("MQTT", "MQTT 자격 증명 설정 시뮬레이션: %s", username.c_str());
+    Serial.printf("MQTT 자격 증명 설정: %s\n", username.c_str());
 #elif !defined(_WIN32)
     if (mosq) {
         mosquitto_username_pw_set(mosq, username.c_str(), password.c_str());
@@ -193,7 +243,7 @@ void MqttClient::setWillMessage(const std::string& topic, const std::string& mes
 
 #ifdef ESP32
     // ESP32 환경에서는 시뮬레이션
-    ESP_LOGI("MQTT", "MQTT Will 메시지 설정 시뮬레이션: %s", topic.c_str());
+    Serial.printf("MQTT Will 메시지 설정: %s\n", topic.c_str());
 #elif !defined(_WIN32)
     if (mosq) {
         mosquitto_will_set(mosq, topic.c_str(), message.length(), message.c_str(), qos, retain);
@@ -263,12 +313,24 @@ bool MqttClient::publish(const std::string& topic, const std::string& message) {
     std::cout << "MQTT 발행 시뮬레이션: " << topic << " -> " << message << std::endl;
     return true;
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-    // ESP32 환경에서는 시뮬레이션 MQTT 발행
-    ESP_LOGI("MQTT", "MQTT 발행 시뮬레이션: %s -> %s", topic.c_str(), message.c_str());
-    return true;
+    // ESP32 Arduino 환경에서는 PubSubClient 사용
+    if (!mqtt_client_ || !is_connected_) {
+        return false;
+    }
+
+    PubSubClient* client = static_cast<PubSubClient*>(mqtt_client_);
+    bool result = client->publish(topic.c_str(), message.c_str());
+
+    if (result) {
+        Serial.printf("MQTT 발행 성공: %s -> %s\n", topic.c_str(), message.c_str());
+    } else {
+        Serial.printf("MQTT 발행 실패: %s\n", topic.c_str());
+    }
+
+    return result;
 #else
     // Linux mosquitto
-    if (!mosq || !connected) {
+    if (!mosq || !is_connected_) {
         return false;
     }
 
@@ -284,18 +346,46 @@ bool MqttClient::subscribe(const std::string& topic) {
     std::cout << "MQTT 구독 시뮬레이션: " << topic << std::endl;
     return true;
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-    // ESP32 환경에서는 시뮬레이션 MQTT 구독
-    ESP_LOGI("MQTT", "MQTT 구독 시뮬레이션: %s", topic.c_str());
-    return true;
+    // ESP32 Arduino 환경에서는 PubSubClient 사용
+    if (!mqtt_client_ || !is_connected_) {
+        return false;
+    }
+
+    PubSubClient* client = static_cast<PubSubClient*>(mqtt_client_);
+    bool result = client->subscribe(topic.c_str());
+
+    if (result) {
+        Serial.printf("MQTT 구독 성공: %s\n", topic.c_str());
+    } else {
+        Serial.printf("MQTT 구독 실패: %s\n", topic.c_str());
+    }
+
+    return result;
 #else
     // Linux mosquitto
-    if (!mosq || !connected) {
+    if (!mosq || !is_connected_) {
         return false;
     }
 
     int result = mosquitto_subscribe(mosq, nullptr, topic.c_str(), 0);
     return result == MOSQ_ERR_SUCCESS;
 #endif
+}
+
+bool MqttClient::publishError(int tx_id, const std::string& error_type, const std::string& error_message) {
+    // 에러 메시지 JSON 생성
+    DynamicJsonDocument doc(512);
+    doc["tx_id"] = tx_id;
+    doc["error"] = error_type.c_str();
+    doc["message"] = error_message.c_str();
+
+    std::string json_message;
+    serializeJson(doc, json_message);
+
+    // 에러 토픽 생성 (device_id는 "test-device"로 고정)
+    std::string error_topic = "hub/test-device/error";
+
+    return publish(error_topic, json_message);
 }
 
 void MqttClient::setMessageCallback(std::function<void(const std::string&, const std::string&)> callback) {
@@ -306,7 +396,10 @@ void MqttClient::loop() {
 #ifdef _WIN32
     // Windows 시뮬레이션 - 아무것도 하지 않음
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-    // ESP32 환경에서는 시뮬레이션 - 아무것도 하지 않음
+    // ESP32 Arduino 환경에서는 PubSubClient loop 호출
+    if (mqtt_client_) {
+        static_cast<PubSubClient*>(mqtt_client_)->loop();
+    }
 #else
     if (mosq) {
         mosquitto_loop(mosq, 0, 1);
@@ -317,7 +410,7 @@ void MqttClient::loop() {
 #if !defined(_WIN32) && !defined(ESP32) && !defined(ESP_PLATFORM)
 void MqttClient::onConnect(struct mosquitto* mosq, void* userdata, int result) {
     MqttClient* client = static_cast<MqttClient*>(userdata);
-    client->connected = (result == 0);
+    client->is_connected_ = (result == 0);
 
     if (result == 0) {
         std::cout << "Connected to MQTT broker successfully" << std::endl;
@@ -328,7 +421,7 @@ void MqttClient::onConnect(struct mosquitto* mosq, void* userdata, int result) {
 
 void MqttClient::onDisconnect(struct mosquitto* mosq, void* userdata, int result) {
     MqttClient* client = static_cast<MqttClient*>(userdata);
-    client->connected = false;
+    client->is_connected_ = false;
     std::cout << "Disconnected from MQTT broker" << std::endl;
 }
 

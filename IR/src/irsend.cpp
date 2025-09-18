@@ -2,10 +2,17 @@
 #include "core/platform.h"
 #include <iostream>
 #include <fstream>
+#include <chrono>
+
+#ifndef PLATFORM_ESP32
+#include <thread>
+#endif
 
 #ifdef PLATFORM_ESP32
 #include "driver/rmt.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #elif defined(PLATFORM_LINUX)
 #include <lirc/lirc_client.h>
 #elif defined(PLATFORM_WINDOWS)
@@ -67,7 +74,7 @@ bool IRSend::initialize() {
     }
 
 #ifdef PLATFORM_ESP32
-    int tx_pin = 23; // GPIO 23번 핀 (HX_53 IR Transmitter) - 22번 대신 23번 사용
+    int tx_pin = 22; // GPIO 22번 핀 (IR Transmitter) - 23번에서 22번으로 변경
 
     // RMT 채널 설정 (ESP32-WROOM-32E 최적화)
     rmt_config_t config = {};
@@ -237,6 +244,81 @@ IRSendStatus IRSend::sendIRCode(const std::string& ir_code) {
     }
 }
 
+IRSendStatus IRSend::sendRawData(const std::vector<int>& raw_data) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (!initialized_) {
+        return IRSendStatus(IRSendResult::DEVICE_NOT_FOUND, "IR 송신기가 초기화되지 않음");
+    }
+
+    if (raw_data.empty()) {
+        return IRSendStatus(IRSendResult::INVALID_CODE, "Raw 데이터가 비어있음");
+    }
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+#ifdef PLATFORM_ESP32
+    // ESP32 RMT를 사용한 Raw 데이터 송신
+    size_t item_count = (raw_data.size() + 1) / 2; // 펄스 쌍으로 변환
+    rmt_item32_t* items = new rmt_item32_t[item_count];
+
+    for (size_t i = 0; i < raw_data.size(); i += 2) {
+        size_t item_idx = i / 2;
+
+        // 첫 번째 펄스 (HIGH)
+        items[item_idx].level0 = 1;
+        items[item_idx].duration0 = raw_data[i];
+
+        // 두 번째 펄스 (LOW) - 마지막 펄스가 홀수인 경우 처리
+        if (i + 1 < raw_data.size()) {
+            items[item_idx].level1 = 0;
+            items[item_idx].duration1 = raw_data[i + 1];
+        } else {
+            // 홀수 개의 펄스인 경우 마지막을 LOW로 설정
+            items[item_idx].level1 = 0;
+            items[item_idx].duration1 = 0; // End marker
+        }
+    }
+
+    esp_err_t ret = rmt_write_items(RMT_CHANNEL_1, items, item_count, true);
+    delete[] items;
+
+    if (ret == ESP_OK) {
+        ESP_LOGI("IR_SEND", "ESP32 Raw 데이터 전송: %d개 펄스", (int)raw_data.size());
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        return IRSendStatus(IRSendResult::SUCCESS, "Raw 데이터 전송 성공", duration.count() / 1000.0);
+    } else {
+        ESP_LOGE("IR_SEND", "RMT Raw 데이터 전송 실패: %s", esp_err_to_name(ret));
+        return IRSendStatus(IRSendResult::TRANSMISSION_FAILED, "RMT Raw 데이터 전송 실패");
+    }
+#elif defined(PLATFORM_LINUX)
+    // Linux에서는 Raw 데이터를 lirc로 전송
+    if (lirc_fd_ >= 0) {
+        std::string raw_str = "RAW_DATA";
+        for (int value : raw_data) {
+            raw_str += " " + std::to_string(value);
+        }
+
+        if (lirc_send_one(lirc_fd_, raw_str.c_str()) == 0) {
+            LOG_INFO("Linux Raw 데이터 전송: %d개 펄스", (int)raw_data.size());
+            auto end_time = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+            return IRSendStatus(IRSendResult::SUCCESS, "Raw 데이터 전송 성공", duration.count() / 1000.0);
+        } else {
+            return IRSendStatus(IRSendResult::TRANSMISSION_FAILED, "lirc Raw 데이터 송신 실패");
+        }
+    }
+#elif defined(PLATFORM_WINDOWS)
+    LOG_INFO("Windows Raw 데이터 시뮬레이션 전송: %d개 펄스", (int)raw_data.size());
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    return IRSendStatus(IRSendResult::SUCCESS, "Raw 데이터 시뮬레이션 전송 성공", duration.count() / 1000.0);
+#endif
+
+    return IRSendStatus(IRSendResult::TRANSMISSION_FAILED, "Raw 데이터 송신 실패");
+}
+
 std::vector<IRSendStatus> IRSend::sendControlSignals(const std::vector<std::string>& control_signals, int delay_ms) {
     std::vector<IRSendStatus> results;
 
@@ -245,11 +327,19 @@ std::vector<IRSendStatus> IRSend::sendControlSignals(const std::vector<std::stri
         results.push_back(result);
 
         if (result.result != IRSendResult::SUCCESS) {
-            LOG_ERROR("제어 신호 전송 실패: %s - %s", signal.c_str(), result.message.c_str());
+#ifdef PLATFORM_ESP32
+            ESP_LOGE("IR_SEND", "제어 신호 전송 실패: %s - %s", signal.c_str(), result.message.c_str());
+#else
+            LOG_ERROR("IR_SEND", "제어 신호 전송 실패: %s - %s", signal.c_str(), result.message.c_str());
+#endif
         }
 
         if (delay_ms > 0) {
-            delay_ms(delay_ms);
+#ifdef PLATFORM_ESP32
+            vTaskDelay(pdMS_TO_TICKS(delay_ms));
+#else
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+#endif
         }
     }
 
@@ -263,7 +353,11 @@ void IRSend::setCodeStore(IRCodeStore* code_store) {
 
 void IRSend::setDebugMode(bool enabled) {
     debug_mode_ = enabled;
-    LOG_INFO("IR 송신기 디버그 모드: %s", enabled ? "활성화" : "비활성화");
+#ifdef PLATFORM_ESP32
+    ESP_LOGI("IR_SEND", "IR 송신기 디버그 모드: %s", enabled ? "활성화" : "비활성화");
+#else
+    LOG_INFO("IR_SEND", "IR 송신기 디버그 모드: %s", enabled ? "활성화" : "비활성화");
+#endif
 }
 
 std::string IRSend::getLastError() const {
@@ -325,6 +419,10 @@ void IRSend::setLastError(const std::string& error) {
     std::lock_guard<std::mutex> lock(mutex_);
     last_error_ = error;
     if (debug_mode_) {
-        LOG_ERROR("IRSend 오류: %s", error.c_str());
+#ifdef PLATFORM_ESP32
+        ESP_LOGE("IR_SEND", "IRSend 오류: %s", error.c_str());
+#else
+        LOG_ERROR("IR_SEND", "IRSend 오류: %s", error.c_str());
+#endif
     }
 }
