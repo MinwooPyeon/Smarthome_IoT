@@ -9,6 +9,5 @@ import com.eeum.entity.IrSignal;
 
 @Repository
 public interface IrSignalRepository extends JpaRepository<IrSignal, Integer> {
-	
-	Optional<IrSignal> findByModelAndName(String model, String name);
+    Optional<IrSignal> findByModelAndCategory(String model, String category);
 }

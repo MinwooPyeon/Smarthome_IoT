@@ -25,7 +25,8 @@ public class IrSignal {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer signalId;
 
-    private String name;
+    @Column(name = "category")
+    private String category;  
 
     @Column(name = "samples_us", columnDefinition = "integer[]")
     private int[] samplesUs;

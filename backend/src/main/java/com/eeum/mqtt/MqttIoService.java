@@ -119,29 +119,34 @@ public class MqttIoService {
             IrSignalIn m = om.readValue(json, IrSignalIn.class);
 
             if (!validate(m)) return;
-            if (m.getRawData() == null || m.getRawData().length == 0) return;
+            if (m.getRawData() == null || m.getRawData().length == 0) {
+                log.warn("[IR] rawData 누락 -> drop");
+                return;
+            }
+            if (m.getFunction() == null || m.getFunction().isBlank()) {
+                log.warn("[IR] function 누락 -> drop (device={}, brand={})", m.getDevice(), m.getBrand());
+                return;
+            }
             if (isDup(m.getMsgId())) return;
 
-            String model = m.getBrand() + "_" + m.getDevice();
-            String name = m.getFunction();
+            String model = m.getDevice();
+            String category = m.getFunction();
 
-            IrSignal existing = irSignalRepository.findByModelAndName(model, name).orElse(null);
+            IrSignal existing = irSignalRepository.findByModelAndCategory(model, category).orElse(null);
 
             IrSignal entity;
             if (existing != null) {
-                // 덮어쓰기
                 existing.setSamplesUs(m.getRawData());
                 entity = existing;
-                log.info("[IR] 덮어쓰기: model={}, function={}", model, name);
+                log.info("[IR] 덮어쓰기: model={}, category={}, samples={}", model, category, m.getRawData().length);
             } else {
-                // 새로 저장
                 entity = IrSignal.builder()
-                    .name(name)
+                    .category(category)
                     .samplesUs(m.getRawData())
                     .model(model)
                     .protocolId(null)
                     .build();
-                log.info("[IR] 새로 저장: model={}, function={}", model, name);
+                log.info("[IR] 새로 저장: model={}, category={}, samples={}", model, category, m.getRawData().length);
             }
 
             irSignalRepository.save(entity);
