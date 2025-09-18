@@ -19,11 +19,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.eeum.base.ApplicationClass
 import com.example.eeum.data.model.response.routine.RoutineData
 import com.example.eeum.ui.screens.RoutineViewModel
 import com.example.eeum.util.ResourceUtils
@@ -194,18 +199,18 @@ private fun MyRoutineCard(
             ) {
                 // 아이콘은 iconId 매핑이 정해지기 전이라 임시 박스만 유지
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconBoxPlaceholder()
+                    IconBox(iconUrl = routine.iconUrl)
                     Spacer(Modifier.width(14.dp))
                     Column {
                         Text(
-                            routine.name, // ← 응답값 name
+                            routine.name,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = TitleColor
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            routine.routineDescription, // ← 응답값 routineDescription
+                            routine.routineDescription,
                             fontSize = 14.sp,
                             lineHeight = 20.sp,
                             color = BodyColor
@@ -242,19 +247,42 @@ private fun MyRoutineCard(
 }
 
 @Composable
-private fun IconBoxPlaceholder() {
+private fun IconBox(iconUrl: String) {
+    val shape = RoundedCornerShape(12.dp)
+    val ctx = LocalContext.current
+    val absoluteUrl = remember(iconUrl) { toAbsoluteUrl(ApplicationClass.SERVER_URL, iconUrl) }
+
     Box(
         modifier = Modifier
-            .size(56.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF7C83FF)),
+            .size(70.dp)
+            .clip(shape)
+            .fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        // 실제 iconId 매핑 전 임시 표시(원하면 아이콘 추가)
-        Text("★", color = Color.White)
+        if (absoluteUrl.isNullOrBlank()) {
+            Text("★", color = Color.White)
+        } else {
+            AsyncImage(
+                model = ImageRequest.Builder(ctx)
+                    .data(absoluteUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
     }
 }
-
+private fun toAbsoluteUrl(base: String, path: String?): String? {
+    if (path.isNullOrBlank()) return null
+    val b = base.trimEnd('/')
+    val p = path.trim()
+    if (p.startsWith("http://") || p.startsWith("https://")) return p
+    return if (p.startsWith("/")) "$b$p" else "$b/$p"
+}
 @Composable
 private fun StatusDot(active: Boolean) {
     val dotColor = if (active) Color(0xFF22C55E) else Color(0xFF94A3B8)

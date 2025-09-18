@@ -11,5 +11,6 @@ data class RoutineData(
     val routineId: Int,
     val routineWeekday: Int,
     val triggerType: Boolean,
-    val updatedAt: String
+    val updatedAt: String,
+    val iconUrl: String
 )
