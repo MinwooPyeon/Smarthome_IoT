@@ -14,6 +14,8 @@ struct IrSample{
 };
 
 struct Metrics{
+    long long tsMs;
+
     double tAvg = 0;
     double hAvg = 0;
     double tEwma = 0;    // EWMA 온도

@@ -121,13 +121,11 @@ Metrics Analyzer::compute(const std::vector<EnvSample>& v)
 
     m.tEwma = ewT;
     m.hEwma = ewH;
+    m.tsMs = last.tsMs;
 
-    // 기존 지표
     m.dewPoint = dewPointC(ewT, ewH);
     m.heatIndex = heatIndexC(ewT, ewH);
     m.spike = std::fabs(last.t - m.tAvg) > 5.0;
-
-    // 추가 지표
     m.absHumidity = absoluteHumidity(ewT, ewH);
     m.wbgt = wbgtIndoorApprox(ewT, ewH);
 

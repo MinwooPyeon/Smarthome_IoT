@@ -77,12 +77,13 @@ void MqttManager::run_loop(){
     auto lastEnv = steady_clock::now();
     while(running_){
         mqtt_.loop_for_ms(50);
-
-        if(cfg_.envStreamOn){
+        auto r = dht_.read_with_retry(1, 1500, 1200);
+        envMgr_.addData(EnvSample{now_ms(), r->tempC, r->hum});
+        
+        if(cfg_.envStreamOn){    
             auto now = steady_clock::now();
             if(now - lastEnv >= milliseconds(cfg_.envIntervalMs)){
                 lastEnv = now;
-                auto r = dht_.read_with_retry(1, 1500, 1200);
                 if(r) publish_env(r->tempC, r->hum, now_ms());
                 else  publish_error(0, "env_read_failed");
             }
@@ -153,13 +154,15 @@ void MqttManager::h_regist_send(const json& j){
     device.consumption = j.value("consumption", 0);
     
     bool is_add = j.value("add_rm", true);
-
+    std::string topic = "hub/"+device.deviceId+"/order/control";
     if(is_add){
         irMgr_.addData(device);
-        mqtt_.subscribe("hub/"+device.deviceId+"/order/control", 1);
+        mqtt_.subscribe(topic, 1);
+        handlers_.emplace(topic, [this](const json& j){ h_ir_req(j); });
     }else{
         irMgr_.deleteData(device);
-        mqtt_.unsubscribe("hub/"+device.deviceId+"/order/control");
+        mqtt_.unsubscribe(topic);
+        handlers_.erase(topic);
     }
 }
 

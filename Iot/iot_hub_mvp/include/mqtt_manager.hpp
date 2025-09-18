@@ -12,8 +12,10 @@
 #include "ir_receiver.hpp"
 #include "analyzer.hpp"   
 #include "types.hpp"      
+
 #include "ir_device_manager.hpp"
 #include "log_manager.hpp"
+#include "env_manager.hpp"
 
 class MqttManager {
 public:
@@ -29,7 +31,8 @@ private:
     Dht11Reader     dht_;
     IrDeviceManager irMgr_;
     LogManager      logMgr_;
-
+    EnvManager      envMgr_;
+    
     std::atomic<bool> running_{false};
     std::thread       loopThread_;
 
