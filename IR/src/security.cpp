@@ -9,11 +9,9 @@
 #include <ctime>
 #include <cstring>
 
-// 정적 멤버 변수 초기화
 CryptoBackend Security::backend_ = CryptoBackend::MBEDTLS;
 bool Security::initialized_ = false;
 
-// 플랫폼별 백엔드 초기화
 bool Security::initializeBackend() {
 #ifdef ESP32
     backend_ = CryptoBackend::MBEDTLS;
@@ -30,7 +28,6 @@ bool Security::initializeBackend() {
 #endif
 }
 
-// 보안 시스템 초기화
 bool Security::initialize() {
     if (initialized_) {
         return true;
@@ -46,7 +43,6 @@ bool Security::initialize() {
     return true;
 }
 
-// 보안 시스템 정리
 void Security::cleanup() {
     if (initialized_) {
         logSecurityEvent("INFO", "보안 시스템 정리");
@@ -54,7 +50,6 @@ void Security::cleanup() {
     }
 }
 
-// 로그 함수 (실제 구현에서는 적절한 로깅 시스템 사용)
 void Security::logSecurityEvent(const std::string& level, const std::string& message, const std::string& details) {
     auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
@@ -72,7 +67,6 @@ void Security::logSecurityEvent(const std::string& level, const std::string& mes
 #endif
 }
 
-// 통합 SHA-256 구현
 std::string Security::sha256(const std::string& input) {
     if (!initialized_) {
         if (!initialize()) {
@@ -93,7 +87,6 @@ std::string Security::sha256(const std::string& input) {
     }
 }
 
-// ESP32 mbedtls 구현
 std::string Security::sha256_mbedtls(const std::string& input) {
 #ifdef ESP32
     unsigned char hash[32];
@@ -116,7 +109,6 @@ std::string Security::sha256_mbedtls(const std::string& input) {
 #endif
 }
 
-// Linux/macOS OpenSSL 구현
 std::string Security::sha256_openssl(const std::string& input) {
 #ifndef ESP32
     unsigned char hash[SHA256_DIGEST_LENGTH];
@@ -137,7 +129,6 @@ std::string Security::sha256_openssl(const std::string& input) {
 #endif
 }
 
-// Windows CryptoAPI 구현
 std::string Security::sha256_cryptoapi(const std::string& input) {
 #ifdef _WIN32
     HCRYPTPROV hProv = 0;
@@ -186,11 +177,9 @@ std::string Security::sha256_cryptoapi(const std::string& input) {
 
 std::string Security::hmacSha256(const std::string& key, const std::string& message) {
 #ifdef _WIN32
-    // Windows에서는 간단한 구현 (실제로는 CryptoAPI 사용 권장)
     std::string combined = key + message;
     return sha256(combined);
 #elif defined(ESP_PLATFORM)
-    // ESP32 환경에서는 mbedtls 사용
     unsigned char result[32];
     const mbedtls_md_info_t* md_info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
     mbedtls_md_context_t md_ctx;
@@ -253,7 +242,6 @@ bool Security::verifyTimeBasedToken(const std::string& token, const std::string&
     auto time_t = std::chrono::system_clock::to_time_t(now);
     uint64_t time_step = time_t / window;
 
-    // 현재 시간 윈도우와 이전/다음 윈도우 검증
     for (int i = -1; i <= 1; i++) {
         uint64_t test_time = time_step + i;
         std::string test_token = hmacSha256(secret, std::to_string(test_time));
@@ -265,7 +253,6 @@ bool Security::verifyTimeBasedToken(const std::string& token, const std::string&
     return false;
 }
 
-// 통합 AES 암호화 구현
 std::string Security::encryptAES(const std::string& plaintext, const std::string& key) {
     if (!initialized_) {
         if (!initialize()) {
@@ -273,7 +260,6 @@ std::string Security::encryptAES(const std::string& plaintext, const std::string
         }
     }
 
-    // 키 길이 검증 (AES-256은 32바이트 필요)
     if (key.length() != 32) {
         logSecurityEvent("ERROR", "AES-256 키는 32바이트여야 합니다");
         return "";
@@ -292,7 +278,6 @@ std::string Security::encryptAES(const std::string& plaintext, const std::string
     }
 }
 
-// 통합 AES 복호화 구현
 std::string Security::decryptAES(const std::string& ciphertext, const std::string& key) {
     if (!initialized_) {
         if (!initialize()) {
@@ -300,7 +285,6 @@ std::string Security::decryptAES(const std::string& ciphertext, const std::strin
         }
     }
 
-    // 키 길이 검증
     if (key.length() != 32) {
         logSecurityEvent("ERROR", "AES-256 키는 32바이트여야 합니다");
         return "";
@@ -319,10 +303,8 @@ std::string Security::decryptAES(const std::string& ciphertext, const std::strin
     }
 }
 
-// ESP32 mbedtls AES-GCM 암호화 (현재 비활성화 - 컴파일 오류 방지)
 std::string Security::encryptAES_mbedtls(const std::string& plaintext, const std::string& key) {
 #ifdef ESP32
-    // mbedtls GCM 암호화는 현재 비활성화됨 (컴파일 오류 방지)
     logSecurityEvent("WARN", "mbedtls GCM 암호화는 현재 비활성화됨");
     return "";
 #else
@@ -331,10 +313,8 @@ std::string Security::encryptAES_mbedtls(const std::string& plaintext, const std
 #endif
 }
 
-// ESP32 mbedtls AES-GCM 복호화 (현재 비활성화 - 컴파일 오류 방지)
 std::string Security::decryptAES_mbedtls(const std::string& ciphertext, const std::string& key) {
 #ifdef ESP32
-    // mbedtls GCM 복호화는 현재 비활성화됨 (컴파일 오류 방지)
     logSecurityEvent("WARN", "mbedtls GCM 복호화는 현재 비활성화됨");
     return "";
 #else
@@ -344,7 +324,6 @@ std::string Security::decryptAES_mbedtls(const std::string& ciphertext, const st
 }
 
 std::string Security::hashPassword(const std::string& password, int rounds) {
-    // 간단한 해싱 (실제로는 bcrypt 사용 권장)
     std::string salt = generateSecureToken(16);
     std::string hash = sha256(password + salt);
 
@@ -352,7 +331,6 @@ std::string Security::hashPassword(const std::string& password, int rounds) {
 }
 
 bool Security::verifyPassword(const std::string& password, const std::string& hash) {
-    // 간단한 검증 (실제로는 bcrypt 검증 사용 권장)
     if (hash.length() < 10) return false;
 
     std::string salt = hash.substr(7, 16);
@@ -365,16 +343,13 @@ bool Security::verifyPassword(const std::string& password, const std::string& ha
 std::string Security::sanitizeInput(const std::string& input) {
     std::string sanitized = input;
 
-    // NULL 바이트 제거
     sanitized.erase(std::remove(sanitized.begin(), sanitized.end(), '\0'), sanitized.end());
 
-    // 제어 문자 제거 (탭, 개행, 캐리지 리턴 제외)
     sanitized.erase(std::remove_if(sanitized.begin(), sanitized.end(),
         [](char c) {
             return c < 32 && c != '\t' && c != '\n' && c != '\r';
         }), sanitized.end());
 
-    // 최대 길이 제한
     if (sanitized.length() > 10000) {
         sanitized = sanitized.substr(0, 10000);
     }
@@ -385,7 +360,6 @@ std::string Security::sanitizeInput(const std::string& input) {
 std::string Security::escapeSql(const std::string& input) {
     std::string escaped = input;
 
-    // SQL 인젝션 방지를 위한 이스케이프
     size_t pos = 0;
     while ((pos = escaped.find("'", pos)) != std::string::npos) {
         escaped.replace(pos, 1, "''");
@@ -398,7 +372,6 @@ std::string Security::escapeSql(const std::string& input) {
 std::string Security::escapeHtml(const std::string& input) {
     std::string escaped = input;
 
-    // HTML 이스케이프
     size_t pos = 0;
     while ((pos = escaped.find("&", pos)) != std::string::npos) {
         escaped.replace(pos, 1, "&amp;");
@@ -427,17 +400,14 @@ std::string Security::escapeHtml(const std::string& input) {
 }
 
 bool Security::validateFilePath(const std::string& path) {
-    // 경로 순회 공격 방지
     if (path.find("..") != std::string::npos) {
         return false;
     }
 
-    // 절대 경로 방지
     if (path.length() > 0 && (path[0] == '/' || path[0] == '\\')) {
         return false;
     }
 
-    // 금지된 문자 검사
     const std::string forbidden = "<>:\"|?*";
     for (char c : forbidden) {
         if (path.find(c) != std::string::npos) {
@@ -494,7 +464,6 @@ bool Security::validateSecurityPolicy(const std::string& policy, const std::stri
     return false;
 }
 
-// 내부 유틸리티 메서드들
 std::string Security::base64Encode(const std::string& input) {
     const std::string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     std::string result;
@@ -538,7 +507,6 @@ std::string Security::base64Decode(const std::string& input) {
     return result;
 }
 
-// 통합 랜덤 바이트 생성
 std::vector<uint8_t> Security::generateRandomBytes_mbedtls(size_t length) {
 #ifdef ESP32
     std::vector<uint8_t> bytes(length);
@@ -556,7 +524,6 @@ std::vector<uint8_t> Security::generateRandomBytes_openssl(size_t length) {
 #ifndef ESP32
     std::vector<uint8_t> bytes(length);
     if (getrandom(bytes.data(), length, 0) != (ssize_t)length) {
-        // fallback to /dev/urandom
         std::ifstream urandom("/dev/urandom", std::ios::binary);
         urandom.read(reinterpret_cast<char*>(bytes.data()), length);
     }

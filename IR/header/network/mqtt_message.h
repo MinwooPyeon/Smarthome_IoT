@@ -79,4 +79,4 @@ struct IRSignalMessage {
     }
 };
 
-#endif // MQTT_MESSAGE_H
+#endif

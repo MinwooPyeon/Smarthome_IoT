@@ -5,7 +5,6 @@
 #include <esp_netif.h>
 #include <cstring>
 #ifdef ESP32
-// ESP32 환경에서는 시뮬레이션 MQTT 사용
 #endif
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -14,7 +13,6 @@
 
 static const char* TAG = "ESP32_WIFI_MQTT";
 
-// 정적 멤버 변수 정의
 const char* ESP32WiFiMQTT::TAG = "ESP32_WIFI_MQTT";
 const int ESP32WiFiMQTT::WIFI_CONNECTED_BIT = BIT0;
 const int ESP32WiFiMQTT::WIFI_FAIL_BIT = BIT1;
@@ -29,14 +27,12 @@ ESP32WiFiMQTT::ESP32WiFiMQTT()
     mqtt_client_ = nullptr;
 #endif
 
-    // 통계 초기화
     stats_.wifi_connected = false;
     stats_.mqtt_connected = false;
     stats_.mqtt_messages_sent = 0;
     stats_.mqtt_messages_received = 0;
     stats_.last_mqtt_activity = 0;
 
-    // 뮤텍스 초기화
     portMUX_INITIALIZE(&stats_mutex_);
 }
 
@@ -50,24 +46,21 @@ bool ESP32WiFiMQTT::initialize() {
         return true;
     }
 
-    ESP_LOGI(TAG, "ESP32 WiFi/MQTT 초기화 시작");
+    ESP_LOGI(TAG, "ESP32 WiFi/MQTT 초기화");
 
-    // 이벤트 그룹 생성
     wifi_event_group_ = xEventGroupCreate();
     mqtt_event_group_ = xEventGroupCreate();
 
     if (!wifi_event_group_ || !mqtt_event_group_) {
-        ESP_LOGE(TAG, "이벤트 그룹 생성 실패");
+        ESP_LOGE(TAG, "그룹 생성 실패");
         return false;
     }
 
-    // WiFi 초기화
     if (!initializeWiFi()) {
         ESP_LOGE(TAG, "WiFi 초기화 실패");
         return false;
     }
 
-    // MQTT 초기화
     if (!initializeMQTT()) {
         ESP_LOGE(TAG, "MQTT 초기화 실패");
         return false;
@@ -125,14 +118,12 @@ bool ESP32WiFiMQTT::connectWiFi(const std::string& ssid, const std::string& pass
         return false;
     }
 
-    // WiFi 연결 시작
     ret = esp_wifi_connect();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "WiFi 연결 시작 실패: %s", esp_err_to_name(ret));
         return false;
     }
 
-    // 연결 완료 대기
     EventBits_t bits = xEventGroupWaitBits(wifi_event_group_,
                                           WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
                                           pdFALSE,
@@ -148,7 +139,7 @@ bool ESP32WiFiMQTT::connectWiFi(const std::string& ssid, const std::string& pass
         ESP_LOGE(TAG, "WiFi 연결 실패");
         return false;
     } else {
-        ESP_LOGE(TAG, "WiFi 연결 타임아웃");
+        ESP_LOGE(TAG, "WiFi 연결 Timeout");
         return false;
     }
 }
@@ -185,15 +176,12 @@ bool ESP32WiFiMQTT::connectMQTT(const std::string& broker, int port, const std::
     ESP_LOGI(TAG, "MQTT 연결 시작: %s:%d", broker.c_str(), port);
 
 #ifdef ESP32
-    // ESP32 환경에서는 시뮬레이션 MQTT 사용
-    mqtt_client_ = (void*)0x12345678;  // 시뮬레이션용 포인터
+    mqtt_client_ = (void*)0x12345678;
     ESP_LOGI(TAG, "MQTT 연결 시뮬레이션: %s:%d", broker.c_str(), port);
 #else
-    // ESP32가 아닌 환경에서는 시뮬레이션
     ESP_LOGI(TAG, "MQTT 연결 시뮬레이션: %s:%d", broker.c_str(), port);
 #endif
 
-    // 연결 완료 대기
     EventBits_t bits = xEventGroupWaitBits(mqtt_event_group_,
                                           MQTT_CONNECTED_BIT | MQTT_FAIL_BIT,
                                           pdFALSE,
@@ -209,7 +197,7 @@ bool ESP32WiFiMQTT::connectMQTT(const std::string& broker, int port, const std::
         ESP_LOGE(TAG, "MQTT 연결 실패");
         return false;
     } else {
-        ESP_LOGE(TAG, "MQTT 연결 타임아웃");
+        ESP_LOGE(TAG, "MQTT 연결 Timeout");
         return false;
     }
 }
@@ -219,11 +207,9 @@ void ESP32WiFiMQTT::disconnectMQTT() {
 
     ESP_LOGI(TAG, "MQTT 연결 해제");
 #ifdef ESP32
-    // ESP32 환경에서는 시뮬레이션
-    ESP_LOGI(TAG, "MQTT 연결 해제 시뮬레이션");
+    ESP_LOGI(TAG, "MQTT 연결 해제 Simulation");
 #else
-    // ESP32가 아닌 환경에서는 시뮬레이션
-    ESP_LOGI(TAG, "MQTT 연결 해제 시뮬레이션");
+    ESP_LOGI(TAG, "MQTT 연결 해제 Simulation");
 #endif
     mqtt_connected_ = false;
     updateMQTTStatistics();
@@ -242,12 +228,10 @@ bool ESP32WiFiMQTT::subscribe(const std::string& topic) {
     ESP_LOGI(TAG, "MQTT 구독: %s", topic.c_str());
 
 #ifdef ESP32
-    // ESP32 환경에서는 시뮬레이션
-    ESP_LOGI(TAG, "MQTT 구독 시뮬레이션: %s", topic.c_str());
+    ESP_LOGI(TAG, "MQTT 구독 Simulation: %s", topic.c_str());
     return true;
 #else
-    // ESP32가 아닌 환경에서는 시뮬레이션
-    ESP_LOGI(TAG, "MQTT 구독 시뮬레이션: %s", topic.c_str());
+    ESP_LOGI(TAG, "MQTT 구독 Simulation: %s", topic.c_str());
     return true;
 #endif
 }
@@ -261,14 +245,11 @@ bool ESP32WiFiMQTT::publish(const std::string& topic, const std::string& message
     ESP_LOGI(TAG, "MQTT 발행: %s -> %s", topic.c_str(), message.c_str());
 
 #ifdef ESP32
-    // ESP32 환경에서는 시뮬레이션
-    ESP_LOGI(TAG, "MQTT 발행 시뮬레이션: %s -> %s", topic.c_str(), message.c_str());
+    ESP_LOGI(TAG, "MQTT 발행 Simulation: %s -> %s", topic.c_str(), message.c_str());
 #else
-    // ESP32가 아닌 환경에서는 시뮬레이션
-    ESP_LOGI(TAG, "MQTT 발행 시뮬레이션: %s -> %s", topic.c_str(), message.c_str());
+    ESP_LOGI(TAG, "MQTT 발행 Simulation: %s -> %s", topic.c_str(), message.c_str());
 #endif
 
-    // 통계 업데이트
     portENTER_CRITICAL(&stats_mutex_);
     stats_.mqtt_messages_sent++;
     stats_.last_mqtt_activity = esp_timer_get_time();
@@ -303,10 +284,9 @@ std::string ESP32WiFiMQTT::getWiFiIP() const {
     if (!wifi_connected_) return "";
 
 #ifdef ESP32
-    // ESP32 환경에서는 시뮬레이션 IP 반환
-    return "192.168.1.100"; // 시뮬레이션 IP
+    return "192.168.1.100";
 #else
-    return "127.0.0.1"; // 시뮬레이션
+    return "127.0.0.1";
 #endif
 }
 
@@ -323,7 +303,7 @@ int ESP32WiFiMQTT::getWiFiRSSI() const {
 
     return ap_info.rssi;
 #else
-    return -50; // 시뮬레이션
+    return -50;
 #endif
 }
 
@@ -357,8 +337,7 @@ void ESP32WiFiMQTT::wifiEventHandler(void* arg, esp_event_base_t event_base, int
                 client->wifi_callback_(false);
             }
 
-            // 재연결 시도
-            if (true) { // 재시도 로직은 나중에 구현
+            if (true) {
                 ESP_LOGI(TAG, "WiFi 재연결 시도");
                 esp_wifi_connect();
             }
@@ -373,11 +352,9 @@ void ESP32WiFiMQTT::mqttEventHandler(void* arg, esp_event_base_t event_base, int
     ESP32WiFiMQTT* client = static_cast<ESP32WiFiMQTT*>(arg);
     if (!client) return;
 
-    // MQTT 이벤트 처리 시뮬레이션
     ESP_LOGI(TAG, "MQTT 이벤트 수신: %ld", event_id);
 
-    // 시뮬레이션된 연결 이벤트
-    if (event_id == 1) {  // 연결 이벤트 시뮬레이션
+    if (event_id == 1) {
         ESP_LOGI(TAG, "MQTT 연결됨 (시뮬레이션)");
         client->mqtt_connected_ = true;
         client->updateMQTTStatistics();
@@ -386,7 +363,7 @@ void ESP32WiFiMQTT::mqttEventHandler(void* arg, esp_event_base_t event_base, int
         if (client->mqtt_connection_callback_) {
             client->mqtt_connection_callback_(true);
         }
-    } else if (event_id == 2) {  // 연결 해제 이벤트 시뮬레이션
+    } else if (event_id == 2) {
         ESP_LOGI(TAG, "MQTT 연결 해제됨 (시뮬레이션)");
         client->mqtt_connected_ = false;
         client->updateMQTTStatistics();
@@ -404,13 +381,11 @@ void ESP32WiFiMQTT::mqttDataHandler(void* arg, int event) {
 
     ESP_LOGI(TAG, "MQTT 데이터 핸들러 호출됨");
 
-    // 통계 업데이트
     portENTER_CRITICAL(&client->stats_mutex_);
     client->stats_.mqtt_messages_received++;
     client->stats_.last_mqtt_activity = esp_timer_get_time();
     portEXIT_CRITICAL(&client->stats_mutex_);
 
-    // 콜백 호출 (실제 구현은 나중에)
     ESP_LOGI(TAG, "MQTT 메시지 처리 완료");
 }
 
@@ -418,21 +393,18 @@ bool ESP32WiFiMQTT::initializeWiFi() {
     ESP_LOGI(TAG, "WiFi 초기화 시작");
 
 #ifdef ESP32
-    // 이벤트 루프 초기화
     esp_err_t ret = esp_event_loop_create_default();
     if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
         ESP_LOGE(TAG, "이벤트 루프 생성 실패: %s", esp_err_to_name(ret));
         return false;
     }
 
-    // 네트워크 인터페이스 생성
     netif_ = esp_netif_create_default_wifi_sta();
     if (!netif_) {
         ESP_LOGE(TAG, "네트워크 인터페이스 생성 실패");
         return false;
     }
 
-    // WiFi 초기화
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ret = esp_wifi_init(&cfg);
     if (ret != ESP_OK) {
@@ -440,14 +412,12 @@ bool ESP32WiFiMQTT::initializeWiFi() {
         return false;
     }
 
-    // WiFi 모드 설정
     ret = esp_wifi_set_mode(WIFI_MODE_STA);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "WiFi 모드 설정 실패: %s", esp_err_to_name(ret));
         return false;
     }
 
-    // 이벤트 핸들러 등록
     ret = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifiEventHandler, this, nullptr);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "WiFi 이벤트 핸들러 등록 실패: %s", esp_err_to_name(ret));
@@ -460,7 +430,6 @@ bool ESP32WiFiMQTT::initializeWiFi() {
         return false;
     }
 
-    // WiFi 시작
     ret = esp_wifi_start();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "WiFi 시작 실패: %s", esp_err_to_name(ret));
@@ -470,7 +439,6 @@ bool ESP32WiFiMQTT::initializeWiFi() {
     ESP_LOGI(TAG, "WiFi 초기화 완료");
     return true;
 #else
-    // ESP32가 아닌 환경에서는 시뮬레이션
     ESP_LOGI(TAG, "WiFi 초기화 시뮬레이션 완료");
     return true;
 #endif
@@ -491,8 +459,7 @@ bool ESP32WiFiMQTT::initializeMQTT() {
     ESP_LOGI(TAG, "MQTT 초기화 시작");
 
 #ifdef ESP32
-    // ESP32 환경에서는 시뮬레이션 MQTT 사용
-    mqtt_client_ = (void*)0x12345678;  // 시뮬레이션용 포인터
+    mqtt_client_ = (void*)0x12345678;
     ESP_LOGI(TAG, "MQTT 클라이언트 시뮬레이션 생성 완료");
 #endif
 
@@ -502,7 +469,6 @@ bool ESP32WiFiMQTT::initializeMQTT() {
 
 void ESP32WiFiMQTT::cleanupMQTT() {
 #ifdef ESP32
-    // ESP32 환경에서는 시뮬레이션 MQTT 정리
     if (mqtt_client_) {
         mqtt_client_ = nullptr;
         ESP_LOGI(TAG, "MQTT 클라이언트 시뮬레이션 정리 완료");
