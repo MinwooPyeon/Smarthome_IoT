@@ -29,8 +29,9 @@ struct AppConfig {
     std::string topicError      = "hub/" + deviceId + "/error"; //error
     // --- subscribe topic ---
     std::string topicOrderIrReq = "hub/" + deviceId + "/order/ir_req"; //ir signal require
-    std::string topicOrderCtrl = "hub/" + deviceId + "/order/control"; //control
     std::string topicOrderEnv = "hub/" + deviceId + "/order/env"; //environment request
+    std::string topicRegisDebice = "hub/" + deviceId + "/sendDevice"; // Regist/Unregist IR Send Device
+    
 
     // --- ENV Streaming ---
     bool envStreamOn = false;

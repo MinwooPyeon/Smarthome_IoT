@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <string>
 
 
 struct EnvSample{
@@ -24,4 +25,18 @@ struct Metrics{
     double pmv = 0;         // PMV (-3 ~ +3)
     double ppd = 0;         // PPD (%)
     bool   spike = false;
+};
+
+struct IrSendDevice{
+    std::string deviceId;
+    std::string deviceType;
+    float       consumption;
+};
+
+struct Log{
+    int tx_id;
+    std::string deviceId;
+    std::string deviceType;
+    std::string function;
+    std::string metaData;
 };

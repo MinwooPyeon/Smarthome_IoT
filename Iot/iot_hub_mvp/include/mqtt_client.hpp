@@ -13,6 +13,7 @@ public:
 
     void set_message_handler(MessageHandler h);
     bool subscribe(const std::string& topic, int qos=0);
+    bool unsubscribe(const std::string& topic);
     bool publish(const std::string& topic, const std::string& payload, int qos=0, bool retain=false);
 
     void loop_forever();
