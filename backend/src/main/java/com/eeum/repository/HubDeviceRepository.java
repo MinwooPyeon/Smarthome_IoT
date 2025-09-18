@@ -1,5 +1,7 @@
 package com.eeum.repository;
 
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -21,4 +23,7 @@ public interface HubDeviceRepository extends JpaRepository<HubDevice, String> {
     
     
     boolean existsByUserHomeId(Integer userHomeId);
+    
+    @Query("SELECT h.hubDeviceId FROM HubDevice h WHERE h.userHomeId = :userHomeId")
+    Optional<String> findHubDeviceIdByUserHomeId(@Param("userHomeId") Integer userHomeId);
 }

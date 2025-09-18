@@ -1,12 +1,17 @@
 package com.eeum.service;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -17,14 +22,23 @@ import com.eeum.dto.response.DeviceItemResponse;
 import com.eeum.dto.response.DeviceLocationResponse;
 import com.eeum.dto.response.DeviceResponse;
 import com.eeum.entity.Device;
+import com.eeum.entity.IrButton;
 import com.eeum.entity.IrDevice;
+import com.eeum.entity.IrEventLog;
 import com.eeum.entity.IrRemoteir;
+import com.eeum.entity.IrSignal;
+import com.eeum.entity.IrTxQueue;
 import com.eeum.entity.Room;
+import com.eeum.mqtt.MqttOutService;
 import com.eeum.repository.DeviceRepository;
 import com.eeum.repository.DeviceRepository.DeviceRow;
 import com.eeum.repository.HubDeviceRepository;
+import com.eeum.repository.IrButtonRepository;
 import com.eeum.repository.IrDeviceRepository;
+import com.eeum.repository.IrEventLogRepository;
 import com.eeum.repository.IrRemoteirRepository;
+import com.eeum.repository.IrSignalRepository;
+import com.eeum.repository.IrTxQueueRepository;
 import com.eeum.repository.RoomRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -33,7 +47,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DeviceService {
@@ -43,6 +59,12 @@ public class DeviceService {
     private final IrDeviceRepository irDeviceRepository;
     private final RoomRepository roomRepository;
     private final HubDeviceRepository hubDeviceRepository;
+    private final IrButtonRepository irButtonRepository;      
+    private final IrSignalRepository irSignalRepository;     
+    private final IrTxQueueRepository irTxQueueRepository;
+    private final IrEventLogRepository irEventLogRepository;
+    private final MqttOutService mqttService;
+    
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     
@@ -135,7 +157,29 @@ public class DeviceService {
                 req.getHomeId(),
                 req.getModel()
         );
+        
+        try {
+        	String hubDeviceId = irDevice.getHubDevice(); // ir_device.hub_device_id 그대로 사용
+            if (hubDeviceId == null || hubDeviceId.isBlank()) {
+                throw new IllegalStateException("ir_device.hub_device_id가 비어있음: " + irDevice.getIrDeviceId());
+            } 
 
+            int txId = (int) (System.currentTimeMillis() % Integer.MAX_VALUE);
+
+            mqttService.publishSendDevice(
+                    hubDeviceId,                   // hub/{deviceId}/sendDevice
+                    txId,
+                    irDevice.getIrDeviceId(),      // 등록할 IR 송신기 ID
+                    req.getDeviceType(),           // 가전 타입
+                    true                           // 등록 모드
+            );
+            log.info("[MQTT] sendDevice 발행 완료: hubDeviceId={}, irDeviceId={}, type={}",
+                    hubDeviceId, irDevice.getIrDeviceId(), req.getDeviceType()); 
+        } catch (Exception e) {
+            // 실패하더라도 디바이스 등록은 진행되도록 로그만 출력
+            log.warn("[MQTT] sendDevice 발행 실패(등록은 완료 처리): {}", e.getMessage(), e);
+        }
+        
         return true;
     }
 
@@ -240,6 +284,84 @@ public class DeviceService {
         
         device.setDeviceDetail(mergedMap);
         deviceRepository.save(device);
+        
+        String model = device.getModel();
+        String irDeviceId = device.getIrDeviceId();
+        OffsetDateTime now = OffsetDateTime.now();
+        ObjectNode updatedNode = (ObjectNode) patchNode;
+
+        for (Iterator<Map.Entry<String, JsonNode>> it = updatedNode.fields(); it.hasNext(); ) {
+            Map.Entry<String, JsonNode> entry = it.next();
+            String category = entry.getKey(); // 예: "power", "temperature"
+
+            try {
+                // 1. buttonId 조회
+                Integer buttonId = irButtonRepository.findByModelAndCategory(model, category)
+                    .map(IrButton::getButtonId)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                        "버튼 없음: model=" + model + ", category=" + category));
+
+                // 2. signalId 조회
+                Integer signalId = irSignalRepository.findSignalIdByModelAndButtonId(model, buttonId)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                        "시그널 없음: model=" + model + ", buttonId=" + buttonId));
+
+                // 3. signal 객체 조회 → rawData 추출
+                IrSignal signal = irSignalRepository.findById(signalId)
+                    .orElseThrow(() -> new IllegalArgumentException("시그널 객체 없음: signalId=" + signalId));
+
+                List<Integer> rawData = Arrays.stream(signal.getSamplesUs())
+                    .boxed()
+                    .collect(Collectors.toList());
+
+                // 4. ir_tx_queue insert
+                UUID txId = UUID.randomUUID();
+                IrTxQueue tx = IrTxQueue.builder()
+                    .txId(txId)
+                    .scheduledAt(now)
+                    .priority(1)
+                    .repeatCount(0)
+                    .intervalMs(0)
+                    .status("SENT")
+                    .lastError(null)
+                    .createdAt(now)
+                    .signalId(signalId)
+                    .irDeviceId(irDeviceId)
+                    .model(model)
+                    .build();
+                irTxQueueRepository.save(tx);
+                log.info("[IR 큐 등록] txId={}, model={}, category={}", txId, model, category);
+
+                // 5. MQTT 발행
+                mqttService.publishControl(
+                    irDeviceId,             // deviceId = hub가 받아야 할 id
+                    txId.hashCode(),        // tx_id를 int로 변환
+                    irDeviceId,             // send_device_id = IR 송신기
+                    deviceType,             // ex: air_conditioner
+                    rawData,                // samples_us
+                    category,               // function = power / temperature / level 등
+                    List.of()               // meta_data (지금은 없음)
+                );
+                log.info("[MQTT 전송 완료] txId={}, function={}", txId, category);
+                
+                IrEventLog logEntry = IrEventLog.builder()
+                	    .txId(txId.hashCode())  // int
+                	    .deviceId(irDeviceId)
+                	    .deviceType(deviceType)
+                	    .function(category)
+                	    .rawData(objectMapper.writeValueAsString(rawData)) // List<Integer>를 JSON string으로
+                	    .status("PENDING") // 초기 상태는 PENDING
+                	    .createdAt(LocalDateTime.now())
+                	    .build();
+
+                	irEventLogRepository.save(logEntry);
+                	log.info("[이벤트 로그 기록] txId={}, function={}", txId, category);
+                	
+            } catch (Exception e) {
+                log.warn("[IR 전송 실패] model={}, category={}, error={}", model, category, e.getMessage(), e);
+            }
+        }
+        
         return device.getDeviceId();
     }
 
