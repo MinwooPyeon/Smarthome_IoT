@@ -7,12 +7,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.eeum.entity.IrButton;
 import com.eeum.entity.IrSignal;
 import com.eeum.mqtt.inbound.EnvIn;
 import com.eeum.mqtt.inbound.ErrorIn;
 import com.eeum.mqtt.inbound.IrProtocolIn;
 import com.eeum.mqtt.inbound.IrSignalIn;
 import com.eeum.mqtt.inbound.RequestIn;
+import com.eeum.repository.IrButtonRepository;
 import com.eeum.repository.IrSignalRepository;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,7 +41,9 @@ public class MqttIoService {
 	
 	@Autowired
     private IrSignalRepository irSignalRepository;
-
+	@Autowired
+	private IrButtonRepository irButtonRepository;
+	
     // 알 수 없는 필드는 무시
     private final ObjectMapper om = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -118,7 +122,7 @@ public class MqttIoService {
         try {
             IrSignalIn m = om.readValue(json, IrSignalIn.class);
 
-            if (!validate(m)) return;
+            // 최소 방어
             if (m.getRawData() == null || m.getRawData().length == 0) {
                 log.warn("[IR] rawData 누락 -> drop");
                 return;
@@ -127,32 +131,53 @@ public class MqttIoService {
                 log.warn("[IR] function 누락 -> drop (device={}, brand={})", m.getDevice(), m.getBrand());
                 return;
             }
-            if (isDup(m.getMsgId())) return;
+            if (m.getMsgId() != null && !m.getMsgId().isBlank() && isDup(m.getMsgId())) return;
 
-            String model = m.getDevice();
-            String category = m.getFunction();
+            final String model = m.getDevice();      
+            final String func  = m.getFunction();    
 
-            IrSignal existing = irSignalRepository.findByModelAndCategory(model, category).orElse(null);
+            
+            IrButton button = irButtonRepository
+                    .findByModelAndCategory(model, func)
+                    .orElseGet(() -> {
+                        IrButton b = IrButton.builder()
+                                .model(model)
+                                .category(func)
+                                .label(func)       // 라벨 없으면 기능명과 동일
+                                .build();
+                        return irButtonRepository.save(b);
+                    });
+
+            // 2) protocol_id 결정 (unknown=0)
+            final int protocolId = 0; // 추후 irProtocol 수신 시 업데이트 가능
+
+            // 3) ir_signal upsert (model + name=function)
+            IrSignal existing = irSignalRepository.findByModelAndName(model, func).orElse(null);
 
             IrSignal entity;
             if (existing != null) {
                 existing.setSamplesUs(m.getRawData());
+                existing.setButtonId(button.getButtonId());
+                existing.setProtocolId(protocolId);
                 entity = existing;
-                log.info("[IR] 덮어쓰기: model={}, category={}, samples={}", model, category, m.getRawData().length);
+                log.info("[IR] ♻️ 덮어쓰기: model={}, name={}, samples={}", model, func, m.getRawData().length);
             } else {
                 entity = IrSignal.builder()
-                    .category(category)
-                    .samplesUs(m.getRawData())
-                    .model(model)
-                    .protocolId(null)
-                    .build();
-                log.info("[IR] 새로 저장: model={}, category={}, samples={}", model, category, m.getRawData().length);
+                        .name(func)
+                        .samplesUs(m.getRawData())
+                        .model(model)
+                        .buttonId(button.getButtonId()) 
+                        .protocolId(protocolId)         
+                        .frameCount(null)               
+                        .frameLenUs(null)               
+                        .build();
+                log.info("[IR] 새로 저장: model={}, name={}, samples={}", model, func, m.getRawData().length);
             }
 
             irSignalRepository.save(entity);
 
         } catch (Exception e) {
-            log.error("[IR] 파싱 또는 저장 오류: {}", e.getMessage(), e);
+            log.error("[IR] 파싱/저장 오류: {}", e.getMessage(), e);
         }
     }
     
