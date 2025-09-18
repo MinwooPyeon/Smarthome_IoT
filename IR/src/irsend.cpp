@@ -2,10 +2,17 @@
 #include "core/platform.h"
 #include <iostream>
 #include <fstream>
+#include <chrono>
+
+#ifndef PLATFORM_ESP32
+#include <thread>
+#endif
 
 #ifdef PLATFORM_ESP32
 #include "driver/rmt.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #elif defined(PLATFORM_LINUX)
 #include <lirc/lirc_client.h>
 #elif defined(PLATFORM_WINDOWS)
@@ -320,11 +327,19 @@ std::vector<IRSendStatus> IRSend::sendControlSignals(const std::vector<std::stri
         results.push_back(result);
 
         if (result.result != IRSendResult::SUCCESS) {
-            LOG_ERROR("제어 신호 전송 실패: %s - %s", signal.c_str(), result.message.c_str());
+#ifdef PLATFORM_ESP32
+            ESP_LOGE("IR_SEND", "제어 신호 전송 실패: %s - %s", signal.c_str(), result.message.c_str());
+#else
+            LOG_ERROR("IR_SEND", "제어 신호 전송 실패: %s - %s", signal.c_str(), result.message.c_str());
+#endif
         }
 
         if (delay_ms > 0) {
-            delay_ms(delay_ms);
+#ifdef PLATFORM_ESP32
+            vTaskDelay(pdMS_TO_TICKS(delay_ms));
+#else
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+#endif
         }
     }
 
@@ -338,7 +353,11 @@ void IRSend::setCodeStore(IRCodeStore* code_store) {
 
 void IRSend::setDebugMode(bool enabled) {
     debug_mode_ = enabled;
-    LOG_INFO("IR 송신기 디버그 모드: %s", enabled ? "활성화" : "비활성화");
+#ifdef PLATFORM_ESP32
+    ESP_LOGI("IR_SEND", "IR 송신기 디버그 모드: %s", enabled ? "활성화" : "비활성화");
+#else
+    LOG_INFO("IR_SEND", "IR 송신기 디버그 모드: %s", enabled ? "활성화" : "비활성화");
+#endif
 }
 
 std::string IRSend::getLastError() const {
@@ -400,6 +419,10 @@ void IRSend::setLastError(const std::string& error) {
     std::lock_guard<std::mutex> lock(mutex_);
     last_error_ = error;
     if (debug_mode_) {
-        LOG_ERROR("IRSend 오류: %s", error.c_str());
+#ifdef PLATFORM_ESP32
+        ESP_LOGE("IR_SEND", "IRSend 오류: %s", error.c_str());
+#else
+        LOG_ERROR("IR_SEND", "IRSend 오류: %s", error.c_str());
+#endif
     }
 }

@@ -2,7 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include "nlohmann/json.hpp"
+#include <ArduinoJson.h>
 
 std::shared_ptr<Config> Config::loadFromFile(const std::string& filename) {
     auto config = std::make_shared<Config>();
@@ -37,7 +37,7 @@ bool Config::saveToFile(const std::string& filename) const {
         if (!file.is_open()) {
             return false;
         }
-        
+
         file << toJson();
         return true;
     } catch (const std::exception& e) {
@@ -80,100 +80,120 @@ bool Config::isValid() const {
 }
 
 std::string Config::toJson() const {
-    nlohmann::json config;
-    
+    DynamicJsonDocument doc(2048);
+
     // 웹 서버 설정
-    config["web_ui"]["port"] = web_ui_port_;
-    config["web_ui"]["host"] = web_ui_host_;
-    config["web_ui"]["enabled"] = web_ui_enabled_;
-    
+    doc["web_ui"]["port"] = web_ui_port_;
+    doc["web_ui"]["host"] = web_ui_host_.c_str();
+    doc["web_ui"]["enabled"] = web_ui_enabled_;
+
     // MQTT 설정
-    config["mqtt"]["broker"] = mqtt_broker_;
-    config["mqtt"]["port"] = mqtt_port_;
-    config["mqtt"]["username"] = mqtt_username_;
-    config["mqtt"]["password"] = mqtt_password_;
-    config["mqtt"]["client_id"] = mqtt_client_id_;
-    config["mqtt"]["topic_prefix"] = mqtt_topic_prefix_;
-    config["mqtt"]["enabled"] = mqtt_enabled_;
-    
+    doc["mqtt"]["broker"] = mqtt_broker_.c_str();
+    doc["mqtt"]["port"] = mqtt_port_;
+    doc["mqtt"]["username"] = mqtt_username_.c_str();
+    doc["mqtt"]["password"] = mqtt_password_.c_str();
+    doc["mqtt"]["client_id"] = mqtt_client_id_.c_str();
+    doc["mqtt"]["topic_prefix"] = mqtt_topic_prefix_.c_str();
+    doc["mqtt"]["enabled"] = mqtt_enabled_;
+
     // 보안 설정
-    config["security"]["api_token"] = api_token_;
-    config["security"]["api_token_required"] = api_token_required_;
-    config["security"]["allowed_origins"] = allowed_origins_;
-    
+    doc["security"]["api_token"] = api_token_.c_str();
+    doc["security"]["api_token_required"] = api_token_required_;
+
+    // allowed_origins를 배열로 처리
+    JsonArray origins = doc["security"].createNestedArray("allowed_origins");
+    for (const auto& origin : allowed_origins_) {
+        origins.add(origin.c_str());
+    }
+
     // 로깅 설정
-    config["logging"]["level"] = log_level_;
-    config["logging"]["file"] = log_file_;
-    config["logging"]["to_file"] = log_to_file_;
-    
+    doc["logging"]["level"] = log_level_.c_str();
+    doc["logging"]["file"] = log_file_.c_str();
+    doc["logging"]["to_file"] = log_to_file_;
+
     // IR 설정
-    config["ir"]["device"] = ir_device_;
-    config["ir"]["timeout"] = ir_timeout_;
-    config["ir"]["retry_count"] = ir_retry_count_;
-    
+    doc["ir"]["device"] = ir_device_.c_str();
+    doc["ir"]["timeout"] = ir_timeout_;
+    doc["ir"]["retry_count"] = ir_retry_count_;
+
     // 사용자 정의 설정
-    config["custom"] = custom_values_;
-    
-    return config.dump(4);
+    JsonObject custom = doc.createNestedObject("custom");
+    for (const auto& pair : custom_values_) {
+        custom[pair.first.c_str()] = pair.second.c_str();
+    }
+
+    std::string result;
+    serializeJsonPretty(doc, result);
+    return result;
 }
 
 bool Config::fromJson(const std::string& json) {
-    try {
-        nlohmann::json config = nlohmann::json::parse(json);
-        
-        // 웹 서버 설정
-        if (config.contains("web_ui")) {
-            auto web_ui = config["web_ui"];
-            if (web_ui.contains("port")) web_ui_port_ = web_ui["port"];
-            if (web_ui.contains("host")) web_ui_host_ = web_ui["host"];
-            if (web_ui.contains("enabled")) web_ui_enabled_ = web_ui["enabled"];
-        }
-        
-        // MQTT 설정
-        if (config.contains("mqtt")) {
-            auto mqtt = config["mqtt"];
-            if (mqtt.contains("broker")) mqtt_broker_ = mqtt["broker"];
-            if (mqtt.contains("port")) mqtt_port_ = mqtt["port"];
-            if (mqtt.contains("username")) mqtt_username_ = mqtt["username"];
-            if (mqtt.contains("password")) mqtt_password_ = mqtt["password"];
-            if (mqtt.contains("client_id")) mqtt_client_id_ = mqtt["client_id"];
-            if (mqtt.contains("topic_prefix")) mqtt_topic_prefix_ = mqtt["topic_prefix"];
-            if (mqtt.contains("enabled")) mqtt_enabled_ = mqtt["enabled"];
-        }
-        
-        // 보안 설정
-        if (config.contains("security")) {
-            auto security = config["security"];
-            if (security.contains("api_token")) api_token_ = security["api_token"];
-            if (security.contains("api_token_required")) api_token_required_ = security["api_token_required"];
-            if (security.contains("allowed_origins")) allowed_origins_ = security["allowed_origins"];
-        }
-        
-        // 로깅 설정
-        if (config.contains("logging")) {
-            auto logging = config["logging"];
-            if (logging.contains("level")) log_level_ = logging["level"];
-            if (logging.contains("file")) log_file_ = logging["file"];
-            if (logging.contains("to_file")) log_to_file_ = logging["to_file"];
-        }
-        
-        // IR 설정
-        if (config.contains("ir")) {
-            auto ir = config["ir"];
-            if (ir.contains("device")) ir_device_ = ir["device"];
-            if (ir.contains("timeout")) ir_timeout_ = ir["timeout"];
-            if (ir.contains("retry_count")) ir_retry_count_ = ir["retry_count"];
-        }
-        
-        // 사용자 정의 설정
-        if (config.contains("custom")) {
-            custom_values_ = config["custom"];
-        }
-        
-        return true;
-    } catch (const std::exception& e) {
+    DynamicJsonDocument doc(2048);
+    DeserializationError error = deserializeJson(doc, json);
+
+    if (error) {
         return false;
     }
+
+    // 웹 서버 설정
+    if (doc.containsKey("web_ui")) {
+        JsonObject web_ui = doc["web_ui"];
+        if (web_ui.containsKey("port")) web_ui_port_ = web_ui["port"];
+        if (web_ui.containsKey("host")) web_ui_host_ = web_ui["host"].as<std::string>();
+        if (web_ui.containsKey("enabled")) web_ui_enabled_ = web_ui["enabled"];
+    }
+
+    // MQTT 설정
+    if (doc.containsKey("mqtt")) {
+        JsonObject mqtt = doc["mqtt"];
+        if (mqtt.containsKey("broker")) mqtt_broker_ = mqtt["broker"].as<std::string>();
+        if (mqtt.containsKey("port")) mqtt_port_ = mqtt["port"];
+        if (mqtt.containsKey("username")) mqtt_username_ = mqtt["username"].as<std::string>();
+        if (mqtt.containsKey("password")) mqtt_password_ = mqtt["password"].as<std::string>();
+        if (mqtt.containsKey("client_id")) mqtt_client_id_ = mqtt["client_id"].as<std::string>();
+        if (mqtt.containsKey("topic_prefix")) mqtt_topic_prefix_ = mqtt["topic_prefix"].as<std::string>();
+        if (mqtt.containsKey("enabled")) mqtt_enabled_ = mqtt["enabled"];
+    }
+
+    // 보안 설정
+    if (doc.containsKey("security")) {
+        JsonObject security = doc["security"];
+        if (security.containsKey("api_token")) api_token_ = security["api_token"].as<std::string>();
+        if (security.containsKey("api_token_required")) api_token_required_ = security["api_token_required"];
+        if (security.containsKey("allowed_origins")) {
+            allowed_origins_.clear();
+            JsonArray origins = security["allowed_origins"];
+            for (JsonVariant origin : origins) {
+                allowed_origins_.push_back(origin.as<std::string>());
+            }
+        }
+    }
+
+    // 로깅 설정
+    if (doc.containsKey("logging")) {
+        JsonObject logging = doc["logging"];
+        if (logging.containsKey("level")) log_level_ = logging["level"].as<std::string>();
+        if (logging.containsKey("file")) log_file_ = logging["file"].as<std::string>();
+        if (logging.containsKey("to_file")) log_to_file_ = logging["to_file"];
+    }
+
+    // IR 설정
+    if (doc.containsKey("ir")) {
+        JsonObject ir = doc["ir"];
+        if (ir.containsKey("device")) ir_device_ = ir["device"].as<std::string>();
+        if (ir.containsKey("timeout")) ir_timeout_ = ir["timeout"];
+        if (ir.containsKey("retry_count")) ir_retry_count_ = ir["retry_count"];
+    }
+
+    // 사용자 정의 설정
+    if (doc.containsKey("custom")) {
+        JsonObject custom = doc["custom"];
+        for (JsonPair pair : custom) {
+            custom_values_[pair.key().c_str()] = pair.value().as<std::string>();
+        }
+    }
+
+    return true;
 }
 
 bool Config::load(const std::string& filename) {
@@ -181,10 +201,10 @@ bool Config::load(const std::string& filename) {
     if (!file.is_open()) {
         return false;
     }
-    
+
     std::string json((std::istreambuf_iterator<char>(file)),
                      std::istreambuf_iterator<char>());
-    
+
     return fromJson(json);
 }
 

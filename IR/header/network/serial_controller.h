@@ -3,7 +3,7 @@
 #include <string>
 #include <functional>
 #include <chrono>
-#include "cJSON.h"
+#include "ArduinoJson.h"
 
 /**
  * @brief ESP32와 컴퓨터 간의 시리얼 통신을 담당하는 클래스
@@ -17,7 +17,7 @@ public:
      * @param params 명령 파라미터
      * @return 처리 결과 JSON 문자열
      */
-    using CommandCallback = std::function<std::string(const std::string& command, const cJSON* params)>;
+    using CommandCallback = std::function<std::string(const std::string& command, const JsonObject& params)>;
 
     /**
      * @brief 생성자
@@ -64,7 +64,7 @@ public:
      * @brief 상태 정보 전송
      * @param status 상태 정보
      */
-    void sendStatus(const cJSON* status);
+    void sendStatus(const JsonObject& status);
 
     /**
      * @brief 연결 상태 확인
@@ -120,14 +120,14 @@ private:
      * @param params 명령 파라미터
      * @return 처리 결과
      */
-    std::string handleDefaultCommand(const std::string& command, const cJSON* params);
+    std::string handleDefaultCommand(const std::string& command, const JsonObject& params);
 
     /**
      * @brief 디버그 출력
      * @param message 디버그 메시지
      */
     void debugPrint(const std::string& message);
-    
+
     /**
      * @brief 속도 제한 확인
      * @return 속도 제한 통과 여부

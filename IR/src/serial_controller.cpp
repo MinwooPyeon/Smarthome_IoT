@@ -2,7 +2,7 @@
 #include "esp_log.h"
 #include "driver/uart.h"
 #include "driver/gpio.h"
-#include "cJSON.h"
+#include "ArduinoJson.h"
 #include "esp_wifi.h"
 #include <algorithm>
 #include <vector>
@@ -45,17 +45,16 @@ bool SerialController::initialize() {
     ESP_LOGI(TAG, "시리얼 통신 초기화 완료 (속도: %d bps)", m_baud_rate);
 
     // 초기화 완료 메시지 전송
-    cJSON *init_msg = cJSON_CreateObject();
-    cJSON_AddStringToObject(init_msg, "type", "init");
-    cJSON_AddStringToObject(init_msg, "status", "ready");
-    cJSON_AddStringToObject(init_msg, "device_id", "esp32_ir_controller");
-    cJSON_AddStringToObject(init_msg, "version", "1.0.0");
+    DynamicJsonDocument init_doc(512);
+    init_doc["type"] = "init";
+    init_doc["status"] = "ready";
+    init_doc["device_id"] = "esp32_ir_controller";
+    init_doc["version"] = "1.0.0";
 
-    char *init_str = cJSON_Print(init_msg);
-    uart_write_bytes(UART_NUM_0, init_str, strlen(init_str));
+    std::string init_str;
+    serializeJson(init_doc, init_str);
+    uart_write_bytes(UART_NUM_0, init_str.c_str(), init_str.length());
     uart_write_bytes(UART_NUM_0, "\n", 1);
-    free(init_str);
-    cJSON_Delete(init_msg);
 
     return true;
 }
@@ -137,28 +136,26 @@ void SerialController::sendResponse(const std::string& response) {
 }
 
 void SerialController::sendError(const std::string& error_code, const std::string& error_message) {
-    cJSON *error_doc = cJSON_CreateObject();
-    cJSON_AddStringToObject(error_doc, "type", "error");
-    cJSON_AddStringToObject(error_doc, "error_code", error_code.c_str());
-    cJSON_AddStringToObject(error_doc, "message", error_message.c_str());
-    cJSON_AddNumberToObject(error_doc, "timestamp", esp_timer_get_time() / 1000);
+    DynamicJsonDocument error_doc(512);
+    error_doc["type"] = "error";
+    error_doc["error_code"] = error_code.c_str();
+    error_doc["message"] = error_message.c_str();
+    error_doc["timestamp"] = esp_timer_get_time() / 1000;
 
-    char *error_str = cJSON_Print(error_doc);
-    sendResponse(error_str);
-    free(error_str);
-    cJSON_Delete(error_doc);
+    std::string error_str;
+    serializeJson(error_doc, error_str);
+    sendResponse(error_str.c_str());
 }
 
-void SerialController::sendStatus(const cJSON* status) {
-    cJSON *status_doc = cJSON_CreateObject();
-    cJSON_AddStringToObject(status_doc, "type", "status");
-    cJSON_AddItemToObject(status_doc, "data", cJSON_Duplicate(status, 1));
-    cJSON_AddNumberToObject(status_doc, "timestamp", esp_timer_get_time() / 1000);
+void SerialController::sendStatus(const JsonObject& status) {
+    DynamicJsonDocument status_doc(1024);
+    status_doc["type"] = "status";
+    status_doc["data"] = status;
+    status_doc["timestamp"] = esp_timer_get_time() / 1000;
 
-    char *status_str = cJSON_Print(status_doc);
-    sendResponse(status_str);
-    free(status_str);
-    cJSON_Delete(status_doc);
+    std::string status_str;
+    serializeJson(status_doc, status_str);
+    sendResponse(status_str.c_str());
 }
 
 bool SerialController::isConnected() const {
@@ -208,31 +205,29 @@ void SerialController::processCommand(const std::string& json_str) {
         return;
     }
 
-    cJSON *doc = cJSON_Parse(sanitized_input.c_str());
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, sanitized_input);
 
-    if (doc == NULL) {
-        ESP_LOGE(TAG, "JSON 파싱 오류: %s", sanitized_input.c_str());
+    if (error) {
+        ESP_LOGE(TAG, "JSON 파싱 오류: %s", error.c_str());
         sendError("JSON_PARSE_ERROR", "JSON 파싱 실패");
         return;
     }
 
-    cJSON *command = cJSON_GetObjectItem(doc, "command");
-    if (!cJSON_IsString(command)) {
+    if (!doc.containsKey("command") || !doc["command"].is<std::string>()) {
         sendError("MISSING_COMMAND", "명령어가 없습니다");
-        cJSON_Delete(doc);
         return;
     }
 
-    std::string command_str = command->valuestring;
+    std::string command_str = doc["command"].as<std::string>();
 
     // 명령어 검증
     if (!validateCommand(command_str)) {
         sendError("INVALID_COMMAND", "허용되지 않은 명령어: " + command_str);
-        cJSON_Delete(doc);
         return;
     }
 
-    cJSON *params = cJSON_GetObjectItem(doc, "params");
+    JsonObject params = doc.containsKey("params") ? doc["params"].as<JsonObject>() : JsonObject();
 
     std::string result;
 
@@ -243,70 +238,61 @@ void SerialController::processCommand(const std::string& json_str) {
     }
 
     // 응답 전송
-    cJSON *response_doc = cJSON_CreateObject();
-    cJSON_AddStringToObject(response_doc, "type", "response");
-    cJSON_AddStringToObject(response_doc, "command", command_str.c_str());
-    cJSON_AddStringToObject(response_doc, "result", result.c_str());
-    cJSON_AddNumberToObject(response_doc, "timestamp", esp_timer_get_time() / 1000);
+    DynamicJsonDocument response_doc(512);
+    response_doc["type"] = "response";
+    response_doc["command"] = command_str.c_str();
+    response_doc["result"] = result.c_str();
+    response_doc["timestamp"] = esp_timer_get_time() / 1000;
 
-    char *response_str = cJSON_Print(response_doc);
-    sendResponse(response_str);
-    free(response_str);
-    cJSON_Delete(response_doc);
-    cJSON_Delete(doc);
+    std::string response_str;
+    serializeJson(response_doc, response_str);
+    sendResponse(response_str.c_str());
 }
 
-std::string SerialController::handleDefaultCommand(const std::string& command, const cJSON* params) {
+std::string SerialController::handleDefaultCommand(const std::string& command, const JsonObject& params) {
     if (command == "ping") {
         return "pong";
     } else if (command == "status") {
-        cJSON *status = cJSON_CreateObject();
-        cJSON_AddStringToObject(status, "device_id", "esp32_ir_controller");
-        cJSON_AddNumberToObject(status, "uptime", esp_timer_get_time() / 1000000); // 초 단위
-        cJSON_AddNumberToObject(status, "free_heap", esp_get_free_heap_size());
+        DynamicJsonDocument status_doc(512);
+        status_doc["device_id"] = "esp32_ir_controller";
+        status_doc["uptime"] = esp_timer_get_time() / 1000000; // 초 단위
+        status_doc["free_heap"] = esp_get_free_heap_size();
 
         // WiFi 상태 확인
         wifi_ap_record_t ap_info;
         bool wifi_connected = (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK);
-        cJSON_AddBoolToObject(status, "wifi_connected", wifi_connected);
+        status_doc["wifi_connected"] = wifi_connected;
 
-        char *status_str = cJSON_Print(status);
-        std::string result = status_str;
-        free(status_str);
-        cJSON_Delete(status);
+        std::string result;
+        serializeJson(status_doc, result);
         return result;
     } else if (command == "help") {
-        cJSON *help = cJSON_CreateObject();
-        cJSON *commands = cJSON_CreateArray();
-        cJSON_AddItemToArray(commands, cJSON_CreateString("ping"));
-        cJSON_AddItemToArray(commands, cJSON_CreateString("status"));
-        cJSON_AddItemToArray(commands, cJSON_CreateString("help"));
-        cJSON_AddItemToArray(commands, cJSON_CreateString("ir_send"));
-        cJSON_AddItemToArray(commands, cJSON_CreateString("raw_send"));
-        cJSON_AddItemToArray(commands, cJSON_CreateString("ir_receive"));
-        cJSON_AddItemToArray(commands, cJSON_CreateString("wifi_info"));
-        cJSON_AddItemToObject(help, "available_commands", commands);
+        DynamicJsonDocument help_doc(512);
+        JsonArray commands = help_doc.createNestedArray("available_commands");
+        commands.add("ping");
+        commands.add("status");
+        commands.add("help");
+        commands.add("ir_send");
+        commands.add("raw_send");
+        commands.add("ir_receive");
+        commands.add("wifi_info");
 
-        char *help_str = cJSON_Print(help);
-        std::string result = help_str;
-        free(help_str);
-        cJSON_Delete(help);
+        std::string result;
+        serializeJson(help_doc, result);
         return result;
     } else if (command == "wifi_info") {
-        cJSON *wifi_info = cJSON_CreateObject();
+        DynamicJsonDocument wifi_doc(512);
         wifi_ap_record_t ap_info;
         if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
-            cJSON_AddBoolToObject(wifi_info, "connected", true);
-            cJSON_AddStringToObject(wifi_info, "ssid", (char*)ap_info.ssid);
-            cJSON_AddNumberToObject(wifi_info, "rssi", ap_info.rssi);
+            wifi_doc["connected"] = true;
+            wifi_doc["ssid"] = (char*)ap_info.ssid;
+            wifi_doc["rssi"] = ap_info.rssi;
         } else {
-            cJSON_AddBoolToObject(wifi_info, "connected", false);
+            wifi_doc["connected"] = false;
         }
 
-        char *wifi_str = cJSON_Print(wifi_info);
-        std::string result = wifi_str;
-        free(wifi_str);
-        cJSON_Delete(wifi_info);
+        std::string result;
+        serializeJson(wifi_doc, result);
         return result;
     } else {
         return "알 수 없는 명령어: " + command;
@@ -361,13 +347,13 @@ bool SerialController::validateJson(const std::string& json_str) const {
     }
 
     // JSON 파싱 검증
-    cJSON *json = cJSON_Parse(json_str.c_str());
-    if (json == nullptr) {
-        ESP_LOGW(TAG, "잘못된 JSON 형식");
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, json_str);
+    if (error) {
+        ESP_LOGW(TAG, "잘못된 JSON 형식: %s", error.c_str());
         return false;
     }
 
-    cJSON_Delete(json);
     return true;
 }
 

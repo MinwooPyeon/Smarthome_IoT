@@ -3,9 +3,20 @@
 """
 ESP32 IR Remote Controller - Error Message Test Script
 에러 메시지 테스트를 위한 Python 스크립트
+
+의존성 설치:
+pip install paho-mqtt
+또는
+pip install -r requirements.txt
 """
 
-import paho.mqtt.client as mqtt
+try:
+    import paho.mqtt.client as mqtt
+except ImportError:
+    print("❌ paho-mqtt 라이브러리가 설치되지 않았습니다.")
+    print("설치 명령어: pip install paho-mqtt")
+    print("또는: pip install -r requirements.txt")
+    exit(1)
 import json
 import time
 import ssl
@@ -27,29 +38,14 @@ def on_connect(client, userdata, flags, rc):
     """MQTT 연결 콜백"""
     if rc == 0:
         print("MQTT 브로커 연결 성공!")
-        # 에러 토픽 구독
-        client.subscribe(MQTT_ERROR_TOPIC)
-        print(f"에러 토픽 구독: {MQTT_ERROR_TOPIC}")
+        print("IR 송신기 모드: 에러 메시지 전송만 수행")
     else:
         print(f"MQTT 연결 실패: {rc}")
 
 def on_message(client, userdata, msg):
-    """MQTT 메시지 수신 콜백"""
-    topic = msg.topic
-    payload = msg.payload.decode('utf-8')
-
-    if topic == MQTT_ERROR_TOPIC:
-        print(f"에러 메시지 수신:")
-        print(f"   토픽: {topic}")
-        print(f"   내용: {payload}")
-        try:
-            error_data = json.loads(payload)
-            print(f"   tx_id: {error_data.get('tx_id', 'N/A')}")
-            print(f"   error: {error_data.get('error', 'N/A')}")
-        except json.JSONDecodeError:
-            print(f"   (JSON 파싱 실패)")
-    else:
-        print(f"메시지 수신: {topic} -> {payload}")
+    """MQTT 메시지 수신 콜백 (사용하지 않음)"""
+    # IR 송신기 역할이므로 메시지 수신은 하지 않음
+    pass
 
 def on_disconnect(client, userdata, rc):
     """MQTT 연결 해제 콜백"""
@@ -68,6 +64,28 @@ def send_test_message(client, message, description):
             print(f"메시지 전송 실패: {result.rc}")
     except Exception as e:
         print(f"전송 중 오류: {e}")
+
+def send_error_message(client, tx_id, error_type, error_message):
+    """에러 메시지 전송 (에러 타입 + 에러 메시지)"""
+    error_msg = {
+        "tx_id": tx_id,
+        "error": error_type,
+        "message": error_message
+    }
+
+    print(f"\n에러 메시지 전송:")
+    print(f"   tx_id: {tx_id}")
+    print(f"   error: {error_type}")
+    print(f"   message: {error_message}")
+
+    try:
+        result = client.publish(MQTT_ERROR_TOPIC, json.dumps(error_msg))
+        if result.rc == mqtt.MQTT_ERR_SUCCESS:
+            print("에러 메시지 전송 성공")
+        else:
+            print(f"에러 메시지 전송 실패: {result.rc}")
+    except Exception as e:
+        print(f"에러 메시지 전송 중 오류: {e}")
 
 def main():
     """메인 함수"""
@@ -164,10 +182,46 @@ def main():
         print("응답 대기 중... (3초)")
         time.sleep(3)
 
+        # 에러 메시지 전송 테스트
+        print(f"\n{'='*60}")
+        print("에러 메시지 전송 테스트 시작")
+
+        error_test_cases = [
+            {
+                "tx_id": 12345,
+                "error": "HARDWARE_ERROR",
+                "message": "IR LED 하드웨어 오류 발생 - GPIO 23번 핀 연결 확인 필요"
+            },
+            {
+                "tx_id": 12346,
+                "error": "INVALID_IR_SIGNAL",
+                "message": "지원하지 않는 IR 신호입니다 - Samsung TV 코드가 아닙니다"
+            },
+            {
+                "tx_id": 12347,
+                "error": "DEVICE_NOT_FOUND",
+                "message": "지원하지 않는 가전제품입니다 - device_type: unknown_device"
+            },
+            {
+                "tx_id": 12348,
+                "error": "INVALID_COMMAND",
+                "message": "잘못된 명령 형식입니다 - JSON 파싱 실패"
+            },
+            {
+                "tx_id": 12349,
+                "error": "TIMEOUT",
+                "message": "IR 신호 전송 시간 초과 - 5초 내에 응답 없음"
+            }
+        ]
+
+        for i, error_case in enumerate(error_test_cases, 1):
+            print(f"\n에러 테스트 {i}/{len(error_test_cases)}")
+            send_error_message(client, error_case["tx_id"], error_case["error"], error_case["message"])
+            time.sleep(1)  # 각 에러 메시지 간 1초 대기
+
         print(f"\n{'='*60}")
         print("모든 테스트 완료!")
-        print("에러 메시지 수신 대기 중... (10초)")
-        time.sleep(10)
+        print("IR 송신기 에러 메시지 전송 테스트 종료")
 
     except Exception as e:
         print(f"오류 발생: {e}")

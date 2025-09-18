@@ -1,5 +1,21 @@
-import qrcode
-import os
+"""
+ESP32 IR Remote Controller - QR Code Generator
+시리얼번호 QR 코드 생성기
+
+의존성 설치:
+pip install qrcode[pil]
+또는
+pip install -r requirements.txt
+"""
+
+try:
+    import qrcode
+    import os
+except ImportError:
+    print("❌ qrcode 라이브러리가 설치되지 않았습니다.")
+    print("설치 명령어: pip install qrcode[pil]")
+    print("또는: pip install -r requirements.txt")
+    exit(1)
 
 def generate_device_qr(serial_number):
     """시리얼번호만 포함하는 QR 코드 생성"""

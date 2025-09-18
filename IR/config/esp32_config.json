@@ -6,7 +6,7 @@
         "retry_count": 3
     },
     "mqtt": {
-        "broker": "192.168.1.100",
+        "broker": "localhost",
         "port": 1883,
         "client_id": "esp32_ir_controller",
         "username": "",
@@ -14,20 +14,20 @@
         "keepalive": 60,
         "clean_session": true,
         "will_topic": "esp32/status",
-        "will_message": "offline"
+        "will_message": "offline",
+        "use_tls": false
     },
     "gpio": {
-        "ir_tx_pin": 4,
-        "ir_rx_pin": 5,
+        "ir_tx_pin": 22,
         "led_status_pin": 2,
         "button_pin": 0
     },
     "ir": {
         "protocol": "NEC",
         "carrier_frequency": 38000,
-        "tx_pin": 4,
-        "rx_pin": 5,
-        "debug_mode": true
+        "tx_pin": 22,
+        "debug_mode": true,
+        "timeout_ms": 1000
     },
     "system": {
         "device_id": "esp32_ir_01",
@@ -43,27 +43,5 @@
         "serial_enabled": true,
         "mqtt_enabled": true,
         "max_log_size": 1024
-    },
-    "appliances": {
-        "samsung_tv": {
-            "gpio_pin": 4,
-            "ir_codes": {
-                "power": "0xE0E040BF",
-                "volume_up": "0xE0E0E01F",
-                "volume_down": "0xE0E0D02F",
-                "channel_up": "0xE0E048B7",
-                "channel_down": "0xE0E008F7"
-            }
-        },
-        "samsung_ac": {
-            "gpio_pin": 4,
-            "ir_codes": {
-                "power": "0xE0E040BF",
-                "mode": "0xE0E014EB",
-                "temp_18": "0xE0E018E7",
-                "temp_up": "0xE0E01CE3",
-                "temp_down": "0xE0E05CA3"
-            }
-        }
     }
 }

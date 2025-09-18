@@ -1,8 +1,9 @@
 #include "hardware/appliance_controller.h"
 #include <iostream>
 #include <fstream>
-#include "nlohmann/json.hpp"
+#include <ArduinoJson.h>
 #include <map>
+#include <ctime>
 
 #ifdef _WIN32
 // Windows 환경에서는 시뮬레이션
@@ -174,14 +175,23 @@ bool ApplianceController::loadConfiguration(const std::string& config_file) {
     }
 
     try {
-        nlohmann::json config;
-        file >> config;
+        std::string json_str((std::istreambuf_iterator<char>(file)),
+                             std::istreambuf_iterator<char>());
+
+        DynamicJsonDocument doc(2048);
+        DeserializationError error = deserializeJson(doc, json_str);
+
+        if (error) {
+            std::cerr << "JSON 파싱 오류: " << error.c_str() << std::endl;
+            return false;
+        }
 
         // 설정 로드 로직
-        if (config.contains("appliances")) {
-            for (const auto& appliance : config["appliances"]) {
-                std::string id = appliance["id"];
-                std::string type_str = appliance["type"];
+        if (doc.containsKey("appliances")) {
+            JsonArray appliances = doc["appliances"];
+            for (JsonObject appliance : appliances) {
+                std::string id = appliance["id"].as<std::string>();
+                std::string type_str = appliance["type"].as<std::string>();
 
                 ApplianceType type = ApplianceType::UNKNOWN;
                 if (type_str == "TV") type = ApplianceType::TV;
@@ -203,13 +213,13 @@ bool ApplianceController::loadConfiguration(const std::string& config_file) {
 
 bool ApplianceController::saveConfiguration(const std::string& config_file) {
     try {
-        nlohmann::json config;
+        DynamicJsonDocument doc(2048);
 
         // 가전기기 정보 저장
-        nlohmann::json appliances = nlohmann::json::array();
+        JsonArray appliances = doc.createNestedArray("appliances");
         for (const auto& pair : appliances_) {
-            nlohmann::json appliance;
-            appliance["id"] = pair.first;
+            JsonObject appliance = appliances.createNestedObject();
+            appliance["id"] = pair.first.c_str();
 
             std::string type_str;
             switch (pair.second) {
@@ -219,15 +229,12 @@ bool ApplianceController::saveConfiguration(const std::string& config_file) {
                 case ApplianceType::PROJECTOR: type_str = "PROJECTOR"; break;
                 default: type_str = "UNKNOWN"; break;
             }
-            appliance["type"] = type_str;
-
-            appliances.push_back(appliance);
+            appliance["type"] = type_str.c_str();
         }
-        config["appliances"] = appliances;
 
         // 파일에 저장
         std::ofstream file(config_file);
-        file << config.dump(4);
+        serializeJsonPretty(doc, file);
 
         std::cout << "설정 저장 완료: " << config_file << std::endl;
         return true;
@@ -308,14 +315,20 @@ void ApplianceController::setMqttClient(class MqttClient* mqtt_client) {
 
 void ApplianceController::handleMqttCommand(const std::string& topic, const std::string& message) {
     try {
-        nlohmann::json cmd = nlohmann::json::parse(message);
+        DynamicJsonDocument doc(512);
+        DeserializationError error = deserializeJson(doc, message);
 
-        if (cmd.contains("action")) {
-            std::string action = cmd["action"];
+        if (error) {
+            std::cerr << "MQTT 메시지 파싱 오류: " << error.c_str() << std::endl;
+            return;
+        }
+
+        if (doc.containsKey("action")) {
+            std::string action = doc["action"].as<std::string>();
 
             if (action == "control") {
-                std::string device_id = cmd["device_id"];
-                std::string command_str = cmd["command"];
+                std::string device_id = doc["device_id"].as<std::string>();
+                std::string command_str = doc["command"].as<std::string>();
 
                 ControlCommand command = ControlCommand::UNKNOWN;
                 if (command_str == "power_toggle") command = ControlCommand::POWER_TOGGLE;
@@ -326,30 +339,34 @@ void ApplianceController::handleMqttCommand(const std::string& topic, const std:
 
                 // 결과를 MQTT로 발행
                 if (mqtt_client_) {
-                    nlohmann::json response;
-                    response["device_id"] = device_id;
-                    response["command"] = command_str;
-                    response["success"] = result.success;
-                    response["message"] = result.message;
+                    DynamicJsonDocument response_doc(512);
+                    response_doc["device_id"] = device_id.c_str();
+                    response_doc["command"] = command_str.c_str();
+                    response_doc["success"] = result.success;
+                    response_doc["message"] = result.message.c_str();
 
-                    mqtt_client_->publish("irremote/response", response.dump());
+                    std::string response_str;
+                    serializeJson(response_doc, response_str);
+                    mqtt_client_->publish("irremote/response", response_str);
                 }
             }
             else if (action == "learn") {
-                std::string device_id = cmd["device_id"];
-                std::string command_name = cmd["command"];
+                std::string device_id = doc["device_id"].as<std::string>();
+                std::string command_name = doc["command"].as<std::string>();
 
                 bool success = startIRLearning(device_id, command_name);
 
                 // 결과를 MQTT로 발행
                 if (mqtt_client_) {
-                    nlohmann::json response;
-                    response["action"] = "learn";
-                    response["device_id"] = device_id;
-                    response["command"] = command_name;
-                    response["success"] = success;
+                    DynamicJsonDocument response_doc(512);
+                    response_doc["action"] = "learn";
+                    response_doc["device_id"] = device_id.c_str();
+                    response_doc["command"] = command_name.c_str();
+                    response_doc["success"] = success;
 
-                    mqtt_client_->publish("irremote/learn_response", response.dump());
+                    std::string response_str;
+                    serializeJson(response_doc, response_str);
+                    mqtt_client_->publish("irremote/learn_response", response_str);
                 }
             }
         }
@@ -361,24 +378,28 @@ void ApplianceController::handleMqttCommand(const std::string& topic, const std:
 void ApplianceController::publishStatus(const std::string& appliance_id, const std::string& status) {
     if (!mqtt_client_) return;
 
-    nlohmann::json status_msg;
-    status_msg["appliance_id"] = appliance_id;
-    status_msg["status"] = status;
-    status_msg["timestamp"] = std::time(nullptr);
+    DynamicJsonDocument status_doc(512);
+    status_doc["appliance_id"] = appliance_id.c_str();
+    status_doc["status"] = status.c_str();
+    status_doc["timestamp"] = time(nullptr);
 
-    mqtt_client_->publish("irremote/status", status_msg.dump());
+    std::string status_str;
+    serializeJson(status_doc, status_str);
+    mqtt_client_->publish("irremote/status", status_str);
 }
 
 void ApplianceController::publishIRCode(const std::string& appliance_id, const std::string& command, const std::string& ir_code) {
     if (!mqtt_client_) return;
 
-    nlohmann::json ir_msg;
-    ir_msg["appliance_id"] = appliance_id;
-    ir_msg["command"] = command;
-    ir_msg["ir_code"] = ir_code;
-    ir_msg["timestamp"] = std::time(nullptr);
+    DynamicJsonDocument ir_doc(512);
+    ir_doc["appliance_id"] = appliance_id.c_str();
+    ir_doc["command"] = command.c_str();
+    ir_doc["ir_code"] = ir_code.c_str();
+    ir_doc["timestamp"] = time(nullptr);
 
-    mqtt_client_->publish("irremote/learned_code", ir_msg.dump());
+    std::string ir_str;
+    serializeJson(ir_doc, ir_str);
+    mqtt_client_->publish("irremote/learned_code", ir_str);
 }
 
 void ApplianceController::setGenericDeviceManager(class GenericDeviceManager* generic_device_manager) {
