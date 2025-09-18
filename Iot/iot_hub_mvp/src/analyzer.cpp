@@ -1,8 +1,8 @@
-﻿#include "analyzer.h"
+﻿#include "analyzer.hpp"
 #include <cmath>
 #include <algorithm>
 
-static inline bool finite(double x) { return std::isfinite(x); }
+// static inline bool finite(double x) { return std::isfinite(x); }
 
 // ---- 기본 지표 ----
 double Analyzer::dewPointC(double T, double RH) {

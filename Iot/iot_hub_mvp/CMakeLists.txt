@@ -19,7 +19,8 @@ add_executable(hub_agent
   src/mqtt_client.cpp
   src/dht11_reader.cpp
   src/ir_receiver.cpp
-  src/util.cpp
+  src/mqtt_manager.cpp
+  src/analyzer.cpp
 )
 target_include_directories(hub_agent PRIVATE include ${MOSQUITTO_INCLUDE_DIRS})
 target_link_libraries(hub_agent

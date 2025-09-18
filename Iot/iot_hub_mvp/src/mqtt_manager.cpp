@@ -7,10 +7,6 @@
 using json = nlohmann::json;
 using namespace std::chrono;
 
-static inline int64_t now_ms() {
-    return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
-}
-
 MqttManager::MqttManager(const AppConfig& cfg)
 : cfg_(cfg), dht_(cfg_.dhtPinBcm) {
     az_.setAlpha(cfg_.ewmaAlphaT, cfg_.ewmaAlphaH);

@@ -31,7 +31,7 @@ std::optional<IrSample> IrReceiver::capture_once(int timeout_ms){
                 // 마지막 gap은 포함하지 않도록 제거
                 if(!seq.empty()) seq.pop_back();
                 if(seq.size()>=4){
-                    IrSensor f; f.rawUs = std::move(seq); f.gapUs = gapUs_;
+                    IrSample f; f.rawUs = std::move(seq); f.gapUs = gapUs_;
                     return f;
                 }else{
                     seq.clear(); // 노이즈 무시
