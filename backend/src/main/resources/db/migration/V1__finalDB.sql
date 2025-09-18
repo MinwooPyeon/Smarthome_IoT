@@ -30,7 +30,8 @@ CREATE TABLE "gungu" (
 
 CREATE TABLE "hub_device" (
 	"hub_device_id"	int		NOT NULL,
-	"device_addr"	inet		NULL
+	"device_addr"	inet		NULL,
+	"user_home_id"	INTEGER		NULL
 );
 
 CREATE TABLE "room" (
@@ -72,6 +73,7 @@ CREATE TABLE "ir_event_log" (
 	"tx_id"	uuid		NOT NULL,
 	"model"	text		NULL
 );
+
 
 CREATE TABLE "eupmyeondong" (
 	"emd_code"	INTEGER		NOT NULL,
@@ -128,6 +130,7 @@ CREATE TABLE "ir_device" (
 	"device_addr"	int		NULL,
 	"hub_device_id"	int		NOT NULL
 );
+
 
 CREATE TABLE "user_home" (
 	"user_home_id"	INTEGER		NOT NULL,
@@ -202,31 +205,23 @@ CREATE TABLE "addresses" (
 CREATE TABLE "ir_signal" (
 	"signal_id"	INTEGER		NOT NULL,
 	"name"	text		NULL,
-	"address_code"	bigint		NULL,
-	"command_code"	bigint		NULL,
-	"sub_code"	bigint		NULL,
-	"carrier_hz"	int		NULL,
-	"duty_cycle_pct"	real		NULL,
 	"frame_count"	int		NULL,
 	"frame_len_us"	int		NULL,
 	"samples_us"	int[]		NULL,
-	"repeat_min"	int		NULL,
-	"repeat_max"	int		NULL,
-	"repeat_gap_us"	int		NULL,
-	"is_toggle"	boolean		NULL,
-	"toggle_mask"	BIGINT		NULL,
-	"norm_hash"	text		NULL,
-	"tolerance_us"	int		NULL,
 	"protocol_id"	int		NOT NULL,
 	"button_id"	int		NOT NULL,
 	"model"	text		NULL
 );
 
 CREATE TABLE "ir_protocol" (
-	"protocol serial"	INTEGER		NOT NULL,
-	"프로토콜 이름"	text		NULL,
-	"Field"	text		NULL,
-	"true : msb / false : lsb"	boolean		NULL
+	"protocol_id"	INTEGER		NOT NULL,
+	"unit"	INTEGER		NULL,
+	"header"	INTEGER[]		NULL,
+	"zero"	INTEGER[]		NULL,
+	"one"	INTEGER[]		NULL,
+	"gap"	INTEGER		NULL,
+	"avg_len"	INTEGER		NULL,
+	"model"	text		NULL
 );
 
 ALTER TABLE "user" ADD CONSTRAINT "PK_USER" PRIMARY KEY (
@@ -326,8 +321,9 @@ ALTER TABLE "ir_signal" ADD CONSTRAINT "PK_IR_SIGNAL" PRIMARY KEY (
 );
 
 ALTER TABLE "ir_protocol" ADD CONSTRAINT "PK_IR_PROTOCOL" PRIMARY KEY (
-	"protocol serial"
+	"protocol_id"
 );
+
 
 ALTER TABLE "routine_detail" ADD CONSTRAINT "FK_device_TO_routine_detail_1" FOREIGN KEY (
 	"device_id"

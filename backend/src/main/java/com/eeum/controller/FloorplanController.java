@@ -30,7 +30,7 @@ public class FloorplanController implements ControllerHelper {
     	try {
 	    	Integer userId = 1;
 	        Integer id = floorplanService.create(userId, homeId);
-	        return handleSuccess(Map.of("homeId", id));
+	        return handleSuccess(Map.of("userHomeId", id));
         } catch (IllegalArgumentException e) {
             return handleFail(e, HttpStatus.BAD_REQUEST);
         } catch (SecurityException e) {
