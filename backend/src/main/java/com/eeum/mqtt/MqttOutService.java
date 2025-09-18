@@ -1,8 +1,9 @@
 package com.eeum.mqtt;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.eclipse.paho.client.mqttv3.IMqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
@@ -56,36 +57,50 @@ public class MqttOutService {
     }
 
     // server → hub/device (로깅 & AI 제어 & IR 디바이스 제어)
-    public void publishControl(String deviceId, int txId, String sendDeviceId , String deviceType,
-                               List<Integer> rawData, String function, List<String> meta) throws Exception {
+    public void publishControl(
+            String hubDeviceId,        // 허브 대상
+            UUID txUuid,               // DB 저장용 UUID
+            String irDeviceId,         // IR 송신기 ID
+            String deviceType,         // ex: "air_conditioner"
+            List<Integer> rawData,     // IR raw data
+            String function,           // 제어 함수명
+            List<String> meta,         // 메타 데이터
+            String model               // 모델명
+    ) throws Exception {
         ensure();
-        String topic = "hub/%s/order/control".formatted(deviceId);
+
+        // UUID → int 변환 (허브 전송용)
+        int txIdInt = txUuid.hashCode();
+
+        String topic = "hub/%s/order/control".formatted(hubDeviceId);
         Map<String, Object> payload = Map.of(
-                "tx_id", txId,
-                "send_device_id", sendDeviceId,
+                "tx_id", txIdInt,           // 허브에는 int
+                "send_device_id", irDeviceId,
                 "device_type", deviceType,
                 "raw_data", rawData,
                 "function", function,
                 "meta_data", meta
         );
+
         byte[] bytes = om.writeValueAsBytes(payload);
         MqttMessage msg = new MqttMessage(bytes);
         msg.setQos(1);
         msg.setRetained(false);
         client.publish(topic, msg);
-        
+
+        // DB 로그 저장
         IrEventLog eventLog = IrEventLog.builder()
-                .txId(txId)
-                .deviceId(sendDeviceId)
-                .deviceType(deviceType)
-                .function(function)
-                .rawData(om.writeValueAsString(rawData)) // JSON 배열 형태
-                .status("SENT")
-                .createdAt(LocalDateTime.now())
+                .eventTime(OffsetDateTime.now())
+                .kind("control")
+                .irDeviceId(irDeviceId)
+                .txId(txUuid)          // DB는 UUID
+                .model(model)
                 .build();
 
-            irEventLogRepository.save(eventLog);
-            log.info("[CONTROL_LOG] 제어 이벤트 기록 완료: txId={}, deviceId={}, function={}", txId, sendDeviceId, function);
+        irEventLogRepository.save(eventLog);
+
+        log.info("[CONTROL_LOG] MQTT 발행 & DB 저장 완료: txUuid={}, txIdInt={}, irDeviceId={}, function={}",
+                txUuid, txIdInt, irDeviceId, function);
     }
     
     public void publishSendDevice(String hubDeviceId, int txId, String irDeviceId, String deviceType, boolean add) throws Exception {

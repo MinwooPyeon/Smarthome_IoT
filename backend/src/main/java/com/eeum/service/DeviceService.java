@@ -23,7 +23,6 @@ import com.eeum.dto.response.DeviceResponse;
 import com.eeum.entity.Device;
 import com.eeum.entity.IrButton;
 import com.eeum.entity.IrDevice;
-import com.eeum.entity.IrEventLog;
 import com.eeum.entity.IrRemoteir;
 import com.eeum.entity.IrSignal;
 import com.eeum.entity.IrTxQueue;
@@ -330,29 +329,6 @@ public class DeviceService {
                     .build();
                 irTxQueueRepository.save(tx);
                 log.info("[IR 큐 등록] txId={}, model={}, category={}", txId, model, category);
-
-                // 5. MQTT 발행
-                mqttService.publishControl(
-                    irDeviceId,             // deviceId = hub가 받아야 할 id
-                    txId.hashCode(),        // tx_id를 int로 변환
-                    irDeviceId,             // send_device_id = IR 송신기
-                    deviceType,             // ex: air_conditioner
-                    rawData,                // samples_us
-                    category,               // function = power / temperature / level 등
-                    List.of()               // meta_data (지금은 없음)
-                );
-                log.info("[MQTT 전송 완료] txId={}, function={}", txId, category);
-                
-                IrEventLog logRow = IrEventLog.builder()
-                        .eventTime(OffsetDateTime.now()) 
-                        .kind("control")                 
-                        .irDeviceId(irDeviceId)          
-                        .txId(txId)                      
-                        .model(model)                  
-                        .build();
-
-                irEventLogRepository.save(logRow);
-                log.info("[이벤트 로그 기록] txId(UUID)={}, function={}", txId, category);
                 	
             } catch (Exception e) {
                 log.warn("[IR 전송 실패] model={}, category={}, error={}", model, category, e.getMessage(), e);
