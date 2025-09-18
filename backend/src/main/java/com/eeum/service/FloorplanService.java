@@ -55,10 +55,6 @@ public class FloorplanService {
 	      if (userId == null || homeId == null) {
 	          throw new IllegalArgumentException("userId, homeId는 필수입니다.");
 	      }
-	      
-	      if (userHomeRepository.existsByUserIdAndHomeId(userId, homeId)) {
-	          return homeId;
-	      }
 	
 	      UserHome userHome = UserHome.builder()
 	    		  .userId(userId)
@@ -66,7 +62,7 @@ public class FloorplanService {
 	    		  .build();
 	      
 	      userHomeRepository.save(userHome);
-	      return homeId;
+	      return userHome.getUserHomeId();
 	  }
 	  
 	  
