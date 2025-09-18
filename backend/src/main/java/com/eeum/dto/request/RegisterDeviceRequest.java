@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class RegisterDeviceRequest {
 	private Integer homeId;
-	private Integer irDeviceId;  // ir_device_id
+	private String irDeviceId;  // ir_device_id
 	private String roomColor;
     private String model;
     private String brand;

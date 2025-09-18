@@ -61,7 +61,7 @@ public class DeviceService {
         if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
         if (req.getHomeId() == null) throw new IllegalArgumentException("homeId는 필수입니다.");
         if (req.getRoomColor() == null) throw new IllegalArgumentException("roomColor는 필수입니다.");
-        if (req.getIrDeviceId() == null) throw new IllegalArgumentException("deviceAddr는 필수입니다.");  // 수정
+        if (req.getIrDeviceId() == null) throw new IllegalArgumentException("IrDeviceId는 필수입니다.");
 
         Integer userHomeId = deviceRepository.findUserHomeId(userId, req.getHomeId())
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -75,8 +75,10 @@ public class DeviceService {
         Integer colorInt = parseHexColorToInt(req.getRoomColor());
         
         // home_id + room_color 로 방 조회
-        Room room = roomRepository.findByHomeIdAndRoomColor(req.getHomeId(), colorInt)
-                .orElseThrow(() -> new IllegalArgumentException("해당 색상의 방을 찾을 수 없습니다."));
+        Room room = roomRepository
+                .findNearestByHomeIdAndRoomColorWithinTol(req.getHomeId(), colorInt, 10)
+                .orElseThrow(() -> new IllegalArgumentException("해당 색상(±" + 10 + ")의 방을 찾을 수 없습니다."));
+
         
         Integer roomId = room.getRoomId();
         
@@ -88,7 +90,7 @@ public class DeviceService {
         
         // IR 디바이스 존재 확인
         IrDevice irDevice = irDeviceRepository.findById(req.getIrDeviceId())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 deviceAddr: " + req.getIrDeviceId()));
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 IrDeviceId: " + req.getIrDeviceId()));
 
         // ir_remoteir 정보 등록
         IrRemoteir model = irRemoteirRepository.findById(req.getModel())

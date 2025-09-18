@@ -7,7 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.eeum.entity.HubDevice;
 
-public interface HubDeviceRepository extends JpaRepository<HubDevice, Integer> {
+public interface HubDeviceRepository extends JpaRepository<HubDevice, String> {
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
