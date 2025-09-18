@@ -128,7 +128,18 @@ void MqttManager::h_ir_req(const json& j){
 }
 
 void MqttManager::h_control(const json& j){
-    ;
+    Log log;
+
+    log.tx_id = j.value("tx_id", 0);
+    log.deviceId = j.value("deviceId", "");
+    if(log.deviceId == "") {
+        publish_error(log.tx_id, "Send Device Id NULL Reference Exception");
+    }
+    log.deviceType = j.value("device_type", "UNKNOWN");
+    log.function = j.value("function", "NULL");
+    log.metaData = j.value("metaData", "NULL");
+
+    logMgr_.addLog(log);
 }
 
 void MqttManager::h_regist_send(const json& j){

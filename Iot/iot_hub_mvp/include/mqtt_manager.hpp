@@ -5,13 +5,15 @@
 #include <atomic>
 #include <thread>
 #include <nlohmann/json.hpp>
+
 #include "config.hpp"
 #include "mqtt_client.hpp"
 #include "dht11_reader.hpp"
 #include "ir_receiver.hpp"
-#include "analyzer.hpp"   // 계산 로직 사용 (이슬점/체감/절대습도/WBGT/PMV·PPD) :contentReference[oaicite:0]{index=0}
-#include "types.hpp"      // Metrics/EnvSample 정의 :contentReference[oaicite:1]{index=1}
+#include "analyzer.hpp"   
+#include "types.hpp"      
 #include "ir_device_manager.hpp"
+#include "log_manager.hpp"
 
 class MqttManager {
 public:
@@ -26,6 +28,7 @@ private:
     Analyzer        az_;
     Dht11Reader     dht_;
     IrDeviceManager irMgr_;
+    LogManager      logMgr_;
 
     std::atomic<bool> running_{false};
     std::thread       loopThread_;
