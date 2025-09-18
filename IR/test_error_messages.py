@@ -108,8 +108,7 @@ def main():
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
         client.loop_start()
 
-        # 연결 대기
-        time.sleep(2)
+        # 연결 대기 (제거됨)
 
         # 테스트 케이스들
         test_cases = [
@@ -158,9 +157,8 @@ def main():
             print(f"테스트 {i}/{len(test_cases)}")
             send_test_message(client, test_case["message"], test_case["description"])
 
-            # 응답 대기
-            print("응답 대기 중... (3초)")
-            time.sleep(3)
+            # 응답 대기 (제거됨)
+            print("응답 대기 중... (대기시간 제거됨)")
 
         # 잘못된 JSON 형식 테스트
         print(f"\n{'='*60}")
@@ -179,8 +177,7 @@ def main():
         except Exception as e:
             print(f"전송 중 오류: {e}")
 
-        print("응답 대기 중... (3초)")
-        time.sleep(3)
+        print("응답 대기 중... (대기시간 제거됨)")
 
         # 에러 메시지 전송 테스트
         print(f"\n{'='*60}")
@@ -217,7 +214,7 @@ def main():
         for i, error_case in enumerate(error_test_cases, 1):
             print(f"\n에러 테스트 {i}/{len(error_test_cases)}")
             send_error_message(client, error_case["tx_id"], error_case["error"], error_case["message"])
-            time.sleep(1)  # 각 에러 메시지 간 1초 대기
+            # 각 에러 메시지 간 대기시간 제거됨
 
         print(f"\n{'='*60}")
         print("모든 테스트 완료!")
