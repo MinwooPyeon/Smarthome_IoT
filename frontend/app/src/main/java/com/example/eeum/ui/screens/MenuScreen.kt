@@ -220,7 +220,7 @@ fun MenuScreen(
             Column(modifier = Modifier.fillMaxWidth()) {
                 MenuListItem(icon = R.drawable.ic_announcement, tint = Orange500, text = "공지사항")
                 androidx.compose.material3.Divider(color = Gray50)
-                MenuListItem(icon = R.drawable.ic_user_manual, tint = Blue500, text = "사용 설명서")
+                MenuListItem(icon = R.drawable.ic_user_manual, tint = Blue500, text = "리모콘")
                 androidx.compose.material3.Divider(color = Gray50)
                 MenuListItem(icon = R.drawable.ic_blueprint, tint = Color(0xFF9333EA), text = "평면도 관리")
                 androidx.compose.material3.Divider(color = Gray50)

@@ -5,6 +5,10 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.eeum.data.model.response.device.DeviceIcon
+import com.example.eeum.data.model.response.device.DeviceItem
+import com.example.eeum.data.model.response.device.DeviceLocation
+import com.example.eeum.data.model.response.device.LocationData
 import com.example.eeum.data.model.response.floorplans.FloorPlan
 import com.example.eeum.data.model.response.floorplans.FloorPlansList
 import com.example.eeum.data.model.response.home.AllUserHome
@@ -18,7 +22,6 @@ class HomeViewModel : ViewModel() {
     private val _floorplans = MutableLiveData<List<FloorPlansList>>()
     val floorplans: LiveData<List<FloorPlansList>> get() = _floorplans
 
-    // (선택) 현재 선택된 홈 ID
     private val _selectedHomeId = MutableLiveData<Int?>()
     val selectedHomeId: LiveData<Int?> get() = _selectedHomeId
 
@@ -37,6 +40,16 @@ class HomeViewModel : ViewModel() {
     private val _primaryMessage = MutableLiveData<String?>()
     val primaryMessage: LiveData<String?> get() = _primaryMessage
 
+    private val _devices = MutableLiveData<List<DeviceItem>>(emptyList())
+    val devices: LiveData<List<DeviceItem>> get() = _devices
+
+    private val _deviceTotalCount = MutableLiveData<Int>(0)
+    val deviceTotalCount: LiveData<Int> get() = _deviceTotalCount
+
+    //디바이스 위치 목록
+    private val _deviceLocations = MutableLiveData<List<LocationData>>(emptyList())
+    val deviceLocations: LiveData<List<LocationData>> get() = _deviceLocations
+
     //특정 집 평면도 조회
     fun fetchUserHomeFloorplans(homeId: Int) {
         viewModelScope.launch {
@@ -48,10 +61,7 @@ class HomeViewModel : ViewModel() {
                         _floorplans.value = body.data.items
                         _status.value = body.status
                         _error.value = null
-                        Log.d(
-                            "HomeViewModel",
-                            "홈($homeId) 평면도 조회 성공: ${body.data.items.size}건"
-                        )
+                        Log.d("HomeViewModel", "홈($homeId) 평면도 조회 성공: ${body.data.items.size}건")
                     } ?: run {
                         _floorplans.value = emptyList()
                         _error.value = "응답이 비어있습니다."
@@ -140,6 +150,107 @@ class HomeViewModel : ViewModel() {
                 Log.e("HomeViewModel", "대표 집 변경 실패", e)
             }
         }
+    }
+
+    // 디바이스 목록 조회
+    fun fetchDevicesIcon(
+        power: Boolean? = null,
+        type: String? = null,
+        roomName: String? = null,
+        deviceName: String? = null
+    ) {
+        viewModelScope.launch {
+            runCatching {
+                RetrofitUtil.deviceService.readDevicesSimple(
+                    power = power,
+                    type = type,
+                    roomName = roomName,
+                    deviceName = deviceName
+                )
+            }.onSuccess { response ->
+                if (response.isSuccessful) {
+                    response.body()?.let { body ->
+                        val items = body.data.items
+                            // UI 안정화를 위해 정렬(방->이름)
+                            .sortedWith(compareBy<DeviceItem>({ it.roomId }, { it.deviceName }))
+
+                        _devices.value = items
+                        _deviceTotalCount.value = body.data.totalCount
+                        _status.value = body.status
+                        _error.value = null
+
+                        // 샘플 로그: 좌표/타입까지 확인
+                        val sample = items.firstOrNull()
+                        Log.d(
+                            "HomeViewModel",
+                            buildString {
+                                append("디바이스 목록 조회 성공: total=${body.data.totalCount}, items=${items.size}")
+                                sample?.let {
+                                    append(", sample={id=${it.deviceId}, name=${it.deviceName}, room=${it.roomId}, x=${it.x}, y=${it.y}, type=${it.deviceType}}")
+                                }
+                            }
+                        )
+                    } ?: run {
+                        _devices.value = emptyList()
+                        _deviceTotalCount.value = 0
+                        _error.value = "응답이 비어있습니다."
+                        Log.e("HomeViewModel", "디바이스 목록 응답이 비어있습니다.")
+                    }
+                } else {
+                    _error.value = "디바이스 목록 조회 실패: ${response.code()}"
+                    Log.e("HomeViewModel", "디바이스 목록 조회 실패 code=${response.code()}")
+                }
+            }.onFailure { e ->
+                _error.value = "네트워크 오류: ${e.message}"
+                Log.e("HomeViewModel", "디바이스 목록 조회 실패", e)
+            }
+        }
+    }
+
+    fun clearDevices() {
+        _devices.value = emptyList()
+        _deviceTotalCount.value = 0
+    }
+
+    // 디바이스 위치 조회
+    fun fetchDeviceLocations(
+        homeId: Int? = null,
+        roomId: Int? = null
+    ) {
+        viewModelScope.launch {
+            runCatching {
+                RetrofitUtil.deviceService.readDeviceLocations(
+                    homeId = homeId,
+                    roomId = roomId
+                )
+            }.onSuccess { response ->
+                if (response.isSuccessful) {
+                    response.body()?.let { body: DeviceLocation ->
+                        _deviceLocations.value = body.data
+                        _status.value = body.status
+                        _error.value = null
+                        Log.d(
+                            "HomeViewModel",
+                            "디바이스 위치 조회 성공: count=${body.data.size}, homeId=$homeId, roomId=$roomId"
+                        )
+                    } ?: run {
+                        _deviceLocations.value = emptyList()
+                        _error.value = "응답이 비어있습니다."
+                        Log.e("HomeViewModel", "디바이스 위치 응답이 비어있습니다.")
+                    }
+                } else {
+                    _error.value = "디바이스 위치 조회 실패: ${response.code()}"
+                    Log.e("HomeViewModel", "디바이스 위치 조회 실패 code=${response.code()}")
+                }
+            }.onFailure { e ->
+                _error.value = "네트워크 오류: ${e.message}"
+                Log.e("HomeViewModel", "디바이스 위치 조회 실패", e)
+            }
+        }
+    }
+
+    fun clearDeviceLocations() {
+        _deviceLocations.value = emptyList()
     }
 
     //에러 초기화
