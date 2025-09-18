@@ -1,7 +1,6 @@
 package com.eeum.service;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -344,18 +343,16 @@ public class DeviceService {
                 );
                 log.info("[MQTT 전송 완료] txId={}, function={}", txId, category);
                 
-                IrEventLog logEntry = IrEventLog.builder()
-                	    .txId(txId.hashCode())  // int
-                	    .deviceId(irDeviceId)
-                	    .deviceType(deviceType)
-                	    .function(category)
-                	    .rawData(objectMapper.writeValueAsString(rawData)) // List<Integer>를 JSON string으로
-                	    .status("PENDING") // 초기 상태는 PENDING
-                	    .createdAt(LocalDateTime.now())
-                	    .build();
+                IrEventLog logRow = IrEventLog.builder()
+                        .eventTime(OffsetDateTime.now()) 
+                        .kind("control")                 
+                        .irDeviceId(irDeviceId)          
+                        .txId(txId)                      
+                        .model(model)                  
+                        .build();
 
-                	irEventLogRepository.save(logEntry);
-                	log.info("[이벤트 로그 기록] txId={}, function={}", txId, category);
+                irEventLogRepository.save(logRow);
+                log.info("[이벤트 로그 기록] txId(UUID)={}, function={}", txId, category);
                 	
             } catch (Exception e) {
                 log.warn("[IR 전송 실패] model={}, category={}, error={}", model, category, e.getMessage(), e);
