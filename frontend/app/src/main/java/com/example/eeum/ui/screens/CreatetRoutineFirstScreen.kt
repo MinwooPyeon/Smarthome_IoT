@@ -22,12 +22,14 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,8 +38,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.eeum.R
+import com.example.eeum.base.ApplicationClass
 import com.example.eeum.data.model.dto.ActionItem
 import com.example.eeum.data.model.dto.ActionUi
 import com.example.eeum.data.model.dto.NewActionResult
@@ -58,8 +64,9 @@ fun CreateRoutineFirstScreen(navController: NavController) {
     var showTimePicker by remember { mutableStateOf(false) }
     val timeText = remember(hour24, minute) { "%02d:%02d".format(hour24, minute) }
 
-    // 루틴 아이콘 상태 & 다이얼로그 표시 상태
-    var selectedIconRes by remember { mutableStateOf<Int?>(null) }
+    // ✅ 루틴 아이콘 선택 상태 (서버값)
+    var selectedIconId by remember { mutableStateOf<Int?>(null) }
+    var selectedIconUrl by remember { mutableStateOf<String?>(null) }
     var showIconDialog by remember { mutableStateOf(false) }
 
     val actions = remember {
@@ -121,9 +128,9 @@ fun CreateRoutineFirstScreen(navController: NavController) {
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        // ⬇️ 이미지 대신 "루틴 아이콘" 선택 UI
+                        // ✅ 서버 아이콘 URL 프리뷰
                         RoutineIconPreview(
-                            iconRes = selectedIconRes,
+                            iconUrl = selectedIconUrl,
                             onClick = { showIconDialog = true },
                             modifier = Modifier.align(Alignment.CenterHorizontally)
                         )
@@ -249,7 +256,9 @@ fun CreateRoutineFirstScreen(navController: NavController) {
             item {
                 Surface(shape = RoundedCornerShape(16.dp), color = CardBg) {
                     Column(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text("동작 설정", fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -278,7 +287,7 @@ fun CreateRoutineFirstScreen(navController: NavController) {
             // 완료 버튼
             item {
                 Button(
-                    onClick = { /* TODO */ },
+                    onClick = { /* TODO: 생성 요청에 selectedIconId/Url 포함 */ },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -301,13 +310,13 @@ fun CreateRoutineFirstScreen(navController: NavController) {
         )
     }
 
-    // ⬇️ 루틴 아이콘 선택 다이얼로그
+    // ✅ 루틴 아이콘 선택 다이얼로그 (서버 아이콘 URL 사용)
     if (showIconDialog) {
         RoutineIconDialog(
             title = "루틴 아이콘",
-            icons = defaultRoutineIcons(),        // 아래 함수에 정의된 10개 예시
-            onSelect = { res ->
-                selectedIconRes = res
+            onSelect = { id, url ->
+                selectedIconId = id
+                selectedIconUrl = toAbsoluteUrl(ApplicationClass.SERVER_URL, url)
                 showIconDialog = false
             },
             onDismiss = { showIconDialog = false }
@@ -316,15 +325,16 @@ fun CreateRoutineFirstScreen(navController: NavController) {
 }
 
 /* =========================
- * 아이콘 프리뷰(카드 1의 상단)
+ * 아이콘 프리뷰(카드 1의 상단) - URL 사용
  * ========================= */
 @Composable
 private fun RoutineIconPreview(
-    iconRes: Int?,
+    iconUrl: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val corner = 12.dp
+    val corner = 26.dp
+    val ctx = LocalContext.current
     Box(modifier = modifier.size(120.dp)) {
         Surface(
             shape = RoundedCornerShape(corner),
@@ -332,22 +342,25 @@ private fun RoutineIconPreview(
             border = BorderStroke(1.dp, BorderGray),
             modifier = Modifier
                 .fillMaxSize()
-                .clickable { onClick() }     // 클릭 시 아이콘 선택 다이얼로그
+                .clickable { onClick() }
         ) {
-            if (iconRes != null) {
+            if (iconUrl.isNullOrBlank()) {
+                // 기본 플레이스홀더
                 Image(
-                    painter = painterResource(iconRes),
-                    contentDescription = "routine icon",
+                    painter = painterResource(R.drawable.ic_mainlogo),
+                    contentDescription = "placeholder",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(RoundedCornerShape(corner))
                 )
             } else {
-                // 기본 플레이스홀더
-                Image(
-                    painter = painterResource(R.drawable.ic_mainlogo),
-                    contentDescription = "placeholder",
+                AsyncImage(
+                    model = ImageRequest.Builder(ctx)
+                        .data(iconUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "routine icon",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
@@ -377,15 +390,20 @@ private fun RoutineIconPreview(
 }
 
 /* =========================
- * 루틴 아이콘 다이얼로그
+ * 루틴 아이콘 다이얼로그 (서버 아이콘 URL만 표시)
  * ========================= */
 @Composable
 private fun RoutineIconDialog(
     title: String,
-    icons: List<Int>,
-    onSelect: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onSelect: (iconId: Int, url: String) -> Unit,   // ✅ id와 url 함께 반환
+    onDismiss: () -> Unit,
+    vm: RoutineViewModel = viewModel()
 ) {
+    // 서버 아이콘 로딩
+    LaunchedEffect(Unit) { vm.fetchRoutineIcons() }
+    val serverIcons by vm.icons.observeAsState(emptyList())
+    val ctx = LocalContext.current
+
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(18.dp),
@@ -402,7 +420,7 @@ private fun RoutineIconDialog(
                 Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(12.dp))
 
-                // ⬇️ 5열 x 2행(=10개) 그리드, 각 타일 radius 12dp
+                // ✅ 응답받은 URL 목록을 5열 그리드로 모두 표시 (스크롤 가능)
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(5),
                     modifier = Modifier
@@ -411,10 +429,13 @@ private fun RoutineIconDialog(
                         .padding(top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    userScrollEnabled = false
+                    userScrollEnabled = true
                 ) {
-                    items(icons.take(10)) { resId ->
+                    items(serverIcons) { icon ->
                         val corner = 12.dp
+                        val absoluteUrl = remember(icon.url) {
+                            toAbsoluteUrl(ApplicationClass.SERVER_URL, icon.url)
+                        }
                         Surface(
                             shape = RoundedCornerShape(corner),
                             color = Color.White,
@@ -422,10 +443,16 @@ private fun RoutineIconDialog(
                             modifier = Modifier
                                 .size(60.dp)
                                 .clip(RoundedCornerShape(corner))
-                                .clickable { onSelect(resId) }
+                                .clickable {
+                                    // ✅ 선택 시 id와 원본 url 모두 전달
+                                    onSelect(icon.iconId, icon.url)
+                                }
                         ) {
-                            Image(
-                                painter = painterResource(resId),
+                            AsyncImage(
+                                model = ImageRequest.Builder(ctx)
+                                    .data(absoluteUrl)
+                                    .crossfade(true)
+                                    .build(),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
@@ -443,21 +470,13 @@ private fun RoutineIconDialog(
     }
 }
 
-/* 프로젝트 아이콘 리소스로 교체해서 사용하세요 */
-@Composable
-private fun defaultRoutineIcons(): List<Int> = listOf(
-    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_door
-    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_suitcase
-    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_home
-    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_pin
-    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_alarm
-    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_bell
-    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_shield
-    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_siren
-    R.drawable.ic_mainlogo, // TODO: R.drawable.ic_routine_monitor
-    R.drawable.ic_mainlogo  // TODO: R.drawable.ic_routine_star
-)
-
+private fun toAbsoluteUrl(base: String, path: String?): String? {
+    if (path.isNullOrBlank()) return null
+    val b = base.trimEnd('/')
+    val p = path.trim()
+    if (p.startsWith("http://") || p.startsWith("https://")) return p
+    return if (p.startsWith("/")) "$b$p" else "$b/$p"
+}
 
 @Composable
 private fun ActionCard(
@@ -516,6 +535,9 @@ private fun iconForDevice(device: String): ImageVector = when (device) {
     else -> Icons.Filled.Star
 }
 
+/* =========================
+ * 시간 설정 다이얼로그 & 휠 피커
+ * ========================= */
 @Composable
 private fun TimeWheelDialog(
     initialHour24: Int,
@@ -523,7 +545,6 @@ private fun TimeWheelDialog(
     onConfirm: (hour24: Int, minute: Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    // 초기값을 오전/오후 & 12시간제로 변환
     var ampm by remember { mutableIntStateOf(if (initialHour24 >= 12) 1 else 0) } // 0=오전, 1=오후
     var hour12 by remember {
         mutableIntStateOf(
@@ -552,7 +573,6 @@ private fun TimeWheelDialog(
                     .padding(horizontal = 20.dp, vertical = 18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 제목
                 Text(
                     text = "시간 설정",
                     fontSize = 18.sp,
@@ -560,7 +580,6 @@ private fun TimeWheelDialog(
                 )
                 Spacer(Modifier.height(12.dp))
 
-                // 피커 3종
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -568,21 +587,18 @@ private fun TimeWheelDialog(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 오전/오후
                     WheelPicker(
                         values = arrayOf("오전", "오후"),
                         value = ampm,
                         onValueChange = { ampm = it },
                         width = 72.dp
                     )
-                    // 시: 1~12
                     WheelPicker(
                         min = 1, max = 12,
                         value = hour12,
                         onValueChange = { hour12 = it },
                         width = 64.dp
                     )
-                    // 분: 00,10,20,30,40,50
                     WheelPicker(
                         values = arrayOf("00", "10", "20", "30", "40", "50"),
                         value = minuteIndex,
@@ -593,7 +609,6 @@ private fun TimeWheelDialog(
 
                 Spacer(Modifier.height(18.dp))
 
-                // 하단 버튼 두 개 (좌: 파랑 설정 / 우: 회색 취소)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -602,10 +617,10 @@ private fun TimeWheelDialog(
                         onClick = {
                             val m = minuteValues[minuteIndex]
                             val h24 = when {
-                                ampm == 0 && hour12 == 12 -> 0      // 12 AM -> 00
-                                ampm == 1 && hour12 == 12 -> 12     // 12 PM -> 12
-                                ampm == 1 -> hour12 + 12            // PM
-                                else -> hour12                      // AM
+                                ampm == 0 && hour12 == 12 -> 0
+                                ampm == 1 && hour12 == 12 -> 12
+                                ampm == 1 -> hour12 + 12
+                                else -> hour12
                             }
                             onConfirm(h24, m)
                         },
@@ -628,8 +643,8 @@ private fun TimeWheelDialog(
                             .height(44.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFE8EBF1),   // 연회색
-                            contentColor = Color(0xFF4B5563)       // 진회색 텍스트
+                            containerColor = Color(0xFFE8EBF1),
+                            contentColor = Color(0xFF4B5563)
                         )
                     ) {
                         Text("취소", fontSize = 16.sp, fontWeight = FontWeight.Medium)
@@ -640,7 +655,6 @@ private fun TimeWheelDialog(
     }
 }
 
-// 그대로 사용 (필요시 높이/폭만 조정)
 @Composable
 private fun WheelPicker(
     min: Int = 0,
@@ -668,8 +682,6 @@ private fun WheelPicker(
                 }
                 this.value = value
                 setOnValueChangedListener { _, _, newVal -> onValueChange(newVal) }
-
-                // (선택) API 29+ 에서 선택 텍스트 색만 살짝 진하게
                 try {
                     if (android.os.Build.VERSION.SDK_INT >= 29) {
                         setTextColor(android.graphics.Color.BLACK)

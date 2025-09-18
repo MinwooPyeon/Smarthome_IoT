@@ -6,6 +6,7 @@ import com.example.eeum.data.model.response.common.BaseResponse
 import com.example.eeum.data.model.response.common.Page
 import com.example.eeum.data.model.response.routine.AllRoutine
 import com.example.eeum.data.model.response.routine.RoutineCreateResponse
+import com.example.eeum.data.model.response.routine.RoutineIcon
 import com.example.eeum.data.model.response.routine.RoutineResponse
 import retrofit2.Response
 import retrofit2.http.Body
@@ -33,6 +34,10 @@ interface RoutineService {
     //루틴 전체 조회
     @GET("api/routines")
     suspend fun readAllRoutines(): Response<AllRoutine>
+
+    // 루틴 아이콘 목록 조회
+    @GET("api/icons")
+    suspend fun readRoutineIcons(): Response<RoutineIcon>
 
     // 루틴 단건 조회
     @GET("api/routines/{routineId}")
