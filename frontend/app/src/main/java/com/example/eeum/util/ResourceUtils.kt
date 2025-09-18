@@ -81,6 +81,33 @@ object ResourceUtils {
         return if (mask == 0) null else mask
     }
 
+    // 월=1<<0, ... , 일=1<<6
+    fun formatWeekdays(maskInput: Int?): String? {
+        if (maskInput == null) return null
+
+        // 안전하게 7비트만 사용
+        val mask = maskInput and ((1 shl 7) - 1)
+        if (mask == 0) return null
+
+        val ALL = (1 shl 7) - 1          // 0b1111111
+        val WEEKDAYS = (1 shl 5) - 1     // 월~금 (bits 0..4)
+        val WEEKEND = (1 shl 5) or (1 shl 6) // 토, 일
+
+        // 특수 표현 우선
+        if (mask == ALL) return "매일"
+        if (mask == WEEKDAYS) return "평일"
+        if (mask == WEEKEND) return "주말"
+
+        val names = arrayOf("월", "화", "수", "목", "금", "토", "일")
+        val picked = buildList {
+            for (i in 0..6) {
+                if ((mask and (1 shl i)) != 0) add(names[i])
+            }
+        }
+
+        return picked.joinToString(",")
+    }
+
     fun parseTime(raw: String): String? {
         val t = raw.replace("\\s+".toRegex(), " ").trim()
         val am = t.contains("오전") || t.contains("아침") || t.contains("새벽")
