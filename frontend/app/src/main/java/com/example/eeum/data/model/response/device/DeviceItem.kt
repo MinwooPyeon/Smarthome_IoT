@@ -9,5 +9,7 @@ data class DeviceItem(
     val irDeviceId: Int,
     val model: String,
     val registeredAt: String,
-    val roomId: Int
+    val roomId: Int,
+    val x: Double,
+    val y: Double
 )

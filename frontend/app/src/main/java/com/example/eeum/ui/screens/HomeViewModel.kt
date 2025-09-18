@@ -169,14 +169,26 @@ class HomeViewModel : ViewModel() {
                 )
             }.onSuccess { response ->
                 if (response.isSuccessful) {
-                    response.body()?.let { body: DeviceIcon ->
-                        _devices.value = body.data.items
+                    response.body()?.let { body ->
+                        val items = body.data.items
+                            // UI 안정화를 위해 정렬(방->이름)
+                            .sortedWith(compareBy<DeviceItem>({ it.roomId }, { it.deviceName }))
+
+                        _devices.value = items
                         _deviceTotalCount.value = body.data.totalCount
                         _status.value = body.status
                         _error.value = null
+
+                        // 샘플 로그: 좌표/타입까지 확인
+                        val sample = items.firstOrNull()
                         Log.d(
                             "HomeViewModel",
-                            "디바이스 목록 조회 성공: count=${body.data.totalCount}"
+                            buildString {
+                                append("디바이스 목록 조회 성공: total=${body.data.totalCount}, items=${items.size}")
+                                sample?.let {
+                                    append(", sample={id=${it.deviceId}, name=${it.deviceName}, room=${it.roomId}, x=${it.x}, y=${it.y}, type=${it.deviceType}}")
+                                }
+                            }
                         )
                     } ?: run {
                         _devices.value = emptyList()
