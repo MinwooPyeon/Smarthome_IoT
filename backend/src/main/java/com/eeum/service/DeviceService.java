@@ -61,7 +61,7 @@ public class DeviceService {
         if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
         if (req.getHomeId() == null) throw new IllegalArgumentException("homeId는 필수입니다.");
         if (req.getRoomColor() == null) throw new IllegalArgumentException("roomColor는 필수입니다.");
-        if (req.getIrDeviceId() == null) throw new IllegalArgumentException("irDeviceId는 필수입니다.");
+        if (req.getDeviceAddr() == null) throw new IllegalArgumentException("deviceAddr는 필수입니다.");  // 수정
 
         Integer userHomeId = deviceRepository.findUserHomeId(userId, req.getHomeId())
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -87,8 +87,8 @@ public class DeviceService {
         }
         
         // IR 디바이스 존재 확인
-        IrDevice irDevice = irDeviceRepository.findById(req.getIrDeviceId())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 ir_device_id: " + req.getIrDeviceId()));
+        IrDevice irDevice = irDeviceRepository.findById(req.getDeviceAddr())
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 deviceAddr: " + req.getDeviceAddr()));
 
         // ir_remoteir 정보 등록
         IrRemoteir model = irRemoteirRepository.findById(req.getModel())
@@ -190,6 +190,8 @@ public class DeviceService {
                 .deviceType(r.getDeviceType())
                 .registeredAt(r.getRegisteredAt())
                 .deviceDetail(detailMap)
+                .x(r.getX())
+                .y(r.getY())
                 .build();
     }
 

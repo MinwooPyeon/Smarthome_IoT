@@ -18,6 +18,8 @@ public class DeviceItemResponse {
     private String  deviceType;
     private String  deviceName;
     private Instant registeredAt;
+    private Double x;
+    private Double y;
     private Map<String, Object> deviceDetail;
     
 }
