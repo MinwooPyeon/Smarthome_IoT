@@ -10,9 +10,32 @@
 #include "EeumMFC.h"
 #endif
 
+#include "MainFrm.h"
 #include "EeumMFCDoc.h"
 
 #include <propkey.h>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
+
+static EnvSample ParseEnv(const std::string& s) {
+	EnvSample e{};
+	try {
+		auto j = json::parse(s);
+		e.t = j.value("t", j.value("temp", NAN));
+		e.h = j.value("h", j.value("hum", NAN));
+		e.tsMs = j.value("ts", (int64_t)::GetTickCount64());
+	}
+	catch (...) {}
+	return e;
+}
+
+static IrEvent ParseIr(const std::string& s)
+{
+	IrEvent e{};
+	// TODO: 필요한 필드만 최소 파싱
+	return e;
+}
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -32,26 +55,72 @@ CEeumMFCDoc::CEeumMFCDoc() noexcept{}
 
 CEeumMFCDoc::~CEeumMFCDoc(){}
 
+void CEeumMFCDoc::SetSelectedHub(const CString& hub)
+{
+	std::wstring ws(hub);
+	std::string s(ws.begin(), ws.end());   // hub/001
+
+	selectedHub_ = s;
+
+	if (mqtt_) {
+		mqtt_->setTopics({
+			selectedHub_ + "/env",
+			selectedHub_ + "/log"
+			});
+	}
+
+	// (선택 변경 시 버퍼 정리하고 새 데이터만 받도록)
+	{
+		std::lock_guard<std::mutex> lk(mtx_);
+		latestEnv_.clear();
+		latestIr_.clear();
+		// latestMet_는 그대로 두거나 초기화 선택
+	}
+}
+
 BOOL CEeumMFCDoc::OnNewDocument()
 {
 	if (!CDocument::OnNewDocument())
 		return FALSE;
 
-	m_ing.setCallback([this](const auto& env, const auto& ir, const Metrics& met) {
-		m_lastEnvBatch = env;
-		m_lastIrBatch = ir;
-		m_lastMetrics = met;
+	ingestor_.setCallback([this](const auto& env, const auto& ir, const Metrics& met) {
+		std::lock_guard<std::mutex> lk(mtx_);
+		latestEnv_ = std::move(env);
+		latestIr_ = std::move(ir);
+		latestMet_ = met;
 
 		CWnd* pMain = AfxGetMainWnd();
 		if (pMain && ::IsWindow(pMain->GetSafeHwnd()))
 			::PostMessage(pMain->GetSafeHwnd(), WM_APP_DATAREADY, 0, 0);
 		});
 
-	m_ing.start(20.0);
+	ingestor_.start(2.0);
+
+	mqtt_ = std::make_unique<MqttClient>("eeum", "43.201.62.254", 8883);
+
+	mqtt_->onMessage = [this](const std::string& topic, const std::string& payload) {
+		if (topic.find("/env") != std::string::npos) {
+			auto e = ParseEnv(payload);
+			ingestor_.pushEnv(e);
+		}
+		else if (topic.find("/irsignal") != std::string::npos) {
+			if (auto* mf = dynamic_cast<CMainFrame*>(AfxGetMainWnd())) {
+				CString* msg = new CString(CA2W(payload.c_str()));
+				::PostMessage(mf->GetSafeHwnd(), WM_APP_LOG, 0, (LPARAM)msg);
+			}
+		}
+	};
+
 	return TRUE;
 }
 
-
+void CEeumMFCDoc::OnCloseDocument() {
+	ingestor_.stop();
+	if (mqtt_) {
+		mqtt_.reset();
+	}
+	CDocument::OnCloseDocument();
+}
 
 
 // CEeumMFCDoc serialization

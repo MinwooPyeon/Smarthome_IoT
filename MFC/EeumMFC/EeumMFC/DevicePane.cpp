@@ -6,7 +6,21 @@ IMPLEMENT_DYNAMIC(CDevicePane, CDockablePane)
 BEGIN_MESSAGE_MAP(CDevicePane, CDockablePane)
     ON_WM_CREATE()
     ON_WM_SIZE()
+    ON_NOTIFY(TVN_SELCHANGED, 1, &CDevicePane::OnTvnSelChanged)
 END_MESSAGE_MAP()
+
+void CDevicePane::OnTvnSelChanged(NMHDR* pNMHDR, LRESULT* pResult)
+{
+    *pResult = 0;
+    HTREEITEM hSel = m_tree.GetSelectedItem();
+    if (!hSel) return;
+
+    CString txt = m_tree.GetItemText(hSel);
+    if (auto* wnd = AfxGetMainWnd()) {
+        auto* payload = new CString(txt);
+        ::PostMessage(wnd->GetSafeHwnd(), WM_APP_SELECT_HUB, 0, (LPARAM)payload);
+    }
+}
 
 int CDevicePane::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {

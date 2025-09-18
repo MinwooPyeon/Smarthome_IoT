@@ -12,10 +12,10 @@
 #include "EeumMFCDoc.h"
 #include "EeumMFCView.h"
 
+#include <mosquittopp.h>
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
-
 
 // CEeumMFCApp
 
@@ -125,6 +125,8 @@ BOOL CEeumMFCApp::InitInstance()
 	// 창 하나만 초기화되었으므로 이를 표시하고 업데이트합니다.
 	m_pMainWnd->ShowWindow(SW_SHOW);
 	m_pMainWnd->UpdateWindow();
+
+	mosqpp::lib_init();
 	return TRUE;
 }
 
@@ -132,7 +134,7 @@ int CEeumMFCApp::ExitInstance()
 {
 	//TODO: 추가한 추가 리소스를 처리합니다.
 	AfxOleTerm(FALSE);
-
+	mosqpp::lib_cleanup();
 	return CWinApp::ExitInstance();
 }
 

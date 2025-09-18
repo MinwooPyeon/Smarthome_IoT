@@ -9,9 +9,27 @@ MqttClient::MqttClient(const std::string& id, const std::string& host, int port)
 
 void MqttClient::on_connect(int rc)
 {
-	if (rc == 0) {
-		subscribe(nullptr, "hub/+/env");
-		subscribe(nullptr, "hub/+/irsignal");
+	connected_ = (rc == 0);
+	if (!connected_) return;
+
+	std::lock_guard<std::mutex> lock(mtx_);
+	for (auto& t : topics_) subscribe(nullptr, t.c_str(), 1);
+}
+
+void MqttClient::on_disconnect(int rc) {
+	connected_ = false;
+}
+
+void MqttClient::setTopics(const std::vector<std::string>& topics) {
+	std::lock_guard<std::mutex> lock(mtx_);
+	if (connected_) {
+		for (auto& oldt : topics)
+			unsubscribe(nullptr, oldt.c_str());
+	}
+	topics_ = topics;
+	if (connected_) {
+		for (auto& t : topics_)
+			subscribe(nullptr, t.c_str(), 1);
 	}
 }
 
