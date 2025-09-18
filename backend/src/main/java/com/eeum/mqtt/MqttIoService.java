@@ -4,13 +4,16 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.eeum.entity.IrSignal;
 import com.eeum.mqtt.inbound.EnvIn;
 import com.eeum.mqtt.inbound.ErrorIn;
 import com.eeum.mqtt.inbound.IrProtocolIn;
 import com.eeum.mqtt.inbound.IrSignalIn;
 import com.eeum.mqtt.inbound.RequestIn;
+import com.eeum.repository.IrSignalRepository;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -33,6 +36,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 public class MqttIoService {
+	
+	@Autowired
+    private IrSignalRepository irSignalRepository;
 
     // 알 수 없는 필드는 무시
     private final ObjectMapper om = new ObjectMapper()
@@ -112,33 +118,36 @@ public class MqttIoService {
         try {
             IrSignalIn m = om.readValue(json, IrSignalIn.class);
 
-            // 스키마 접두어 대소문자 혼용 허용
-            String schema = m.getSchema();
-            if (schema == null || !schema.toLowerCase().startsWith("irsignal/")) {
-                log.warn("[IR ] invalid schema: {}", schema);
-                return;
-            }
-
             if (!validate(m)) return;
+            if (m.getRawData() == null || m.getRawData().length == 0) return;
+            if (isDup(m.getMsgId())) return;
 
-            // 새 스펙 최소 검증: rawData 존재 여부만 보면 됨
-            if (m.getRawData() == null || m.getRawData().length == 0) {
-                log.warn("[IR ] missing raw_data (msgId={})", m.getMsgId());
-                return;
+            String model = m.getBrand() + "_" + m.getDevice();
+            String name = m.getFunction();
+
+            IrSignal existing = irSignalRepository.findByModelAndName(model, name).orElse(null);
+
+            IrSignal entity;
+            if (existing != null) {
+                // 덮어쓰기
+                existing.setSamplesUs(m.getRawData());
+                entity = existing;
+                log.info("[IR] 덮어쓰기: model={}, function={}", model, name);
+            } else {
+                // 새로 저장
+                entity = IrSignal.builder()
+                    .name(name)
+                    .samplesUs(m.getRawData())
+                    .model(model)
+                    .protocolId(null)
+                    .build();
+                log.info("[IR] 새로 저장: model={}, function={}", model, name);
             }
 
-            if (isDup(m.getMsgId())) {
-                log.debug("[IR ] dup msgId={}, drop", m.getMsgId());
-                return;
-            }
-
-            // (TODO) 저장/사전 업데이트/품질 통계
-            int rawCount = m.getRawData().length;
-            log.info("[IR ] ok deviceId={} ts={} brand={} device={} raw#={}",
-                    m.getDeviceId(), m.getTs(), m.getBrand(), m.getDevice(), rawCount);
+            irSignalRepository.save(entity);
 
         } catch (Exception e) {
-            log.error("[IR ] parse/handle error: {}", e.getMessage(), e);
+            log.error("[IR] 파싱 또는 저장 오류: {}", e.getMessage(), e);
         }
     }
     
@@ -166,10 +175,10 @@ public class MqttIoService {
             ErrorIn m = om.readValue(json, ErrorIn.class);
             if (!validate(m)) return;
 
-            // [CHANGED] 새 스펙 전용 로깅
-            log.warn("[ERR] tx_id={} error={}", m.getTxId(), m.getError());
+            // 문서 명세 그대로 출력
+            log.warn("[ERR] tx_id={} error={} msg={}",
+            		m.getTxId(), m.getError(), m.getMessage());
 
-            // (TODO) 2단계: tx 상태 전이/알림
         } catch (Exception e) {
             log.warn("[ERR] parse/handle error: {}", e.getMessage(), e);
         }

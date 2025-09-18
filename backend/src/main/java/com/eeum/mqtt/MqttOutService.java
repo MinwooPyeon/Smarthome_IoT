@@ -47,12 +47,13 @@ public class MqttOutService {
     }
 
     // server → hub/device (로깅 & AI 제어 & IR 디바이스 제어)
-    public void publishControl(String deviceId, int txId, String deviceType,
+    public void publishControl(String deviceId, int txId, String sendDeviceId , String deviceType,
                                List<Integer> rawData, String function, List<String> meta) throws Exception {
         ensure();
         String topic = "hub/%s/order/control".formatted(deviceId);
         Map<String, Object> payload = Map.of(
                 "tx_id", txId,
+                "send_device_id", sendDeviceId,
                 "device_type", deviceType,
                 "raw_data", rawData,
                 "function", function,

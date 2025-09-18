@@ -28,5 +28,7 @@ public class IrSignalIn {
     @NotNull
     @JsonAlias("raw_data")
     private int[] rawData;              
-            
+    
+    @NotBlank
+    private String function;
 }
