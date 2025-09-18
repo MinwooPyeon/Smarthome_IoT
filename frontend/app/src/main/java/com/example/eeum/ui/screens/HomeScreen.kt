@@ -31,7 +31,7 @@ import com.example.eeum.ui.theme.EeumTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenMap: () -> Unit = {},   // 카드 클릭 동작
+    onOpenMap: () -> Unit = {},
     onAddHome: () -> Unit = {},
     vm: HomeViewModel = viewModel()
 ) {
@@ -311,17 +311,26 @@ private fun FloorplanCard(
         toAbsoluteUrl(ApplicationClass.SERVER_URL, imageUrl)
     }
 
+    // 클릭 가능 여부: URL이 없을 때만 true
+    val clickableModifier = if (absoluteUrl.isNullOrBlank()) {
+        Modifier.clickable { onCardClick() }
+    } else {
+        Modifier // 클릭 불가
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .height(300.dp)
-            .clickable { onCardClick() },
+            .then(clickableModifier), // 조건부 clickable
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF7FBFF)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             if (absoluteUrl.isNullOrBlank()) {
@@ -345,6 +354,7 @@ private fun FloorplanCard(
         }
     }
 }
+
 
 private fun toAbsoluteUrl(base: String, path: String?): String? {
     if (path.isNullOrBlank()) return null
