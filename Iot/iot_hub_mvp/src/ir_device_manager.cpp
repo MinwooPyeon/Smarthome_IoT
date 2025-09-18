@@ -36,12 +36,22 @@ void IrDeviceManager::loadData(){
     }
 }
 
-void IrDeviceManager::addData(IrSendDevice& device){
-    std::ofstream outfile(csvPath_);
-    outfile << '"' << device.deviceId << ',' << device.deviceType<< ',' << device.consumption << '"';
+void IrDeviceManager::addData(IrSendDevice& device) {
+    std::ofstream outfile(csvPath_, std::ios::app);
+    if (!outfile.is_open()) {
+        std::cerr << "파일 열기 실패: " << csvPath_ << std::endl;
+        return;
+    }
+
+    outfile << device.deviceId << "," 
+            << device.deviceType << "," 
+            << device.consumption << "\n";
+
     outfile.close();
+
     devices_.push_back(device);
 }
+
 
 void IrDeviceManager::deleteData(IrSendDevice& device){
     auto it = std::find(devices_.begin(), devices_.end(), device);
@@ -53,7 +63,7 @@ void IrDeviceManager::deleteData(IrSendDevice& device){
     outfile << "deviceId,deviceType,consumption\n"; //header
     for(int i =0;i<devices_.size();i++){
         IrSendDevice device = devices_[i];
-        outfile << '"' << device.deviceId << ',' << device.deviceType<< ',' << device.consumption << '"';
+        outfile << device.deviceId << ',' << device.deviceType<< ',' << device.consumption << '\n';
     }
     outfile.close();
 }

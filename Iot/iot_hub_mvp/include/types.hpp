@@ -32,3 +32,11 @@ struct IrSendDevice{
     std::string deviceType;
     float       consumption;
 };
+
+struct Log{
+    int tx_id;
+    std::string deviceId;
+    std::string deviceType;
+    std::string function;
+    std::string metaData;
+};
