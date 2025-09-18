@@ -1,131 +1,20 @@
+// main.cpp
 #include "config.hpp"
-#include "mqtt_client.hpp"
-#include "dht11_reader.hpp"
-#include "ir_receiver.hpp"
-#include "util.hpp"
-
+#include "mqtt_manager.hpp"
 #include <pigpio.h>
-#include <nlohmann/json.hpp>
+#include <thread>
 #include <iostream>
-#include <cmath>
 
-using json = nlohmann::json;
-
-int main(int argc, char **argv)
-{
-    // 0) 기본 설정
+int main(){
+    if(gpioInitialise() < 0){ std::cerr << "pigpio init failed\n"; return 1; }
     AppConfig cfg;
-    if (gpioInitialise() < 0)
-    {
-        std::cerr << "pigpio init failed\n";
-        return 1;
-    }
 
-    MqttClient mqtt;
-    std::string clientId = "hub_agent_" + cfg.deviceId;
+    MqttManager mgr(cfg);
+    if(!mgr.start()){ gpioTerminate(); return 2; }
 
-    // ✅ 변경: AppConfig 기반 init
-    if (!mqtt.init(cfg, clientId))
-    {
-        std::cerr << "mqtt init failed\n";
-        gpioTerminate();
-        return 2;
-    }
-
-    std::string reqTopic  = "hub/" + cfg.deviceId + "/measure/req";
-    std::string respTopic = "hub/" + cfg.deviceId + "/measure/resp";
-
-    // 잘못된 빈 publish 호출 제거
-    if (!mqtt.subscribe(reqTopic, 1))
-    {
-        std::cerr << "subscribe failed: " << reqTopic << "\n";
-        mqtt.cleanup();
-        gpioTerminate();
-        return 3;
-    }
-
-    mqtt.set_message_handler([&](const std::string &topic, const std::string &payload) {
-        try{
-            auto j = json::parse(payload);
-            std::string sensor = j.value("sensor", "");
-            std::string msgId  = j.value("msgId", "");
-            int timeoutMs = j.value("timeoutMs", 1500);
-
-            if(sensor == "dht11"){
-                int pin = cfg.dhtPinBcm;
-                if(j.contains("dht") && j["dht"].contains("pin")) pin = j["dht"]["pin"].get<int>();
-
-                Dht11Reader dht(pin);
-                dht.init();
-                auto r = dht.read_with_retry(3, timeoutMs, 1200);
-
-                json out;
-                out["msgId"]    = msgId;
-                out["deviceId"] = cfg.deviceId;
-                out["sensor"]   = "dht11";
-                out["ts"]       = now_ms();
-
-                if(r){
-                    float T  = r->tempC;
-                    float RH = r->hum;
-                    float a=17.27f,b=237.7f;
-                    float alpha = (a*T)/(b+T) + std::log(RH/100.0f);
-                    float dew = (b*alpha)/(a - alpha);
-
-                    out["ok"]   = true;
-                    out["data"] = json{ {"tempC", T}, {"hum", RH}, {"dewPointC", dew} };
-                }else{
-                    out["ok"]    = false;
-                    out["error"] = "read_failed_or_timeout";
-                }
-                mqtt.publish(respTopic, out.dump(), 1, false);
-            }
-            else if(sensor == "ir"){
-                int gapUs = cfg.irGapUs;
-                if(j.contains("ir") && j["ir"].contains("gapUs")) gapUs = j["ir"]["gapUs"].get<int>();
-
-                IrReceiver ir(cfg.irPinBcm, gapUs);
-                ir.init(50);
-                auto f = ir.capture_once(timeoutMs);
-
-                json out;
-                out["msgId"]    = msgId;
-                out["deviceId"] = cfg.deviceId;
-                out["sensor"]   = "ir";
-                out["ts"]       = now_ms();
-
-                if(f){
-                    out["ok"] = true;
-                    out["data"] = json{
-                        {"carrierHz", nullptr},
-                        {"rawData",   f->raw_us},
-                        {"gapUs",     f->gapUs}
-                    };
-                }else{
-                    out["ok"]    = false;
-                    out["error"] = "timeout_or_noise";
-                }
-                mqtt.publish(respTopic, out.dump(), 1, false);
-            }
-            else{
-                json out = {
-                    {"msgId", j.value("msgId","")},
-                    {"deviceId", cfg.deviceId},
-                    {"sensor", sensor},
-                    {"ok", false},
-                    {"error", "unknown_sensor"}
-                };
-                mqtt.publish(respTopic, out.dump(), 1, false);
-            }
-        }catch(const std::exception& e){
-            std::cerr << "handler exception: " << e.what() << "\n";
-        }
-    });
-
-    std::cout << "Listening on topic: " << reqTopic << "\n";
-    mqtt.loop_forever();
-
-    mqtt.cleanup();
+    while(true) std::this_thread::sleep_for(std::chrono::seconds(1));
+    // 도달 X; 필요 시 신호 처리 추가
+    mgr.stop();
     gpioTerminate();
     return 0;
 }

@@ -22,9 +22,9 @@ int main(int argc, char** argv) {
     std::cout << "Press remote button near VS1838B (timeout 3s)...\n";
     auto frame = ir.capture_once(3000);
     if (frame) {
-        std::cout << "Captured IR frame (" << frame->raw_us.size() << " pulses)\n";
-        for (size_t i = 0; i < frame->raw_us.size(); i++) {
-            std::cout << frame->raw_us[i] << (i + 1 < frame->raw_us.size() ? "," : "\n");
+        std::cout << "Captured IR frame (" << frame->rawUs.size() << " pulses)\n";
+        for (size_t i = 0; i < frame->rawUs.size(); i++) {
+            std::cout << frame->rawUs[i] << (i + 1 < frame->rawUs.size() ? "," : "\n");
         }
     } else {
         std::cout << "IR capture failed (timeout)\n";

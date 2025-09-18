@@ -3,7 +3,7 @@
 
 struct AppConfig {
     // --- device ---
-    std::string deviceId = "test-device";
+    std::string deviceId = "rasp-1";
 
     // --- MQTT broker ---
     std::string mqttHost = "43.201.62.254";
@@ -20,11 +20,33 @@ struct AppConfig {
     bool        mqttTLSInsecure = true;  // SNI/호스트명 검증 off (테스트용)
 
     // --- defaults for tests ---
-    int  defaultQos = 1;
-    bool defaultRetain = false;
+    int         defaultQos = 1;
+    bool        defaultRetain = false;
 
-    // (센서 핀도 기존대로 유지 가능)
-    int dhtPinBcm = 4;
-    int irPinBcm  = 17;
-    int irGapUs   = 8000;
+    // --- publish topic ---
+    std::string topicEnv        = "hub/" + deviceId + "/env"; //realtime environment
+    std::string topicIrSignal   = "hub/" + deviceId + "/irSignal"; //ir raw data
+    std::string topicError      = "hub/" + deviceId + "/error"; //error
+    // --- subscribe topic ---
+    std::string topicOrderIrReq = "hub/" + deviceId + "/order/ir_req"; //ir signal require
+    std::string topicOrderCtrl = "hub/" + deviceId + "/order/control"; //control
+    std::string topicOrderEnv = "hub/" + deviceId + "/order/env"; //environment request
+
+    // --- ENV Streaming ---
+    bool envStreamOn = false;
+    int envIntervalMs = 2000;
+
+    // --- pin nubmer ---
+    int         dhtPinBcm = 4;
+    int         irPinBcm  = 17;
+    int         irGapUs   = 8000;
+
+    // --- EMWA Alpha ---
+    double      ewmaAlphaT = 0.2;
+    double      ewmaAlphaH = 0.2;
+    double      comfortClo = 0.5;
+    double      comfortMet = 1.l;
+    double      comfortTr = 0;
+    double      comfortVel = 0.1;
+
 };
