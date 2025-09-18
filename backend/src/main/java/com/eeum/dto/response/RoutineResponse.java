@@ -19,5 +19,6 @@ public class RoutineResponse {
     private Instant updatedAt;
     private Integer iconId;
     private Boolean isAi;
+    private String iconUrl;
     private List<RoutineDetailResponse> details;
 }
