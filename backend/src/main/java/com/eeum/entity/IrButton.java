@@ -1,6 +1,5 @@
 package com.eeum.entity;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -13,28 +12,15 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "ir_signal")
+@Table(name = "ir_button")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class IrSignal {
+public class IrButton {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer signalId;
-
-    private String name;
-
-    @Column(name = "frame_count")
-    private Integer frameCount; 
-
-    @Column(name = "frame_len_us")
-    private Integer frameLenUs; 
-
-    @Column(name = "samples_us", columnDefinition = "integer[]")
-    private int[] samplesUs;
-
-    private Integer protocolId;
-
     private Integer buttonId;
 
-    private String model;
+    private String label;    
+    private String category; 
+    private String model;    
 }
