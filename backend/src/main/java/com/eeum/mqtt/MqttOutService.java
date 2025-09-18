@@ -1,5 +1,6 @@
 package com.eeum.mqtt;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -8,19 +9,27 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.springframework.stereotype.Service;
 
+import com.eeum.entity.IrEventLog;
+import com.eeum.repository.IrEventLogRepository;
+import com.eeum.repository.IrSignalRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 서버 -> 허브 제어/요청 발행기
  * - hub/{deviceId}/order/ir_req
  * - hub/{deviceId}/order/control
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MqttOutService {
 
+    private final IrSignalRepository irSignalRepository;
+	private final IrEventLogRepository irEventLogRepository;
+	
     private final IMqttClient client;
     private final MqttConnectOptions opts;
     private final ObjectMapper om = new ObjectMapper();
@@ -59,6 +68,38 @@ public class MqttOutService {
                 "function", function,
                 "meta_data", meta
         );
+        byte[] bytes = om.writeValueAsBytes(payload);
+        MqttMessage msg = new MqttMessage(bytes);
+        msg.setQos(1);
+        msg.setRetained(false);
+        client.publish(topic, msg);
+        
+        IrEventLog eventLog = IrEventLog.builder()
+                .txId(txId)
+                .deviceId(sendDeviceId)
+                .deviceType(deviceType)
+                .function(function)
+                .rawData(om.writeValueAsString(rawData)) // JSON 배열 형태
+                .status("SENT")
+                .createdAt(LocalDateTime.now())
+                .build();
+
+            irEventLogRepository.save(eventLog);
+            log.info("[CONTROL_LOG] 제어 이벤트 기록 완료: txId={}, deviceId={}, function={}", txId, sendDeviceId, function);
+    }
+    
+    public void publishSendDevice(String hubDeviceId, int txId, String irDeviceId, String deviceType, boolean add) throws Exception {
+        ensure();
+        String topic = "hub/%s/sendDevice".formatted(hubDeviceId);
+
+        Map<String, Object> payload = Map.of(
+            "tx_id", txId,
+            "deviceId", irDeviceId,          // 등록 대상 IR 송신기 ID
+            "device_type", deviceType,       // 가전 타입 (air_conditioner 등)
+            "consumption", 500.0f,           // 기본 소비전력
+            "add_rm", add                    // true: 등록, false: 제거
+        );
+
         byte[] bytes = om.writeValueAsBytes(payload);
         MqttMessage msg = new MqttMessage(bytes);
         msg.setQos(1);
