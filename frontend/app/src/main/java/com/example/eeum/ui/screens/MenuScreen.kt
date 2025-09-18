@@ -1,5 +1,6 @@
 package com.example.eeum.ui.screens
 
+import android.R.attr.onClick
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -220,7 +221,12 @@ fun MenuScreen(
             Column(modifier = Modifier.fillMaxWidth()) {
                 MenuListItem(icon = R.drawable.ic_announcement, tint = Orange500, text = "공지사항")
                 androidx.compose.material3.Divider(color = Gray50)
-                MenuListItem(icon = R.drawable.ic_user_manual, tint = Blue500, text = "리모콘")
+                MenuListItem(
+                    icon = R.drawable.ic_remote,
+                    tint = Red500,
+                    text = "리모콘",
+                    onClick = { navController?.navigate("remote") }
+                )
                 androidx.compose.material3.Divider(color = Gray50)
                 MenuListItem(icon = R.drawable.ic_blueprint, tint = Color(0xFF9333EA), text = "평면도 관리")
                 androidx.compose.material3.Divider(color = Gray50)
@@ -269,10 +275,11 @@ private fun ServiceItem(bg: Color, iconTint: Color, icon: Int, label: String) {
 }
 
 @Composable
-private fun MenuListItem(icon: Int, tint: Color, text: String) {
+private fun MenuListItem(icon: Int, tint: Color, text: String, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -36,6 +36,7 @@ import com.example.eeum.ui.screens.DeviceRegistrationSerialScreen
 import com.example.eeum.ui.screens.DeviceRegistrationBrandScreen
 import com.example.eeum.ui.screens.DeviceRegistrationCompleteScreen
 import com.example.eeum.ui.screens.HomeScreen
+import com.example.eeum.ui.screens.RemoteScreen
 
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
@@ -57,6 +58,8 @@ private const val DEVICE_REGISTRATION_QR_ROUTE = "device_registration_qr"
 private const val DEVICE_REGISTRATION_SERIAL_ROUTE = "device_registration_serial"
 private const val DEVICE_REGISTRATION_BRAND_ROUTE = "device_registration_brand"
 private const val DEVICE_REGISTRATION_COMPLETE_ROUTE = "device_registration_complete"
+
+private const val REMOTE_ROUTE = "remote"
 private const val MAP_ROUTE = "map"
 
 // addressId를 경로 파라미터로 넘기는 평면도 선택 화면
@@ -106,6 +109,8 @@ fun EeumApp() {
                 }
             )
         }
+
+        composable(REMOTE_ROUTE) { RemoteScreen(navController) }
 
         composable(
             route = SELECT_FLOORPLAN_ROUTE,
