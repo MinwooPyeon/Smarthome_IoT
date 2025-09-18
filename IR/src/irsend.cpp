@@ -67,7 +67,7 @@ bool IRSend::initialize() {
     }
 
 #ifdef PLATFORM_ESP32
-    int tx_pin = 23; // GPIO 23번 핀 (HX_53 IR Transmitter) - 22번 대신 23번 사용
+    int tx_pin = 22; // GPIO 22번 핀 (IR Transmitter) - 23번에서 22번으로 변경
 
     // RMT 채널 설정 (ESP32-WROOM-32E 최적화)
     rmt_config_t config = {};
