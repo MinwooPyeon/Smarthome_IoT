@@ -22,6 +22,7 @@ import com.eeum.entity.IrRemoteir;
 import com.eeum.entity.Room;
 import com.eeum.repository.DeviceRepository;
 import com.eeum.repository.DeviceRepository.DeviceRow;
+import com.eeum.repository.HubDeviceRepository;
 import com.eeum.repository.IrDeviceRepository;
 import com.eeum.repository.IrRemoteirRepository;
 import com.eeum.repository.RoomRepository;
@@ -41,6 +42,7 @@ public class DeviceService {
     private final IrRemoteirRepository irRemoteirRepository;
     private final IrDeviceRepository irDeviceRepository;
     private final RoomRepository roomRepository;
+    private final HubDeviceRepository hubDeviceRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     
@@ -64,6 +66,11 @@ public class DeviceService {
         Integer userHomeId = deviceRepository.findUserHomeId(userId, req.getHomeId())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "user(" + userId + ")가 home(" + req.getHomeId() + ")에 소속되어 있지 않습니다."));
+        
+        boolean hasHub = hubDeviceRepository.existsByUserHomeId(userHomeId);
+        if (!hasHub) {
+            throw new IllegalArgumentException("해당 집에는 아직 허브가 등록되지 않았습니다. 먼저 허브를 등록해주세요.");
+        }
 
         Integer colorInt = parseHexColorToInt(req.getRoomColor());
         
