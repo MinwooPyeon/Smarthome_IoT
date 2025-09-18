@@ -30,7 +30,7 @@ CREATE TABLE "gungu" (
 
 CREATE TABLE "hub_device" (
 	"hub_device_id"	VARCHAR		NOT NULL,
-	"user_home_id"	INTEGER		NOT NULL
+	"user_home_id"	INTEGER		NULL
 );
 
 

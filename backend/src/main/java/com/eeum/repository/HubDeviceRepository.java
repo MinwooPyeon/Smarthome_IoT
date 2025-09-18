@@ -13,11 +13,11 @@ public interface HubDeviceRepository extends JpaRepository<HubDevice, String> {
     @Query(value = """
         UPDATE eeum.hub_device
            SET user_home_id = :userHomeId
-         WHERE device_addr = CAST(:deviceAddr AS inet)
+         WHERE hub_device_id = :hubDeviceId
            AND user_home_id IS NULL
         """, nativeQuery = true)
-    int bindHubByAddr(@Param("deviceAddr") String deviceAddr,
-                      @Param("userHomeId") Integer userHomeId);
+    int bindHubBySerial(@Param("hubDeviceId") String hubDeviceId,
+                        @Param("userHomeId") Integer userHomeId);
     
     
     boolean existsByUserHomeId(Integer userHomeId);
