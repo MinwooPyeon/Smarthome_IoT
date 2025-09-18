@@ -17,15 +17,15 @@ public class OrderAckIn {
 
     @NotNull  private Long ts;
     @NotBlank private String deviceId;
-    @NotBlank private String schema;   
-    @NotBlank private String corrId;    
-    @NotBlank private String msgId;     
+    @NotBlank private String schema;
+    @NotBlank private String corrId;
+    @NotBlank private String msgId;
 
-    @NotBlank private String status;    
-    private Result result;              
+    @NotBlank private String status;
+    private Result result;
     private Integer durationMs;
     private Integer retries;
-    
+
     @Getter @Setter @NoArgsConstructor
     public static class Result {
         private Integer code;

@@ -38,8 +38,9 @@ public class MqttConfig {
         o.setPassword(password.toCharArray());
         o.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1_1);
         o.setMaxInflight(100);
-        byte[] will = ("{\"status\":\"offline\"}").getBytes(StandardCharsets.UTF_8);
-        o.setWill(stateTopic, will, /*qos*/1, /*retained*/true);
+        long now = System.currentTimeMillis();
+        String willJson = String.format("{\"status\":\"offline\",\"ts\":%d}", now);
+        o.setWill(stateTopic, willJson.getBytes(StandardCharsets.UTF_8), /*qos*/1, /*retained*/true);
         return o;
     }
 }

@@ -18,5 +18,5 @@ public class StateIn {
     @NotNull  private Long ts;
     @NotBlank private String deviceId;
 
-    @NotBlank private String status; // online / offline
+    @NotBlank private String status;
 }

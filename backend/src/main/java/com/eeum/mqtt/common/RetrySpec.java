@@ -1,5 +1,6 @@
 package com.eeum.mqtt.common;
 
+import jakarta.validation.constraints.Min;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -9,6 +10,6 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class RetrySpec {
-    private Integer max;	   // 최대 재시도 횟수
-    private Integer backoffMs; // 재시도 간격 (밀리초)
+	@Min(0) private Integer max;	   // 최대 재시도 횟수
+	@Min(0) private Integer backoffMs; // 재시도 간격 (밀리초)
 }
