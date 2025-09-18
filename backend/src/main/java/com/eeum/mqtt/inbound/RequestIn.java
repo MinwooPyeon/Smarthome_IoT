@@ -4,23 +4,21 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-// MQTT 토픽: hub/{deviceId}/error
+// MQTT 토픽: hub/{deviceId}/request
 @Getter
 @Setter
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class ErrorIn {
-
-    @NotNull
-    @JsonAlias("tx_id")
-    private Integer txId;       
+public class RequestIn {
 
     @NotBlank
-    private String error;       
+    @JsonAlias({"Type","type"})
+    private String type;
 
+    @JsonAlias("Streaming")
+    private boolean streaming;
 }

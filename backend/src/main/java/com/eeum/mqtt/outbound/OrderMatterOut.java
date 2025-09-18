@@ -6,6 +6,7 @@ import java.util.Map;
 import com.eeum.mqtt.common.RetrySpec;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -26,12 +27,12 @@ public class OrderMatterOut {
     @NotNull  private Long   ts;
     @NotBlank private String deviceId;
     @NotBlank private String msgId;
-    @NotBlank private String schema;   // "order/1.x"
+    @NotBlank private String schema;   
     private   String corrId;
     @Builder.Default
     @NotBlank private String type = "matter";
-    private   Integer priority;
-    private   Long    expiresAt;
+    @Min(0) private Integer priority;
+    @Min(0) private Long    expiresAt;
     private   RetrySpec retry;
     private   String  replyTo;
 

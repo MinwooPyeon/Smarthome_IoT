@@ -2,6 +2,9 @@ package com.eeum.mqtt.common;
 
 import java.util.List;
 
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -11,8 +14,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class Timing {
-    private List<Integer> header;
-    private List<Integer> one;   
-    private List<Integer> zero; 
-    private Integer gap;       
+	@NotNull @Size(min = 2, max = 2) private List<@Min(0) Integer> header;
+	@NotNull @Size(min = 2, max = 2) private List<@Min(0) Integer> one;
+	@NotNull @Size(min = 2, max = 2) private List<@Min(0) Integer> zero;
+	@Min(0) private Integer gap;     
 }
