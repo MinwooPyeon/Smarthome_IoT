@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
+import com.eeum.dto.response.RoomItemResponse;
 import com.eeum.entity.UserHome;
 
 public interface UserHomeRepository extends JpaRepository<UserHome, Integer> {
@@ -72,4 +73,21 @@ public interface UserHomeRepository extends JpaRepository<UserHome, Integer> {
              WHERE u.userId = :userId AND u.homeId = :homeId
         """)
         int setPrimary(@Param("userId") Integer userId, @Param("homeId") Integer homeId);
+        
+        
+        // 방 목록 조회
+        @Query(
+                value = """
+                    SELECT 
+                        r.room_id   AS roomId,
+                        r.room_name AS roomName,
+                        r.room_color AS roomColor
+                    FROM eeum.room r
+                    JOIN eeum.floorplans f ON r.floorplan_id = f.floorplan_id
+                    WHERE f.home_id = :homeId
+                    ORDER BY r.room_id
+                """,
+                nativeQuery = true
+            )
+            List<RoomItemResponse> findRoomsByHomeId(@Param("homeId") Integer homeId);
     }

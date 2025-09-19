@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.eeum.dto.response.RoomItemResponse;
 import com.eeum.dto.response.UserHomeItemResponse;
 import com.eeum.dto.response.UserHomeListResponse;
 import com.eeum.service.UserHomeService;
@@ -57,4 +58,21 @@ public class UserHomeController implements ControllerHelper {
             return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+    
+    @Operation(summary = "홈의 방 목록", description = "homeId에 해당하는 방 목록을 반환합니다.")
+    @GetMapping("/{homeId}/rooms")
+    public ResponseEntity<?> listRoomsByHomeId(@PathVariable(name = "homeId") Integer homeId) {
+        Integer userId = 1;
+
+        try {
+            List<RoomItemResponse> list = userHomeService.listByHomeId(userId, homeId);
+            return handleSuccess(list, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    
+    
 }
