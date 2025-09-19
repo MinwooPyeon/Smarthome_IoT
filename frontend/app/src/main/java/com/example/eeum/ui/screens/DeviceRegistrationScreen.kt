@@ -207,42 +207,19 @@ fun DeviceRegistrationScreen(
                         val selectedHomeId by homeVm.selectedHomeId.observeAsState()
                         val primaryHomeId by homeVm.primaryHomeId.observeAsState()
                         
-                        // HubViewModel 상태 관찰
-                        val isLoading by hubVm.isLoading.observeAsState(false)
-                        val error by hubVm.error.observeAsState()
-                        val userHomeId by hubVm.userHomeId.observeAsState()
-                        val registrationStatus by hubVm.registrationStatus.observeAsState()
-                        
-                        // 허브 등록 성공 시 처리
-                        LaunchedEffect(userHomeId, registrationStatus) {
-                            if (userHomeId != null && registrationStatus == "success") {
-                                Toast.makeText(context, "허브 등록이 완료되었습니다.", Toast.LENGTH_SHORT).show()
-                                regVm.setKind("HUB")
-                                onSelect("HUB")
-                            }
-                        }
-                        
-                        // 에러 처리
-                        LaunchedEffect(error) {
-                            error?.let {
-                                Toast.makeText(context, "허브 등록 실패: $it", Toast.LENGTH_LONG).show()
-                                hubVm.clearError()
-                            }
-                        }
                         
                         DeviceTile(
                             item = allDevices.first { it.kind == DeviceKind.HUB },
                             modifier = Modifier.fillMaxWidth().height(86.dp),
-                            isLoading = isLoading,
                             onClick = {
-                                // 허브 등록 API 호출
+                                // 헀밌등록 API 호출
                                 val currentDraft = regVm.draft.value
                                 val homeId = currentDraft?.homeId ?: selectedHomeId ?: primaryHomeId ?: 1
                                 val hubDeviceId = "HUB_${System.currentTimeMillis()}" // 임시 생성된 ID
                                 
-                                if (!isLoading) {
-                                    hubVm.registerHub(homeId, hubDeviceId)
-                                }
+                                hubVm.registerHub(homeId, hubDeviceId)
+                                regVm.setKind("HUB")
+                                onSelect("HUB")
                             }
                         )
                     }
@@ -297,7 +274,6 @@ fun DeviceRegistrationScreen(
 private fun DeviceTile(
     item: DeviceItem,
     modifier: Modifier = Modifier,
-    isLoading: Boolean = false,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(12.dp)
@@ -318,27 +294,19 @@ private fun DeviceTile(
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.Start
         ) {
-            if (isLoading && item.kind == DeviceKind.HUB) {
-                androidx.compose.material3.CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    strokeWidth = 2.dp
-                )
-            } else {
-                androidx.compose.material3.Icon(
-                    painter = painterResource(id = item.iconRes),
-                    contentDescription = item.title,
-                    tint = Color.Unspecified,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            androidx.compose.material3.Icon(
+                painter = painterResource(id = item.iconRes),
+                contentDescription = item.title,
+                tint = Color.Unspecified,
+                modifier = Modifier.size(24.dp)
+            )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = if (isLoading && item.kind == DeviceKind.HUB) "허브 등록 중..." else item.title,
+                text = item.title,
                 style = TextStyle(
                     fontSize = 14.sp,
                     fontFamily = FontFamily(Font(R.font.goormsansmedium)),
-                    color = if (isLoading && item.kind == DeviceKind.HUB) Gray600 else Gray800
+                    color = Gray800
                 ),
                 textAlign = TextAlign.Start
             )

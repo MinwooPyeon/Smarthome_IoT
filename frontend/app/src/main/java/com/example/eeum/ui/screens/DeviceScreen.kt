@@ -126,7 +126,6 @@ fun DeviceScreen(navController: NavController? = null) {
         
         // 허브 목록 상태 관찰
         val hubList by hubVm.hubList.observeAsState(emptyList())
-        val hubLoading by hubVm.isLoading.observeAsState(false)
         val hubError by hubVm.error.observeAsState()
 
         // 최초 진입 시 1회 로드
@@ -221,14 +220,8 @@ fun DeviceScreen(navController: NavController? = null) {
             hubDevices + serverDevices
         }
 
-        if (loading || hubLoading) {
-            val loadingText = when {
-                loading && hubLoading -> "디바이스 및 허브 목록 불러오는 중..."
-                loading -> "디바이스 목록 불러오는 중..."
-                hubLoading -> "허브 목록 불러오는 중..."
-                else -> "목록 불러오는 중..."
-            }
-            Text(loadingText, color = Gray600)
+        if (loading) {
+            Text("디바이스 목록 불러오는 중...", color = Gray600)
         } else {
             // 디바이스 로드 에러 처리
             loadError?.let { err ->
@@ -261,7 +254,7 @@ fun DeviceScreen(navController: NavController? = null) {
                     ) {
                         Text("허브 오류: $err", color = Red500)
                         Button(
-                            onClick = { hubVm.getHubs() },
+                            onClick = { hubVm.getHubs(1) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF), contentColor = Color.White),
                             shape = RoundedCornerShape(8.dp)
                         ) {
