@@ -1,6 +1,7 @@
 #include "ir_device_manager.hpp"
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 
 void IrDeviceManager::loadData(){
     std::ifstream infile(csvPath_);
