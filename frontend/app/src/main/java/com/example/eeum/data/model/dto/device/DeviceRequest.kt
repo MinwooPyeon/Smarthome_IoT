@@ -1,11 +1,12 @@
 package com.example.eeum.data.model.dto.device
 
 data class DeviceRequest(
-    val roomId: Int,
-    val irDeviceId: Int,
-    val deviceConsumption: Int,
-    val deviceName: String,
-    val type: String,
+    val homeId: Int,
+    val irDeviceId: String,
+    val roomColor: String,
+    val model: String,
     val brand: String,
-    val model: String
+    val deviceType: String,
+    val floorplansX: Float,
+    val floorplansY: Float
 )

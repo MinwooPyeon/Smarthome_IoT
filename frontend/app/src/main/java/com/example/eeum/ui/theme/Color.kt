@@ -13,8 +13,10 @@ val Purple100 = Color(0xFFF3E8FF)
 
 val Orange500 = Color(0xFFF97316)
 val Yellow200 = Color(0xFFFEF9C3)
+val Yellow600 = Color(0xFFCA8A04)
 val Amber600 = Color(0xFFCA8A04)
 val Red500 = Color(0xFFEF4444)
+val Green500 = Color(0xFF22C55E)
 
 // Neutrals
 val Gray50  = Color(0xFFE5E7EB)
