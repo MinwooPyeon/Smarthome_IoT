@@ -103,7 +103,7 @@ void MqttManager::h_env_request(const json& j){
         req = (s=="true"||s=="1");
     }
     cfg_.envStreamOn = req;
-    std::cout << "[env] stream=" << (req?"ON":"OFF") << "\n";
+    std::cout << "[env] stream : " << (req?"ON":"OFF") << "\n";
 }
 
 void MqttManager::h_ir_req(const json& j){
@@ -111,6 +111,7 @@ void MqttManager::h_ir_req(const json& j){
     std::string brand   = j.value("brand","UNKNOWN");
     std::string device  = j.value("device","UNKNOWN");
     std::string func    = j.value("function","");
+    std::cout << "[ir require] brand : " << brand << " | device : " << device << " | function : " << func <<"\n";
 
     IrReceiver ir(cfg_.irPinBcm, cfg_.irGapUs);
     ir.init(50);
@@ -124,7 +125,10 @@ void MqttManager::h_ir_req(const json& j){
         {"raw_data", fr->rawUs},
         {"function", func}
     };
+
+    std::cout << "[ir require] signal length : " << fr->rawUs.size() << "\n";
     mqtt_.publish(cfg_.topicIrSignal, irsig.dump(), 1, false);
+    
 }
 
 void MqttManager::h_control(const json& j){
@@ -139,6 +143,7 @@ void MqttManager::h_control(const json& j){
     log.function = j.value("function", "NULL");
     log.metaData = j.value("metaData", "NULL");
 
+    std::cout << "[control log] deviceId : " << log.deviceId << " | function : " << log.function << " | metadata : " << log.metaData << "\n";
     logMgr_.addLog(log);
 }
 
@@ -158,10 +163,12 @@ void MqttManager::h_regist_send(const json& j){
         irMgr_.addData(device);
         mqtt_.subscribe(topic, 1);
         handlers_.emplace(topic, [this](const json& j){ h_ir_req(j); });
+        std::cout << "[Send Device Add] SendDeviceId : " << device.deviceId << "\n";
     }else{
         irMgr_.deleteData(device);
         mqtt_.unsubscribe(topic);
         handlers_.erase(topic);
+        std::cout << "[Send Device Remove] SendDeviceId : " << device.deviceId << "\n";
     }
 }
 
@@ -184,10 +191,14 @@ void MqttManager::publish_env(double T, double RH, int64_t ts){
         {"ppd",          m.ppd},
         {"wbgt",         m.wbgt}
     };
+
+    std::cout << "[env publish] Temperature : " << T << " | Humidity : " << RH << "\n"; 
     mqtt_.publish(cfg_.topicEnv, env.dump(), 1, false);
 }
 
 void MqttManager::publish_error(int tx_id, const std::string& reason){
     json ej = { {"tx_id", tx_id}, {"error", reason} };
+
+    std::cout << "[error publish] Error : " << reason << "\n";
     mqtt_.publish(cfg_.topicError, ej.dump(), 1, false);
 }
