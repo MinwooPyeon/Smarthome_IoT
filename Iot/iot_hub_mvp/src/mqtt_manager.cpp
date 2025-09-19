@@ -77,7 +77,8 @@ void MqttManager::run_loop(){
     while(running_){
         mqtt_.loop_for_ms(50);
         auto r = dht_.read_with_retry(1, 1500, 1200);
-        envMgr_.addData(EnvSample{now_ms(), r->tempC, r->hum});
+        EnvSample env = EnvSample{now_ms(), r->tempC, r->hum};
+        envMgr_.addData(env);
 
         if(cfg_.envStreamOn){    
             auto now = steady_clock::now();
