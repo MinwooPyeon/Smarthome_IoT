@@ -62,12 +62,12 @@ public class MqttOutService {
     ) throws Exception {
         ensure();
 
-        // UUID → int 변환 (허브 전송용)
+        // UUID → int 변환 (IR 송신기 전송용)
         int txIdInt = txUuid.hashCode();
 
-        String topic = "hub/%s/order/control".formatted(hubDeviceId);
+        String topic = "hub/%s/order/control".formatted(irDeviceId);
         Map<String, Object> payload = Map.of(
-                "tx_id", txIdInt,           // 허브에는 int
+                "tx_id", txIdInt,          
                 "send_device_id", irDeviceId,
                 "device_type", deviceType,
                 "raw_data", rawData,
