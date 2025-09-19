@@ -87,7 +87,13 @@ public interface UserHomeRepository extends JpaRepository<UserHome, Integer> {
                     WHERE f.home_id = :homeId
                     ORDER BY r.room_id
                 """,
-                nativeQuery = true
-            )
-            List<RoomItemResponse> findRoomsByHomeId(@Param("homeId") Integer homeId);
+                nativeQuery = true)
+            List<RoomRow> findRoomsByHomeId(@Param("homeId") Integer homeId);
+        
+        
+        interface RoomRow {
+            Integer getRoomId();
+            String  getRoomName();
+            Integer getRoomColor();
+        }
     }
