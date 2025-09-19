@@ -6,13 +6,14 @@
         "debug_mode": true
     },
     "mqtt": {
-        "broker": "localhost",
-        "port": 1883,
+        "broker": "43.201.62.254",
+        "port": 8883,
         "client_id": "esp32_ir_controller",
-        "username": "",
-        "password": "",
+        "username": "eeum",
+        "password": "ssafy2086eeum",
         "keepalive": 60,
-        "clean_session": true
+        "clean_session": true,
+        "use_tls": true
     },
     "system": {
         "device_id": "esp-1",
