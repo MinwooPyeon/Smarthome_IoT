@@ -68,10 +68,10 @@ public class DeviceService {
 
     
     private static final Map<String, Set<String>> ALLOWED_KEYS = Map.of(
-    	    "light", Set.of("power"),
-    	    "air conditioner", Set.of("power", "temperature", "level"),
-    	    "air purifier", Set.of("power", "level"),
-    	    "fan", Set.of("power", "level")
+    	    "조명", Set.of("power"),
+    	    "에어컨", Set.of("power", "temperature", "level"),
+    	    "공기청정기", Set.of("power", "level"),
+    	    "선풍기", Set.of("power", "level")
     	);
 
     
