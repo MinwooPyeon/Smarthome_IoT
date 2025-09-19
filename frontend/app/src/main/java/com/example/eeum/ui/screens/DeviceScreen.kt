@@ -173,15 +173,6 @@ fun DeviceScreen(navController: NavController? = null) {
                     else -> "켜짐"
                 }
                 
-                // 아이콘 색상 결정 (디바이스 타입별)
-                val iconTint = when (deviceResponse.deviceType?.uppercase()) {
-                    "AIR_CONDITIONER" -> if (isOn) Blue500 else Gray500
-                    "TV", "BEAM_PROJECTOR" -> if (isOn) Red500 else Gray500
-                    "FAN", "AIR_PURIFIER" -> if (isOn) Green500 else Gray500
-                    "LIGHT" -> if (isOn) Yellow600 else Gray500
-                    else -> Gray500
-                }
-                
                 DeviceUi(
                     id = deviceResponse.deviceId.toString(),
                     title = deviceTypeKorean,  // 디바이스 타입(한국어)으로 변경
@@ -189,7 +180,7 @@ fun DeviceScreen(navController: NavController? = null) {
                     statusText = statusText,
                     iconRes = iconResForType(deviceResponse.deviceType),
                     statusIconRes = if (isOn) R.drawable.ic_device_on else R.drawable.ic_device_off,
-                    iconTint = iconTint,
+                    iconTint = Gray500, // 기본값 (사용하지 않지만 유지)
                     isLarge = false,
                     supportsTemperature = temperature != null
                 )
@@ -264,7 +255,6 @@ private fun DeviceCardLarge(
                 Image(
                     painter = painterResource(id = iconRes),
                     contentDescription = null,
-                    colorFilter = ColorFilter.tint(iconTint),
                     modifier = Modifier.size(24.dp)
                 )
                 Image(
@@ -333,7 +323,6 @@ private fun DeviceCardSmall(
                 Image(
                     painter = painterResource(id = iconRes),
                     contentDescription = null,
-                    colorFilter = ColorFilter.tint(iconTint),
                     modifier = Modifier.size(22.dp)
                 )
                 Image(
@@ -457,14 +446,31 @@ private fun DeviceGrid(
     }
 }
 
-private fun iconResForType(type: String?): Int = when (type?.uppercase()) {
-    "AIR_CONDITIONER" -> R.drawable.ic_air_conditioning
-    "FAN" -> R.drawable.ic_electric_fan
-    "TV" -> R.drawable.ic_television
-    "BEAM_PROJECTOR" -> R.drawable.ic_beam_projector
-    "AIR_PURIFIER" -> R.drawable.ic_air_purifier
-    "LIGHT" -> R.drawable.ic_light
-    else -> R.drawable.ic_device
+private fun iconResForType(type: String?): Int {
+    if (type == null) return R.drawable.ic_device
+    
+    return when (type) {
+        // 영어 타입 (대소문자 구분 없이)
+        "HUB", "hub" -> R.drawable.ic_hub
+        "AIR_CONDITIONER", "air_conditioner", "Air_Conditioner" -> R.drawable.ic_air_conditioning
+        "FAN", "fan", "Fan" -> R.drawable.ic_electric_fan
+        "TV", "tv", "Tv" -> R.drawable.ic_television
+        "BEAM_PROJECTOR", "beam_projector", "Beam_Projector" -> R.drawable.ic_beam_projector
+        "AIR_PURIFIER", "air_purifier", "Air_Purifier" -> R.drawable.ic_air_purifier
+        "LIGHT", "light", "Light" -> R.drawable.ic_light
+        // 한국어 타입
+        "허브" -> R.drawable.ic_hub
+        "에어컨" -> R.drawable.ic_air_conditioning
+        "선풍기" -> R.drawable.ic_electric_fan
+        "텔레비전" -> R.drawable.ic_television
+        "빔프로젝터" -> R.drawable.ic_beam_projector
+        "공기청정기" -> R.drawable.ic_air_purifier
+        "조명" -> R.drawable.ic_light
+        else -> {
+            android.util.Log.d("DeviceScreen", "Unknown deviceType for icon: $type")
+            R.drawable.ic_device
+        }
+    }
 }
 
 private fun convertDeviceTypeToKorean(deviceType: String?): String {
