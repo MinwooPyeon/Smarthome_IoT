@@ -212,14 +212,9 @@ fun DeviceRegistrationScreen(
                             item = allDevices.first { it.kind == DeviceKind.HUB },
                             modifier = Modifier.fillMaxWidth().height(86.dp),
                             onClick = {
-                                // 허브 등록 API 호출
-                                val currentDraft = regVm.draft.value
-                                val homeId = currentDraft?.homeId ?: selectedHomeId ?: primaryHomeId ?: 1
-                                val hubDeviceId = "HUB_${System.currentTimeMillis()}" // 임시 생성된 ID
-                                
-                                hubVm.registerHub(homeId, hubDeviceId)
+                                // 허브 등록을 위해 QR 스캔 화면으로 이동
                                 regVm.setKind("HUB")
-                                onSelect("HUB")
+                                navController?.navigate("device_registration_qr/HUB")
                             }
                         )
                     }

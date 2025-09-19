@@ -33,7 +33,7 @@ import com.example.eeum.ui.theme.Gray800
 
 /**
  * 허브가 DB에 없을 때 띄우는 확인 다이얼로그.
- * - 확인을 누르면 DeviceRegistrationScreen으로 돌아갑니다.
+ * - 확인을 누르면 다이얼로그만 닫습니다.
  */
 @Composable
 fun CheckHubDialog(
@@ -76,8 +76,7 @@ fun CheckHubDialog(
                 CustomButton(
                     text = "확인",
                     onClick = {
-                        // DeviceRegistrationScreen으로 돌아가기
-                        navController?.popBackStack()
+                        // 다이얼로그만 닫기
                         onConfirm()
                     },
                     backgroundColor = Blue600,

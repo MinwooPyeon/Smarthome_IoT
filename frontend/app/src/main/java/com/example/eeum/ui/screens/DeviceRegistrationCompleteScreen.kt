@@ -78,6 +78,7 @@ fun DeviceRegistrationCompleteScreen(
     
     // ViewModel에 위치/색상 반영하기 위한 Activity 범위 VM
     val regVm: DeviceRegistrationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
+    val hubVm: HubViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
 
     // 라우트로 받은 homeId가 있으면 우선 지정
     LaunchedEffect(homeId) {
@@ -124,6 +125,30 @@ fun DeviceRegistrationCompleteScreen(
                 launchSingleTop = true
                 popUpTo("main_tabs") { inclusive = false }
             }
+        }
+    }
+
+    // 허브 등록 성공 처리
+    val hubRegStatus by hubVm.registrationStatus.observeAsState()
+    val hubError by hubVm.error.observeAsState()
+    LaunchedEffect(hubRegStatus) {
+        if (kind == "HUB" && hubRegStatus == "SUCCESS") {
+            Toast.makeText(ctx, "허브 등록이 완료되었습니다.", Toast.LENGTH_SHORT).show()
+            try {
+                val entry = navController?.getBackStackEntry("main_tabs")
+                entry?.savedStateHandle?.set("device_refresh", System.currentTimeMillis())
+            } catch (e: Exception) {
+                Log.d("허브 등록", "DeviceRegistrationCompleteScreen: ${e.message}")
+            }
+            navController?.navigate("main_tabs?tab=${Tab.Device.route}") {
+                launchSingleTop = true
+                popUpTo("main_tabs") { inclusive = false }
+            }
+        }
+    }
+    LaunchedEffect(hubError) {
+        if (kind == "HUB" && hubError != null) {
+            Toast.makeText(ctx, "허브 등록 실패: $hubError", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -395,10 +420,22 @@ fun DeviceRegistrationCompleteScreen(
 
         Button(
             onClick = {
-                onRegister()
-                // 등록 요청: DeviceRegistrationViewModel의 draft를 사용
-                regVm.registerCurrentDraft()
-                // 이동은 위 LaunchedEffect(status)에서 처리
+                if (kind == "HUB") {
+                    val d = regVm.draft.value
+                    val hubDeviceId = d?.serial?.trim().orEmpty()
+                    val hId = d?.homeId ?: homeId ?: selectedHomeId ?: 1
+                    if (hubDeviceId.isEmpty()) {
+                        Toast.makeText(ctx, "허브 시리얼(디바이스 ID)을 먼저 입력/스캔해주세요", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    onRegister()
+                    hubVm.registerHub(hId, hubDeviceId)
+                } else {
+                    onRegister()
+                    // 등록 요청: DeviceRegistrationViewModel의 draft를 사용
+                    regVm.registerCurrentDraft()
+                }
+                // 이동은 위 LaunchedEffect(status/hubRegStatus)에서 처리
             },
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(

@@ -162,8 +162,8 @@ fun DeviceScreen(navController: NavController? = null) {
                     android.util.Log.d("DeviceScreen", "허브 처리 중: index=$index, hubId=$hubId")
                     DeviceUi(
                         id = "hub_$hubId",
-                        title = if (hubId.isNotBlank()) "허브 ($hubId)" else "허브 ${index + 1}",
-                        room = "거실", // 또는 실제 방 정보가 있다면 사용
+                        title = "허브", // 디바이스 ID 표기 제거
+                        room = "", // 위치 표시 제거
                         statusText = "연결됨",
                         iconRes = R.drawable.ic_hub,
                         statusIconRes = R.drawable.ic_device_on,
@@ -340,10 +340,12 @@ private fun DeviceCardLarge(
                 )
             }
             Spacer(Modifier.height(8.dp))
-            Text(
-                text = room,
-                style = TextStyle(fontSize = 12.sp, fontFamily = FontFamily(Font(R.font.goormsansmedium)), color = Gray500)
-            )
+            if (room.isNotBlank()) {
+                Text(
+                    text = room,
+                    style = TextStyle(fontSize = 12.sp, fontFamily = FontFamily(Font(R.font.goormsansmedium)), color = Gray500)
+                )
+            }
         }
     }
 }
@@ -408,10 +410,12 @@ private fun DeviceCardSmall(
                 )
             }
             Spacer(Modifier.height(8.dp))
-            Text(
-                text = room,
-                style = TextStyle(fontSize = 12.sp, fontFamily = FontFamily(Font(R.font.goormsansmedium)), color = Gray500)
-            )
+            if (room.isNotBlank()) {
+                Text(
+                    text = room,
+                    style = TextStyle(fontSize = 12.sp, fontFamily = FontFamily(Font(R.font.goormsansmedium)), color = Gray500)
+                )
+            }
         }
     }
 }
