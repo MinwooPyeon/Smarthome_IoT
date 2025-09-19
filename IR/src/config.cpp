@@ -18,7 +18,7 @@ std::shared_ptr<Config> Config::loadDefault() {
     config->setWebUIHost("0.0.0.0");
     config->setWebUIEnabled(true);
     config->setMqttBroker("");
-    config->setMqttPort(1883);
+    config->setMqttPort(8883);
     config->setMqttClientId("irremote_client");
     config->setMqttTopicPrefix("irremote");
     config->setMqttEnabled(false);

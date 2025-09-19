@@ -28,7 +28,7 @@ MqttClient::MqttClient() {
 #if defined(ESP32) || defined(ESP_PLATFORM)
     mqtt_client_ = new PubSubClient();
     is_connected_ = false;
-    port = 1883;
+    port = 8883;
     client_id = "irremote_client";
     use_tls_ = false;
     username_ = "";
@@ -172,6 +172,7 @@ void MqttClient::setWillMessage(const std::string& topic, const std::string& mes
 }
 
 bool MqttClient::validateTopic(const std::string& topic) const {
+
     if (topic.empty() || topic.length() > 65535) {
         return false;
     }
@@ -331,6 +332,7 @@ void MqttClient::onMessage(struct mosquitto* mosq, void* userdata,
         client->messageCallback(topic, payload);
     }
 }
+
 #endif
 
 void MqttClient::onMQTTMessage(char* topic, uint8_t* payload, unsigned int length) {
