@@ -212,7 +212,7 @@ fun DeviceRegistrationScreen(
                             item = allDevices.first { it.kind == DeviceKind.HUB },
                             modifier = Modifier.fillMaxWidth().height(86.dp),
                             onClick = {
-                                // 헀밌등록 API 호출
+                                // 허브 등록 API 호출
                                 val currentDraft = regVm.draft.value
                                 val homeId = currentDraft?.homeId ?: selectedHomeId ?: primaryHomeId ?: 1
                                 val hubDeviceId = "HUB_${System.currentTimeMillis()}" // 임시 생성된 ID
@@ -246,12 +246,11 @@ fun DeviceRegistrationScreen(
             visible = hubDialogVisible,
             onDismiss = { 
                 setHubDialogVisible(false)
-                navController?.popBackStack() // 이전 화면으로 돌아가기
             },
             onConfirm = {
                 setHubDialogVisible(false)
-                navController?.popBackStack() // 이전 화면으로 돌아가기
-            }
+            },
+            navController = navController
         )
         
         // 평면도 대화상자

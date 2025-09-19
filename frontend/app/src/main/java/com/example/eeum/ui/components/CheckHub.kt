@@ -26,21 +26,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.navigation.NavController
 import com.example.eeum.R
 import com.example.eeum.ui.theme.Blue600
 import com.example.eeum.ui.theme.Gray800
 
 /**
  * 허브가 DB에 없을 때 띄우는 확인 다이얼로그.
- * - 확인을 누르면 현재는 단순히 닫히도록 구현했습니다.
- * - 실제 앱 연결 시에는 아래 주석처럼 이전 화면으로 돌아가세요.
- *   // navController?.popBackStack()
+ * - 확인을 누르면 DeviceRegistrationScreen으로 돌아갑니다.
  */
 @Composable
 fun CheckHubDialog(
     visible: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: () -> Unit = onDismiss
+    onConfirm: () -> Unit = onDismiss,
+    navController: NavController? = null
 ) {
     if (!visible) return
 
@@ -76,8 +76,8 @@ fun CheckHubDialog(
                 CustomButton(
                     text = "확인",
                     onClick = {
-                        // TODO: DB 연결 후 이전 화면으로 돌아가기
-                        // navController?.popBackStack()
+                        // DeviceRegistrationScreen으로 돌아가기
+                        navController?.popBackStack()
                         onConfirm()
                     },
                     backgroundColor = Blue600,
