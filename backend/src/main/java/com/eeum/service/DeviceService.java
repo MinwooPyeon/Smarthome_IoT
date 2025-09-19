@@ -112,6 +112,16 @@ public class DeviceService {
         // IR 디바이스 존재 확인
         IrDevice irDevice = irDeviceRepository.findById(req.getIrDeviceId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 IrDeviceId: " + req.getIrDeviceId()));
+        
+        if (irDevice.getHubDevice() == null || irDevice.getHubDevice().isBlank()) {
+            String hubDeviceId = hubDeviceRepository.findHubDeviceIdByUserHomeId(userHomeId)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "userHomeId=" + userHomeId + " 에 바인딩된 허브가 없습니다."));
+            irDevice.setHubDevice(hubDeviceId);
+            irDeviceRepository.save(irDevice); // 주입된 허브를 영속화
+            log.info("[REGISTER] IR 디바이스 허브 주입: irDeviceId={}, hubDeviceId={}",
+                    irDevice.getIrDeviceId(), hubDeviceId);
+        }
 
         // ir_remoteir 정보 등록
         IrRemoteir model = irRemoteirRepository.findById(req.getModel())
