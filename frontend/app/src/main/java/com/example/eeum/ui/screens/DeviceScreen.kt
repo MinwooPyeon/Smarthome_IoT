@@ -150,6 +150,10 @@ fun DeviceScreen(navController: NavController? = null) {
                 // 방 이름 추출: deviceName의 첫 공백 이전 부분을 방 이름으로 간주
                 val roomName = deviceResponse.deviceName.substringBefore(' ').ifBlank { "방" }
                 
+                // 디바이스 타입을 한국어로 변환
+                android.util.Log.d("DeviceScreen", "deviceType from server: ${deviceResponse.deviceType}")
+                val deviceTypeKorean = convertDeviceTypeToKorean(deviceResponse.deviceType)
+                
                 // power 상태 체크 (deviceDetail의 power 필드가 Boolean인 경우)
                 val isOn = runCatching {
                     val powerEl = deviceResponse.deviceDetail.get("power")
@@ -180,7 +184,7 @@ fun DeviceScreen(navController: NavController? = null) {
                 
                 DeviceUi(
                     id = deviceResponse.deviceId.toString(),
-                    title = deviceResponse.deviceName,
+                    title = deviceTypeKorean,  // 디바이스 타입(한국어)으로 변경
                     room = roomName,
                     statusText = statusText,
                     iconRes = iconResForType(deviceResponse.deviceType),
@@ -461,6 +465,33 @@ private fun iconResForType(type: String?): Int = when (type?.uppercase()) {
     "AIR_PURIFIER" -> R.drawable.ic_air_purifier
     "LIGHT" -> R.drawable.ic_light
     else -> R.drawable.ic_device
+}
+
+private fun convertDeviceTypeToKorean(deviceType: String?): String {
+    if (deviceType == null) return "디바이스"
+    
+    return when (deviceType) {
+        // 영어 타입 (대소문자 구분 없이)
+        "HUB", "hub" -> "허브"
+        "AIR_CONDITIONER", "air_conditioner", "Air_Conditioner" -> "에어컨"
+        "FAN", "fan", "Fan" -> "선풍기"
+        "TV", "tv", "Tv" -> "텔레비전"
+        "BEAM_PROJECTOR", "beam_projector", "Beam_Projector" -> "빔프로젝터"
+        "AIR_PURIFIER", "air_purifier", "Air_Purifier" -> "공기청정기"
+        "LIGHT", "light", "Light" -> "조명"
+        // 한국어 타입 (이미 한국어인 경우 그대로 반환)
+        "허브" -> "허브"
+        "에어컨" -> "에어컨"
+        "선풍기" -> "선풍기"
+        "텔레비전" -> "텔레비전"
+        "빔프로젝터" -> "빔프로젝터"
+        "공기청정기" -> "공기청정기"
+        "조명" -> "조명"
+        else -> {
+            android.util.Log.d("DeviceScreen", "Unknown deviceType: $deviceType")
+            deviceType
+        }
+    }
 }
 
 @Preview
