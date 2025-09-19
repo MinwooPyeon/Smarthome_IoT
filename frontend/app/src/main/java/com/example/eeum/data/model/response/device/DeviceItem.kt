@@ -11,5 +11,5 @@ data class DeviceItem(
     val registeredAt: String,
     val roomId: Int,
     val x: Double,
-    val y: Double
+    val y: Double,
 )

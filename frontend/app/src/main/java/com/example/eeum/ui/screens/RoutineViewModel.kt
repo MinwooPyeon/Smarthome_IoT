@@ -6,6 +6,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eeum.data.model.dto.routine.RoutineRequestDto
+import com.example.eeum.data.model.response.device.DeviceItem
 import com.example.eeum.data.model.response.routine.IconData
 import com.example.eeum.data.model.response.routine.RoomData
 import com.example.eeum.data.model.response.routine.RoutineData
@@ -32,6 +33,9 @@ class RoutineViewModel : ViewModel() {
 
     private val _rooms = MutableLiveData<List<RoomData>>(emptyList())
     val rooms: LiveData<List<RoomData>> = _rooms
+
+    private val _devices = MutableLiveData<List<DeviceItem>>(emptyList())
+    val devices: LiveData<List<DeviceItem>> = _devices
 
     fun fetchAllRoutines() {
         viewModelScope.launch {
@@ -121,6 +125,37 @@ class RoutineViewModel : ViewModel() {
                     val msg = "readRooms exception: ${e.message}"
                     _error.value = msg
                     Log.e("RoutineViewModel", "readRooms exception", e)
+                }
+        }
+    }
+
+    // 특정 방의 디바이스 목록 조회 (roomName으로 필터링)
+    fun fetchDevicesSimple(roomName: String) {
+        viewModelScope.launch {
+            runCatching {
+                RetrofitUtil.deviceService.readDevicesSimple(
+                    power = null,
+                    type = null,
+                    roomName = roomName,
+                    deviceName = null
+                )
+            }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body()
+                        val items = body?.data?.items ?: emptyList()
+                        _devices.value = items.sortedWith(compareBy({ it.deviceName }, { it.deviceType.toString() }))
+                        Log.d("RoutineViewModel", "fetchDevicesSimple(roomName=$roomName) size=${_devices.value?.size}")
+                    } else {
+                        val msg = "readDevicesSimple failed: code=${response.code()} msg=${response.message()}"
+                        _error.value = msg
+                        Log.e("RoutineViewModel", msg)
+                    }
+                }
+                .onFailure { e ->
+                    val msg = "readDevicesSimple exception: ${e.message}"
+                    _error.value = msg
+                    Log.e("RoutineViewModel", "readDevicesSimple exception", e)
                 }
         }
     }
