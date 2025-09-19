@@ -18,7 +18,7 @@ public:
     MqttClient();
     ~MqttClient();
 
-    bool connect(const std::string& broker, int port = 1883);
+    bool connect(const std::string& broker, int port = 8883);
     bool connectSecure(const std::string& broker, int port = 8883,
                       const std::string& ca_cert = "",
                       const std::string& client_cert = "",
