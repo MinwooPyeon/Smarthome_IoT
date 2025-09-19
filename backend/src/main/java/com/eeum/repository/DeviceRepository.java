@@ -229,7 +229,7 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
     interface DeviceRow {
         Integer getDeviceId();
         Integer getRoomId();
-        Integer getIrDeviceId();
+        String getIrDeviceId();
         String  getBrand();
         String  getModel();
         String  getDeviceType();
