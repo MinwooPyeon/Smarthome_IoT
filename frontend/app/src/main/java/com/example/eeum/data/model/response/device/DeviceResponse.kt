@@ -6,7 +6,7 @@ data class DeviceResponse (
     val deviceId: Int,
     val roomId: Int,
     val remoteId: Int,
-    val irDeviceId: Int,
+    val irDeviceId: String,
     val brand: String,
     val model: String,
     val deviceName: String,

@@ -5,8 +5,11 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.eeum.data.model.dto.routine.RoutineRequestDto
 import com.example.eeum.data.model.response.routine.IconData
+import com.example.eeum.data.model.response.routine.RoomData
 import com.example.eeum.data.model.response.routine.RoutineData
+import com.example.eeum.data.model.response.routine.RoutineResult
 import com.example.eeum.data.remote.RetrofitUtil
 import kotlinx.coroutines.launch
 
@@ -20,6 +23,15 @@ class RoutineViewModel : ViewModel() {
 
     private val _error = MutableLiveData<String?>(null)
     val error: LiveData<String?> = _error
+
+    private val _createdRoutineId = MutableLiveData<Int?>(null)
+    val createdRoutineId: LiveData<Int?> = _createdRoutineId
+
+    private val _createResult = MutableLiveData<RoutineResult?>()
+    val createResult: LiveData<RoutineResult?> = _createResult
+
+    private val _rooms = MutableLiveData<List<RoomData>>(emptyList())
+    val rooms: LiveData<List<RoomData>> = _rooms
 
     fun fetchAllRoutines() {
         viewModelScope.launch {
@@ -64,4 +76,53 @@ class RoutineViewModel : ViewModel() {
                 }
         }
     }
+
+    // 루틴 생성
+    fun generateRoutine(body: RoutineRequestDto) {
+        viewModelScope.launch {
+            runCatching { RetrofitUtil.routineService.generateRoutine(body) }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        val result = response.body()
+                        _createResult.value = result
+                        val id = result?.data?.routineId
+                        _createdRoutineId.value = id
+                        Log.d("RoutineViewModel", "generateRoutine success: routineId=$id")
+                    } else {
+                        val msg = "generateRoutine failed: code=${response.code()} msg=${response.message()}"
+                        _error.value = msg
+                        Log.e("RoutineViewModel", msg)
+                    }
+                }
+                .onFailure { e ->
+                    val msg = "generateRoutine exception: ${e.message}"
+                    _error.value = msg
+                    Log.e("RoutineViewModel", "generateRoutine exception", e)
+                }
+        }
+    }
+
+    // 홈의 방 목록 조회
+    fun fetchRooms(homeId: Int) {
+        viewModelScope.launch {
+            runCatching { RetrofitUtil.homeService.readRooms(homeId) }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body()
+                        _rooms.value = body?.data ?: emptyList()
+                        Log.d("RoutineViewModel", "fetchRooms(homeId=$homeId) size=${_rooms.value?.size}")
+                    } else {
+                        val msg = "readRooms failed: code=${response.code()} msg=${response.message()}"
+                        _error.value = msg
+                        Log.e("RoutineViewModel", msg)
+                    }
+                }
+                .onFailure { e ->
+                    val msg = "readRooms exception: ${e.message}"
+                    _error.value = msg
+                    Log.e("RoutineViewModel", "readRooms exception", e)
+                }
+        }
+    }
+
 }

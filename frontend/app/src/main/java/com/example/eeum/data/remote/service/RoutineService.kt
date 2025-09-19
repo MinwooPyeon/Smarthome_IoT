@@ -1,6 +1,7 @@
 package com.example.eeum.data.remote.service
 
 import com.example.eeum.data.model.dto.routine.RoutineRequest
+import com.example.eeum.data.model.dto.routine.RoutineRequestDto
 import com.example.eeum.data.model.response.common.ApiResponse
 import com.example.eeum.data.model.response.common.BaseResponse
 import com.example.eeum.data.model.response.common.Page
@@ -8,6 +9,7 @@ import com.example.eeum.data.model.response.routine.AllRoutine
 import com.example.eeum.data.model.response.routine.RoutineCreateResponse
 import com.example.eeum.data.model.response.routine.RoutineIcon
 import com.example.eeum.data.model.response.routine.RoutineResponse
+import com.example.eeum.data.model.response.routine.RoutineResult
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -24,6 +26,12 @@ interface RoutineService {
     suspend fun createRoutine(
         @Body body: RoutineRequest
     ): Response<ApiResponse<RoutineCreateResponse>>
+
+    //루틴 등록 - 새 DTO/응답에 맞춘 버전
+    @POST("api/routines")
+    suspend fun generateRoutine(
+        @Body body: RoutineRequestDto
+    ): Response<RoutineResult>
 
     // 루틴 조회
     @GET("api/routines")

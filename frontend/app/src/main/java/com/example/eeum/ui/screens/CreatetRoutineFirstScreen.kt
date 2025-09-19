@@ -64,7 +64,6 @@ fun CreateRoutineFirstScreen(navController: NavController) {
     var showTimePicker by remember { mutableStateOf(false) }
     val timeText = remember(hour24, minute) { "%02d:%02d".format(hour24, minute) }
 
-    // ✅ 루틴 아이콘 선택 상태 (서버값)
     var selectedIconId by remember { mutableStateOf<Int?>(null) }
     var selectedIconUrl by remember { mutableStateOf<String?>(null) }
     var showIconDialog by remember { mutableStateOf(false) }
@@ -128,7 +127,7 @@ fun CreateRoutineFirstScreen(navController: NavController) {
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        // ✅ 서버 아이콘 URL 프리뷰
+                        // 서버 아이콘 URL 프리뷰
                         RoutineIconPreview(
                             iconUrl = selectedIconUrl,
                             onClick = { showIconDialog = true },
@@ -534,10 +533,6 @@ private fun iconForDevice(device: String): ImageVector = when (device) {
     "조명" -> Icons.Filled.Star
     else -> Icons.Filled.Star
 }
-
-/* =========================
- * 시간 설정 다이얼로그 & 휠 피커
- * ========================= */
 @Composable
 private fun TimeWheelDialog(
     initialHour24: Int,
