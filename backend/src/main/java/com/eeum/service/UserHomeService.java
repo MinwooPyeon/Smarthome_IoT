@@ -40,16 +40,28 @@ public class UserHomeService {
     
     
     // 유저 집의 방 목록 조회
-    @Transactional(readOnly = true)
+    @Transactional
     public List<RoomItemResponse> listByHomeId(Integer userId, Integer homeId) {
         if (userId == null || homeId == null) {
             throw new IllegalArgumentException("userId, homeId는 필수입니다.");
         }
-
         if (!userHomeRepository.existsByUserIdAndHomeId(userId, homeId)) {
             throw new IllegalArgumentException("해당 집에 대한 접근 권한이 없습니다.");
         }
 
-        return userHomeRepository.findRoomsByHomeId(homeId);
+        List<UserHomeRepository.RoomRow> rows = userHomeRepository.findRoomsByHomeId(homeId);
+
+        return rows.stream()
+            .map(r -> new RoomItemResponse(
+                    r.getRoomId(),
+                    r.getRoomName(),
+                    toHex(r.getRoomColor())
+            ))
+            .toList();
+    }
+
+    private static String toHex(Integer rgb) {
+        if (rgb == null) return null;
+        return String.format("#%06X", (rgb & 0xFFFFFF));
     }
 }

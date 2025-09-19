@@ -9,6 +9,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RoomItemResponse {
     private Integer roomId;
-    private String  roomName;
-    private Integer roomColor;
+    private String roomName;
+    private String roomColor;
 }
