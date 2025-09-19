@@ -115,18 +115,7 @@ void MqttManager::run_loop()
 void MqttManager::h_env_request(const json &j)
 {
     // true/false 요청 형식 여러가지 허용
-    bool req = false;
-    if (j.is_boolean())
-        req = j.get<bool>();
-    else if (j.contains("Request"))
-        req = j["Request"].get<bool>();
-    else if (j.contains("request"))
-        req = j["request"].get<bool>();
-    else if (j.contains("raw"))
-    { // 문자열로 온 경우
-        auto s = j["raw"].get<std::string>();
-        req = (s == "true" || s == "1");
-    }
+    bool req = j.value("streaming", false);
     cfg_.envStreamOn = req;
     std::cout << "[env] stream : " << (req ? "ON" : "OFF") << "\n";
 }
