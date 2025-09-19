@@ -132,7 +132,8 @@ fun DeviceScreen(navController: NavController? = null) {
         // 최초 진입 시 1회 로드
         LaunchedEffect(Unit) { 
             listVm.load() 
-            hubVm.getHubs() // 허브 목록도 로드
+            // 허브 목록도 로드 (기본 homeId 1 사용)
+            hubVm.getHubs(1)
         }
         
         // 허브 등록 성공 시 허브 목록 재조회
@@ -140,7 +141,7 @@ fun DeviceScreen(navController: NavController? = null) {
         val registrationStatus by hubVm.registrationStatus.observeAsState()
         LaunchedEffect(userHomeId, registrationStatus) {
             if (userHomeId != null && registrationStatus == "success") {
-                hubVm.getHubs() // 허브 등록 성공 후 목록 새로고침
+                hubVm.getHubs(1) // 허브 등록 성공 후 목록 새로고침
             }
         }
         // 자동 새로고침 신호 수신 시 서버 목록 재조회
@@ -148,7 +149,7 @@ fun DeviceScreen(navController: NavController? = null) {
             if (refreshKey != 0L) {
                 android.widget.Toast.makeText(activity, "디바이스 목록을 새로고침했습니다.", android.widget.Toast.LENGTH_SHORT).show()
                 listVm.load()
-                hubVm.getHubs() // 허브 목록도 새로고침
+                hubVm.getHubs(1) // 허브 목록도 새로고침
             }
         }
 
