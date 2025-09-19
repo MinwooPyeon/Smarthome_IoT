@@ -1,5 +1,6 @@
 package com.eeum.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,4 +27,17 @@ public interface HubDeviceRepository extends JpaRepository<HubDevice, String> {
     
     @Query("SELECT h.hubDeviceId FROM HubDevice h WHERE h.userHomeId = :userHomeId")
     Optional<String> findHubDeviceIdByUserHomeId(@Param("userHomeId") Integer userHomeId);
+    
+    
+    // 허브 목록 조회
+    @Query(value = """
+            SELECT hd.hub_device_id
+              FROM eeum.hub_device hd
+              JOIN eeum.user_home  uh ON uh.user_home_id = hd.user_home_id
+             WHERE uh.user_id = :userId
+               AND uh.home_id = :homeId
+             ORDER BY hd.hub_device_id
+            """, nativeQuery = true)
+        List<String> findHubIdsByUserAndHome(@Param("userId") Integer userId,
+                                             @Param("homeId") Integer homeId);
 }
