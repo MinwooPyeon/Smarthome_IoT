@@ -4,6 +4,7 @@ import com.example.eeum.data.remote.service.AuthService
 import com.example.eeum.data.remote.service.DeviceService
 import com.example.eeum.data.remote.service.EnergyService
 import com.example.eeum.data.remote.service.FloorplansService
+import com.example.eeum.data.remote.service.HubService
 import com.example.eeum.data.remote.service.RoutineService
 import com.example.eeum.data.remote.service.UserService
 import com.example.eeum.base.ApplicationClass
@@ -18,6 +19,7 @@ class RetrofitUtil {
         val routineService = ApplicationClass.retrofit.create(RoutineService::class.java)
         val floorplansService = ApplicationClass.retrofit.create(FloorplansService::class.java)
         val homeService = ApplicationClass.retrofit.create(HomeService::class.java)
+        val hubService = ApplicationClass.retrofit.create(HubService::class.java)
 
     }
 }
