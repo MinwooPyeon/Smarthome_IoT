@@ -34,8 +34,6 @@ public:
 
     void setProtocol(const std::string& protocol);
     void setDebugMode(bool enabled);
-
-    // 태스크 함수 (public으로 이동)
     void receiveTask(void* pvParameters);
 
     struct IRCode {
@@ -77,7 +75,6 @@ private:
     bool initializeRMT();
     void cleanupRMT();
 
-    // RMT 콜백 함수
     static void rmt_rx_done_callback(rmt_channel_t channel, rmt_item32_t *item, void *user_data);
 
     std::string readIRCode();
@@ -92,4 +89,4 @@ private:
     void logMessage(const std::string& message);
 };
 
-#endif // ESP32_IR_RECEIVER_H
+#endif

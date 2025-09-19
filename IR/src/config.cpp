@@ -14,12 +14,11 @@ std::shared_ptr<Config> Config::loadFromFile(const std::string& filename) {
 
 std::shared_ptr<Config> Config::loadDefault() {
     auto config = std::make_shared<Config>();
-    // 기본 설정값들 설정
     config->setWebUIPort(8080);
     config->setWebUIHost("0.0.0.0");
     config->setWebUIEnabled(true);
     config->setMqttBroker("");
-    config->setMqttPort(1883);
+    config->setMqttPort(8883);
     config->setMqttClientId("irremote_client");
     config->setMqttTopicPrefix("irremote");
     config->setMqttEnabled(false);
@@ -63,7 +62,6 @@ void Config::removeCustomValue(const std::string& key) {
 }
 
 bool Config::isValid() const {
-    // 기본 유효성 검사
     if (web_ui_port_ <= 0 || web_ui_port_ > 65535) {
         return false;
     }
@@ -82,12 +80,10 @@ bool Config::isValid() const {
 std::string Config::toJson() const {
     DynamicJsonDocument doc(2048);
 
-    // 웹 서버 설정
     doc["web_ui"]["port"] = web_ui_port_;
     doc["web_ui"]["host"] = web_ui_host_.c_str();
     doc["web_ui"]["enabled"] = web_ui_enabled_;
 
-    // MQTT 설정
     doc["mqtt"]["broker"] = mqtt_broker_.c_str();
     doc["mqtt"]["port"] = mqtt_port_;
     doc["mqtt"]["username"] = mqtt_username_.c_str();
@@ -96,27 +92,22 @@ std::string Config::toJson() const {
     doc["mqtt"]["topic_prefix"] = mqtt_topic_prefix_.c_str();
     doc["mqtt"]["enabled"] = mqtt_enabled_;
 
-    // 보안 설정
     doc["security"]["api_token"] = api_token_.c_str();
     doc["security"]["api_token_required"] = api_token_required_;
 
-    // allowed_origins를 배열로 처리
     JsonArray origins = doc["security"].createNestedArray("allowed_origins");
     for (const auto& origin : allowed_origins_) {
         origins.add(origin.c_str());
     }
 
-    // 로깅 설정
     doc["logging"]["level"] = log_level_.c_str();
     doc["logging"]["file"] = log_file_.c_str();
     doc["logging"]["to_file"] = log_to_file_;
 
-    // IR 설정
     doc["ir"]["device"] = ir_device_.c_str();
     doc["ir"]["timeout"] = ir_timeout_;
     doc["ir"]["retry_count"] = ir_retry_count_;
 
-    // 사용자 정의 설정
     JsonObject custom = doc.createNestedObject("custom");
     for (const auto& pair : custom_values_) {
         custom[pair.first.c_str()] = pair.second.c_str();
@@ -135,7 +126,6 @@ bool Config::fromJson(const std::string& json) {
         return false;
     }
 
-    // 웹 서버 설정
     if (doc.containsKey("web_ui")) {
         JsonObject web_ui = doc["web_ui"];
         if (web_ui.containsKey("port")) web_ui_port_ = web_ui["port"];
@@ -143,7 +133,6 @@ bool Config::fromJson(const std::string& json) {
         if (web_ui.containsKey("enabled")) web_ui_enabled_ = web_ui["enabled"];
     }
 
-    // MQTT 설정
     if (doc.containsKey("mqtt")) {
         JsonObject mqtt = doc["mqtt"];
         if (mqtt.containsKey("broker")) mqtt_broker_ = mqtt["broker"].as<std::string>();
@@ -155,7 +144,6 @@ bool Config::fromJson(const std::string& json) {
         if (mqtt.containsKey("enabled")) mqtt_enabled_ = mqtt["enabled"];
     }
 
-    // 보안 설정
     if (doc.containsKey("security")) {
         JsonObject security = doc["security"];
         if (security.containsKey("api_token")) api_token_ = security["api_token"].as<std::string>();
@@ -169,7 +157,6 @@ bool Config::fromJson(const std::string& json) {
         }
     }
 
-    // 로깅 설정
     if (doc.containsKey("logging")) {
         JsonObject logging = doc["logging"];
         if (logging.containsKey("level")) log_level_ = logging["level"].as<std::string>();
@@ -177,7 +164,6 @@ bool Config::fromJson(const std::string& json) {
         if (logging.containsKey("to_file")) log_to_file_ = logging["to_file"];
     }
 
-    // IR 설정
     if (doc.containsKey("ir")) {
         JsonObject ir = doc["ir"];
         if (ir.containsKey("device")) ir_device_ = ir["device"].as<std::string>();
@@ -185,7 +171,6 @@ bool Config::fromJson(const std::string& json) {
         if (ir.containsKey("retry_count")) ir_retry_count_ = ir["retry_count"];
     }
 
-    // 사용자 정의 설정
     if (doc.containsKey("custom")) {
         JsonObject custom = doc["custom"];
         for (JsonPair pair : custom) {
@@ -225,7 +210,6 @@ std::string Config::getString(const std::string& key, const std::string& default
     return (it != custom_values_.end()) ? it->second : default_value;
 }
 
-// 기존 인터페이스 호환성 유지
 void Config::setString(const std::string& key, const std::string& value) {
     setCustomValue(key, value);
 }

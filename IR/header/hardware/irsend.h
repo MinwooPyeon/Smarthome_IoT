@@ -64,7 +64,6 @@ private:
     mutable std::mutex stats_mutex_;
 
 #ifdef PLATFORM_ESP32
-    // RMT 채널은 ESP-IDF에서 관리
 #elif defined(PLATFORM_LINUX)
     int lirc_fd_;
     struct lirc_config* config_;
@@ -77,4 +76,4 @@ private:
     void setLastError(const std::string& error);
 };
 
-#endif // IRSEND_H
+#endif
