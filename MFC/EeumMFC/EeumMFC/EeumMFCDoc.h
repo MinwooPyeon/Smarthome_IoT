@@ -7,6 +7,7 @@
 #include "pch.h"
 #include "Ingestor.h"
 #include "Types.h"
+#include "MqttClient.h"
 
 class CEeumMFCDoc : public CDocument
 {
@@ -16,19 +17,26 @@ protected: // serialization에서만 만들어집니다.
 
 // 특성입니다.
 public:
-	Ingestor m_ing;
-	Metrics m_lastMetrics;
-	std::vector<EnvSample> m_lastEnvBatch;
-	std::vector<IrEvent> m_lastIrBatch;
-
+	std::unique_ptr<MqttClient> mqtt_;
+	Ingestor ingestor_;
+	
+	std::mutex mtx_;
+	Metrics latestMet_;
+	std::vector<EnvSample> latestEnv_;
+	std::vector<IrEvent> latestIr_;
+private:
+	std::string selectedHub_;
+	std::string lastOrderedHub_;
 // 작업입니다.
 public:
-	const Metrics& GetMetrics()   const { return m_lastMetrics; }
-	const std::vector<EnvSample>& GetEnvBatch()  const { return m_lastEnvBatch; }
-	const std::vector<IrEvent>& GetIrBatch()   const { return m_lastIrBatch; }
+	void SetSelectedHub(const CString& hub);
+	const Metrics& GetMetrics()   const { return latestMet_; }
+	const std::vector<EnvSample>& GetEnvBatch()  const { return latestEnv_; }
+	const std::vector<IrEvent>& GetIrBatch()   const { return latestIr_; }
 // 재정의입니다.
 public:
-	virtual BOOL OnNewDocument();
+	virtual BOOL OnNewDocument() override;
+	virtual void OnCloseDocument() override;
 	virtual void Serialize(CArchive& ar);
 #ifdef SHARED_HANDLERS
 	virtual void InitializeSearchContent();

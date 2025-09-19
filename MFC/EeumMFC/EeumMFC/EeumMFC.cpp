@@ -12,10 +12,10 @@
 #include "EeumMFCDoc.h"
 #include "EeumMFCView.h"
 
+#include <mosquittopp.h>
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
-
 
 // CEeumMFCApp
 
@@ -60,6 +60,8 @@ CEeumMFCApp theApp;
 
 BOOL CEeumMFCApp::InitInstance()
 {
+	int rc = mosqpp::lib_init();
+	ASSERT(rc == MOSQ_ERR_SUCCESS);	
 	// 애플리케이션 매니페스트가 ComCtl32.dll 버전 6 이상을 사용하여 비주얼 스타일을
 	// 사용하도록 지정하는 경우, Windows XP 상에서 반드시 InitCommonControlsEx()가 필요합니다. 
 	// InitCommonControlsEx()를 사용하지 않으면 창을 만들 수 없습니다.
@@ -71,7 +73,6 @@ BOOL CEeumMFCApp::InitInstance()
 	InitCommonControlsEx(&InitCtrls);
 
 	CWinApp::InitInstance();
-
 
 	// OLE 라이브러리를 초기화합니다.
 	if (!AfxOleInit())
@@ -125,6 +126,8 @@ BOOL CEeumMFCApp::InitInstance()
 	// 창 하나만 초기화되었으므로 이를 표시하고 업데이트합니다.
 	m_pMainWnd->ShowWindow(SW_SHOW);
 	m_pMainWnd->UpdateWindow();
+
+	
 	return TRUE;
 }
 
@@ -132,7 +135,7 @@ int CEeumMFCApp::ExitInstance()
 {
 	//TODO: 추가한 추가 리소스를 처리합니다.
 	AfxOleTerm(FALSE);
-
+	mosqpp::lib_cleanup();
 	return CWinApp::ExitInstance();
 }
 

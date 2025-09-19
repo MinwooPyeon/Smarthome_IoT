@@ -22,6 +22,8 @@ IMPLEMENT_DYNCREATE(CMainFrame, CFrameWndEx)
 BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_WM_CREATE()
 	ON_MESSAGE(WM_APP_DATAREADY, &CMainFrame::OnDataReady)
+	ON_MESSAGE(WM_APP_SELECT_HUB, &CMainFrame::OnAppLog)
+	ON_MESSAGE(WM_APP_LOG, &CMainFrame::OnAppLog)
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -86,6 +88,27 @@ LRESULT CMainFrame::OnDataReady(WPARAM, LPARAM)
 
 	return 0;
 }	
+
+LRESULT CMainFrame::OnSelectHub(WPARAM, LPARAM lp) {
+	std::unique_ptr<CString> sp((CString*)lp);
+	CString sel = *sp;
+
+	CString norm = sel;
+	if (norm.Left(4).CompareNoCase(L"hub/") != 0) norm = L"hub/" + norm;
+
+	if (auto* doc = dynamic_cast<CEeumMFCDoc*>(GetActiveDocument()))
+		doc->SetSelectedHub(norm);
+
+	Log(L"INFO", L"Select Hub: " + norm);
+	return 0;
+}
+
+LRESULT CMainFrame::OnAppLog(WPARAM, LPARAM lp)
+{
+	std::unique_ptr<CString> sp((CString*)lp);
+	Log(L"LOG", *sp);
+	return 0;
+}
 
 void CMainFrame::Log(const CString& level, const CString& msg)
 {

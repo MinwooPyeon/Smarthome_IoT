@@ -10,9 +10,32 @@
 #include "EeumMFC.h"
 #endif
 
+#include "MainFrm.h"
 #include "EeumMFCDoc.h"
 
 #include <propkey.h>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
+
+static EnvSample ParseEnv(const std::string& s) {
+	EnvSample e{};
+	try {
+		auto j = json::parse(s);
+		e.t = j.value("t", j.value("temp", NAN));
+		e.h = j.value("h", j.value("hum", NAN));
+		e.tsMs = j.value("ts", (int64_t)::GetTickCount64());
+	}
+	catch (...) {}
+	return e;
+}
+
+static IrEvent ParseIr(const std::string& s)
+{
+	IrEvent e{};
+	// TODO: 필요한 필드만 최소 파싱
+	return e;
+}
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -28,30 +51,86 @@ END_MESSAGE_MAP()
 
 // CEeumMFCDoc 생성/소멸
 
-CEeumMFCDoc::CEeumMFCDoc() noexcept{}
+CEeumMFCDoc::CEeumMFCDoc() noexcept {}
 
-CEeumMFCDoc::~CEeumMFCDoc(){}
+CEeumMFCDoc::~CEeumMFCDoc() {}
+
+void CEeumMFCDoc::SetSelectedHub(const CString& hub)
+{
+	std::wstring ws(hub);
+	std::string s(ws.begin(), ws.end());   // hub/001
+
+	if (s.rfind("hub/", 0) != 0) s = "hub/" + s;
+
+
+
+	if (!lastOrderedHub_.empty() && lastOrderedHub_ != s && mqtt_) {
+		mqtt_->orderEnv(lastOrderedHub_, false); // 그만 보내!
+	}
+	selectedHub_ = s;
+
+	if (mqtt_) {
+		mqtt_->setTopics({ selectedHub_ + "/env", selectedHub_ + "/log" });
+
+		// 스트리밍 시작
+		mqtt_->orderEnv(selectedHub_, true);
+		lastOrderedHub_ = selectedHub_;
+	}
+
+	// 보기 좋게 버퍼 초기화(선택)
+	{
+		std::lock_guard<std::mutex> lk(mtx_);
+		latestEnv_.clear();
+		latestIr_.clear();
+		// latestMet_는 필요시 초기화
+	}
+}
 
 BOOL CEeumMFCDoc::OnNewDocument()
 {
 	if (!CDocument::OnNewDocument())
 		return FALSE;
 
-	m_ing.setCallback([this](const auto& env, const auto& ir, const Metrics& met) {
-		m_lastEnvBatch = env;
-		m_lastIrBatch = ir;
-		m_lastMetrics = met;
+	ingestor_.setCallback([this](const auto& env, const auto& ir, const Metrics& met) {
+		std::lock_guard<std::mutex> lk(mtx_);
+		latestEnv_ = std::move(env);
+		latestIr_ = std::move(ir);
+		latestMet_ = met;
 
 		CWnd* pMain = AfxGetMainWnd();
 		if (pMain && ::IsWindow(pMain->GetSafeHwnd()))
 			::PostMessage(pMain->GetSafeHwnd(), WM_APP_DATAREADY, 0, 0);
 		});
 
-	m_ing.start(20.0);
+	ingestor_.start(2.0);
+
+	Config config;
+	mqtt_ = std::make_unique<MqttClient>(config);
+
+	mqtt_->onMessage = [this](const std::string& topic, const std::string& payload) {
+		if (topic.find("/env") != std::string::npos) {
+			auto e = ParseEnv(payload);
+			ingestor_.pushEnv(e);
+		}
+		else if (topic.find("/irsignal") != std::string::npos) {
+			if (auto* mf = dynamic_cast<CMainFrame*>(AfxGetMainWnd())) {
+				CString* msg = new CString(CA2W(payload.c_str()));
+				::PostMessage(mf->GetSafeHwnd(), WM_APP_LOG, 0, (LPARAM)msg);
+			}
+		}
+		};
+
 	return TRUE;
 }
 
-
+void CEeumMFCDoc::OnCloseDocument() {
+	if (mqtt_ && !lastOrderedHub_.empty()) {
+		mqtt_->orderEnv(lastOrderedHub_, false);
+	}
+	ingestor_.stop();
+	mqtt_.reset();
+	CDocument::OnCloseDocument();
+}
 
 
 // CEeumMFCDoc serialization
@@ -79,7 +158,7 @@ void CEeumMFCDoc::OnDrawThumbnail(CDC& dc, LPRECT lprcBounds)
 	CString strText = _T("TODO: implement thumbnail drawing here");
 	LOGFONT lf;
 
-	CFont* pDefaultGUIFont = CFont::FromHandle((HFONT) GetStockObject(DEFAULT_GUI_FONT));
+	CFont* pDefaultGUIFont = CFont::FromHandle((HFONT)GetStockObject(DEFAULT_GUI_FONT));
 	pDefaultGUIFont->GetLogFont(&lf);
 	lf.lfHeight = 36;
 
@@ -110,7 +189,7 @@ void CEeumMFCDoc::SetSearchContent(const CString& value)
 	}
 	else
 	{
-		CMFCFilterChunkValueImpl *pChunk = nullptr;
+		CMFCFilterChunkValueImpl* pChunk = nullptr;
 		ATLTRY(pChunk = new CMFCFilterChunkValueImpl);
 		if (pChunk != nullptr)
 		{

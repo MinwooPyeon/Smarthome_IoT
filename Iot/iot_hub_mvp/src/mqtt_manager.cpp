@@ -16,7 +16,6 @@ MqttManager::MqttManager(const AppConfig& cfg)
 MqttManager::~MqttManager(){ stop(); }
 
 void MqttManager::setup_handlers(){
-    // 토픽 → 핸들러 등록 (가독성 ↑)
     handlers_.emplace(cfg_.topicEnv,        [this](const json& j){ h_env_request(j); });
     handlers_.emplace(cfg_.topicOrderIrReq, [this](const json& j){ h_ir_req(j); });
 }
@@ -79,7 +78,7 @@ void MqttManager::run_loop(){
         mqtt_.loop_for_ms(50);
         auto r = dht_.read_with_retry(1, 1500, 1200);
         envMgr_.addData(EnvSample{now_ms(), r->tempC, r->hum});
-        
+
         if(cfg_.envStreamOn){    
             auto now = steady_clock::now();
             if(now - lastEnv >= milliseconds(cfg_.envIntervalMs)){
