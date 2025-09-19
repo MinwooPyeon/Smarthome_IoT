@@ -1,6 +1,5 @@
 package com.eeum.mqtt;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -10,9 +9,6 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.springframework.stereotype.Service;
 
-import com.eeum.entity.IrEventLog;
-import com.eeum.repository.IrEventLogRepository;
-import com.eeum.repository.IrSignalRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -27,9 +23,6 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class MqttOutService {
-
-    private final IrSignalRepository irSignalRepository;
-	private final IrEventLogRepository irEventLogRepository;
 	
     private final IMqttClient client;
     private final MqttConnectOptions opts;
@@ -88,19 +81,8 @@ public class MqttOutService {
         msg.setRetained(false);
         client.publish(topic, msg);
 
-        // DB 로그 저장
-        IrEventLog eventLog = IrEventLog.builder()
-                .eventTime(OffsetDateTime.now())
-                .kind("control")
-                .irDeviceId(irDeviceId)
-                .txId(txUuid)          // DB는 UUID
-                .model(model)
-                .build();
-
-        irEventLogRepository.save(eventLog);
-
-        log.info("[CONTROL_LOG] MQTT 발행 & DB 저장 완료: txUuid={}, txIdInt={}, irDeviceId={}, function={}",
-                txUuid, txIdInt, irDeviceId, function);
+        log.info("[MQTT PUBLISH] topic={} txIdInt={} irDeviceId={} function={}",
+                topic, txIdInt, irDeviceId, function);
     }
     
     public void publishSendDevice(String hubDeviceId, int txId, String irDeviceId, String deviceType, boolean add) throws Exception {

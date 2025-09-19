@@ -23,6 +23,7 @@ import com.eeum.dto.response.DeviceResponse;
 import com.eeum.entity.Device;
 import com.eeum.entity.IrButton;
 import com.eeum.entity.IrDevice;
+import com.eeum.entity.IrEventLog;
 import com.eeum.entity.IrRemoteir;
 import com.eeum.entity.IrSignal;
 import com.eeum.entity.IrTxQueue;
@@ -157,7 +158,7 @@ public class DeviceService {
         );
         
         try {
-        	String hubDeviceId = irDevice.getHubDevice(); // ir_device.hub_device_id 그대로 사용
+        	String hubDeviceId = irDevice.getHubDevice();
             if (hubDeviceId == null || hubDeviceId.isBlank()) {
                 throw new IllegalStateException("ir_device.hub_device_id가 비어있음: " + irDevice.getIrDeviceId());
             } 
@@ -293,18 +294,18 @@ public class DeviceService {
             String category = entry.getKey(); // 예: "power", "temperature"
 
             try {
-                // 1. buttonId 조회
+                // buttonId 조회
                 Integer buttonId = irButtonRepository.findByModelAndCategory(model, category)
                     .map(IrButton::getButtonId)
                     .orElseThrow(() -> new IllegalArgumentException(
                         "버튼 없음: model=" + model + ", category=" + category));
 
-                // 2. signalId 조회
+                // signalId 조회
                 Integer signalId = irSignalRepository.findSignalIdByModelAndButtonId(model, buttonId)
                     .orElseThrow(() -> new IllegalArgumentException(
                         "시그널 없음: model=" + model + ", buttonId=" + buttonId));
 
-                // 3. signal 객체 조회 → rawData 추출
+                // signal 객체 조회 → rawData 추출
                 IrSignal signal = irSignalRepository.findById(signalId)
                     .orElseThrow(() -> new IllegalArgumentException("시그널 객체 없음: signalId=" + signalId));
 
@@ -312,7 +313,7 @@ public class DeviceService {
                     .boxed()
                     .collect(Collectors.toList());
 
-                // 4. ir_tx_queue insert
+                // ir_tx_queue insert
                 UUID txId = UUID.randomUUID();
                 IrTxQueue tx = IrTxQueue.builder()
                     .txId(txId)
@@ -329,7 +330,35 @@ public class DeviceService {
                     .build();
                 irTxQueueRepository.save(tx);
                 log.info("[IR 큐 등록] txId={}, model={}, category={}", txId, model, category);
-                	
+                
+                // 이벤트 로그 저장
+                irEventLogRepository.save(
+                        IrEventLog.builder()
+                            .eventTime(now)
+                            .kind("control")
+                            .irDeviceId(irDeviceId)
+                            .txId(txId)        // DB에는 UUID 그대로 저장
+                            .model(model)
+                            .build()
+                    );
+
+                    // 허브 디바이스 ID 조회 (MQTT 발행용)
+                    String hubDeviceId = irDeviceRepository.findById(irDeviceId)
+                            .map(IrDevice::getHubDevice)
+                            .orElseThrow(() -> new IllegalStateException("hub_device_id 없음: " + irDeviceId));
+
+                    // MQTT 발행
+                    mqttService.publishControl(
+                        hubDeviceId,
+                        txId,           // UUID를 넘기면 내부에서 hashCode()로 int 변환
+                        irDeviceId,
+                        deviceType,
+                        rawData,
+                        category,
+                        List.of(),
+                        model
+                    );
+                
             } catch (Exception e) {
                 log.warn("[IR 전송 실패] model={}, category={}, error={}", model, category, e.getMessage(), e);
             }
