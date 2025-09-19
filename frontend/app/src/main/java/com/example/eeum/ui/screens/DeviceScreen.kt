@@ -84,6 +84,7 @@ fun DeviceScreen(navController: NavController? = null) {
     // Activity 범위의 등록 ViewModel을 미리 획득하여 클릭 콜백에서 사용
     val activity = androidx.compose.ui.platform.LocalContext.current as androidx.activity.ComponentActivity
     val regVm: DeviceRegistrationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
+    val hubVm: HubViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
 
     // Device 탭 자동 새로고침 신호 구독
     val mainEntry = remember(navController) {
@@ -122,29 +123,50 @@ fun DeviceScreen(navController: NavController? = null) {
         val serverItems by listVm.items.observeAsState(emptyList())
         val loading by listVm.loading.observeAsState(false)
         val loadError by listVm.error.observeAsState()
+        
+        // 허브 목록 상태 관찰
+        val hubList by hubVm.hubList.observeAsState(emptyList())
+        val hubLoading by hubVm.isLoading.observeAsState(false)
+        val hubError by hubVm.error.observeAsState()
 
         // 최초 진입 시 1회 로드
-        LaunchedEffect(Unit) { listVm.load() }
+        LaunchedEffect(Unit) { 
+            listVm.load() 
+            hubVm.getHubs() // 허브 목록도 로드
+        }
+        
+        // 허브 등록 성공 시 허브 목록 재조회
+        val userHomeId by hubVm.userHomeId.observeAsState()
+        val registrationStatus by hubVm.registrationStatus.observeAsState()
+        LaunchedEffect(userHomeId, registrationStatus) {
+            if (userHomeId != null && registrationStatus == "success") {
+                hubVm.getHubs() // 허브 등록 성공 후 목록 새로고침
+            }
+        }
         // 자동 새로고침 신호 수신 시 서버 목록 재조회
         LaunchedEffect(refreshKey) {
             if (refreshKey != 0L) {
                 android.widget.Toast.makeText(activity, "디바이스 목록을 새로고침했습니다.", android.widget.Toast.LENGTH_SHORT).show()
                 listVm.load()
+                hubVm.getHubs() // 허브 목록도 새로고침
             }
         }
 
         // 허브 데이터 + 서버 데이터 합치기
-        val allDevices = remember(serverItems) {
-            val hubDevice = DeviceUi(
-                id = "hub",
-                title = "허브",
-                room = "거실",
-                statusText = "켜짐",
-                iconRes = R.drawable.ic_hub,
-                statusIconRes = R.drawable.ic_device_on,
-                iconTint = Gray500,
-                isLarge = true
-            )
+        val allDevices = remember(serverItems, hubList) {
+            // 등록된 허브들을 DeviceUi로 변환
+            val hubDevices = hubList.mapIndexed { index, hubId ->
+                DeviceUi(
+                    id = "hub_$hubId",
+                    title = "허브 ${index + 1}",
+                    room = "거실", // 또는 실제 방 정보가 있다면 사용
+                    statusText = "켜짐",
+                    iconRes = R.drawable.ic_hub,
+                    statusIconRes = R.drawable.ic_device_on,
+                    iconTint = Gray500,
+                    isLarge = true
+                )
+            }
             
             val serverDevices = serverItems.map { deviceResponse ->
                 // 방 이름 추출: deviceName의 첫 공백 이전 부분을 방 이름으로 간주
@@ -186,12 +208,20 @@ fun DeviceScreen(navController: NavController? = null) {
                 )
             }
             
-            listOf(hubDevice) + serverDevices
+            // 허브들을 최상단에 배치, 그 다음에 서버 디바이스들
+            hubDevices + serverDevices
         }
 
-        if (loading) {
-            Text("디바이스 목록 불러오는 중...", color = Gray600)
+        if (loading || hubLoading) {
+            val loadingText = when {
+                loading && hubLoading -> "디바이스 및 허브 목록 불러오는 중..."
+                loading -> "디바이스 목록 불러오는 중..."
+                hubLoading -> "허브 목록 불러오는 중..."
+                else -> "목록 불러오는 중..."
+            }
+            Text(loadingText, color = Gray600)
         } else {
+            // 디바이스 로드 에러 처리
             loadError?.let { err ->
                 if (err.isNotBlank()) {
                     Row(
@@ -199,9 +229,30 @@ fun DeviceScreen(navController: NavController? = null) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("오류: $err", color = Red500)
+                        Text("디바이스 오류: $err", color = Red500)
                         Button(
                             onClick = { listVm.load() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF), contentColor = Color.White),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("다시 시도")
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+            
+            // 허브 로드 에러 처리
+            hubError?.let { err ->
+                if (err.isNotBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("허브 오류: $err", color = Red500)
+                        Button(
+                            onClick = { hubVm.getHubs() },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF), contentColor = Color.White),
                             shape = RoundedCornerShape(8.dp)
                         ) {
