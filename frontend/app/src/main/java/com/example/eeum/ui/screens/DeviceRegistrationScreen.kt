@@ -28,6 +28,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +47,7 @@ import androidx.navigation.NavController
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import com.example.eeum.R
+import com.example.eeum.ui.components.CheckHubDialog
 import com.example.eeum.ui.theme.*
 
 private enum class DeviceKind { HUB, AIR_CONDITIONER, FAN, TV, BEAM_PROJECTOR, AIR_PURIFIER, LIGHT }
@@ -66,6 +69,44 @@ fun DeviceRegistrationScreen(
     navController: NavController? = null,
     onSelect: (String) -> Unit = { kind -> navController?.navigate("device_registration_complete/$kind") }
 ) {
+    // HubViewModel 추가
+    val activity = androidx.compose.ui.platform.LocalContext.current as androidx.activity.ComponentActivity
+    val hubVm: HubViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
+    val context = LocalContext.current
+    
+    // 허브 대화상자 상태 관리
+    val showCheckHubDialog by remember { mutableStateOf(false) }
+    val (dialogVisible, setDialogVisible) = remember { mutableStateOf(false) }
+    
+    // 허브 목록 상태 관찰
+    val hubList by hubVm.hubList.observeAsState(emptyList())
+    val hubLoading by hubVm.isLoading.observeAsState(false)
+    val hubError by hubVm.error.observeAsState()
+    
+    // 허브 체크 함수
+    var pendingDeviceKind by remember { mutableStateOf<String?>(null) }
+    
+    fun checkHubAndProceed(deviceKind: String) {
+        pendingDeviceKind = deviceKind
+        // 허브 목록 조회
+        hubVm.getHubs()
+    }
+    
+    // 허브 목록 조회 결과 처리
+    LaunchedEffect(hubList, hubLoading, pendingDeviceKind) {
+        if (!hubLoading && pendingDeviceKind != null) {
+            if (hubList.isEmpty()) {
+                // 로딩이 끝났는데 허브가 비어있으면 대화상자 표시
+                setDialogVisible(true)
+            } else {
+                // 허브가 있으면 다음 단계로 진행
+                pendingDeviceKind?.let { deviceKind ->
+                    onSelect(deviceKind)
+                    pendingDeviceKind = null
+                }
+            }
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -189,13 +230,27 @@ fun DeviceRegistrationScreen(
                             modifier = Modifier.height(86.dp),
                             onClick = {
                                 regVm.setKind(item.kind.name)
-                                onSelect(item.kind.name)
+                                // 허브가 아닌 디바이스는 허브 체크 후 진행
+                                checkHubAndProceed(item.kind.name)
                             }
                         )
                     }
                 }
             }
         }
+        
+        // 허브 대화상자
+        CheckHubDialog(
+            visible = dialogVisible,
+            onDismiss = { 
+                setDialogVisible(false)
+                navController?.popBackStack() // 이전 화면으로 돌아가기
+            },
+            onConfirm = {
+                setDialogVisible(false)
+                navController?.popBackStack() // 이전 화면으로 돌아가기
+            }
+        )
     }
 }
 
