@@ -18,10 +18,12 @@ MqttManager::~MqttManager() { stop(); }
 
 void MqttManager::setup_handlers()
 {
-    handlers_.emplace(cfg_.topicEnv, [this](const json &j)
+    handlers_.emplace(cfg_.topicOrderEnv, [this](const json &j)
                       { h_env_request(j); });
     handlers_.emplace(cfg_.topicOrderIrReq, [this](const json &j)
                       { h_ir_req(j); });
+    handlers_.emplace(cfg_.topicRegisDevice, [this](const json& j)
+                      { h_regist_send(j);});
 }
 
 bool MqttManager::start()
@@ -34,7 +36,7 @@ bool MqttManager::start()
     // 구독
     mqtt_.subscribe(cfg_.topicEnv, 1);
     mqtt_.subscribe(cfg_.topicOrderIrReq, 1);
-    mqtt_.subscribe(cfg_.topicRegisDebice, 1);
+    mqtt_.subscribe(cfg_.topicRegisDevice, 1);
     // 라우터 준비
     setup_handlers();
 
