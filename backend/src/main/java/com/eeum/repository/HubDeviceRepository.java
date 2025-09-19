@@ -12,6 +12,7 @@ import com.eeum.entity.HubDevice;
 
 public interface HubDeviceRepository extends JpaRepository<HubDevice, String> {
 
+	// 허브 등록
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         UPDATE eeum.hub_device
@@ -40,4 +41,32 @@ public interface HubDeviceRepository extends JpaRepository<HubDevice, String> {
             """, nativeQuery = true)
         List<String> findHubIdsByUserAndHome(@Param("userId") Integer userId,
                                              @Param("homeId") Integer homeId);
+    
+    
+    // 허브에 등록된 집 조회 (없으면 null 반환)
+    @Query(value = """
+    	    SELECT hd.user_home_id
+    	      FROM eeum.hub_device hd
+    	     WHERE hd.hub_device_id = :serial
+    	    """, nativeQuery = true)
+    	Integer findBoundUserHomeIdOrNull(@Param("serial") String serial);
+    
+    // 집에 등록된 허브 변경
+    @Modifying
+    @Query(value = """
+        WITH unbound AS (
+            UPDATE eeum.hub_device
+               SET user_home_id = NULL
+             WHERE user_home_id = :targetUserHomeId
+               AND hub_device_id <> :serial
+        )
+        UPDATE eeum.hub_device
+           SET user_home_id = :targetUserHomeId
+         WHERE hub_device_id = :serial
+           AND (user_home_id IS NULL OR user_home_id = :currentUserHomeId)
+        """, nativeQuery = true)
+    int swapBind(@Param("serial") String serial,
+                 @Param("targetUserHomeId") Integer targetUserHomeId,
+                 @Param("currentUserHomeId") Integer currentUserHomeId);
+    
 }

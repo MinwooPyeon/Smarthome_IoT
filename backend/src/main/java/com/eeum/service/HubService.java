@@ -53,4 +53,44 @@ public class HubService {
         return hubDeviceRepo.findHubIdsByUserAndHome(userId, homeId);
     }
     
+    // 허브 수정
+    @Transactional
+    public HubRegisterResponse reassignHub(Integer userId, HubRegisterRequest req) {
+        if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
+        if (req == null || req.getHubDeviceId() == null || req.getHubDeviceId().isBlank())
+            throw new IllegalArgumentException("hubDeviceId는 필수입니다.");
+        if (req.getHomeId() == null)
+            throw new IllegalArgumentException("homeId는 필수입니다.");
+        
+        // 대상 homeId 권한 확인
+        Integer targetUserHomeId = userHomeRepo.findByUserIdAndHomeId(userId, req.getHomeId())
+                .map(UserHome::getUserHomeId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 집에 대한 권한이 없습니다."));
+
+        // 허브 존재 확인
+        if (!hubDeviceRepo.existsById(req.getHubDeviceId())) {
+            throw new IllegalArgumentException("허브를 찾을 수 없습니다: " + req.getHubDeviceId());
+        }
+        
+        Integer currentUserHomeId = hubDeviceRepo.findBoundUserHomeIdOrNull(req.getHubDeviceId());
+
+        if (currentUserHomeId != null) {
+            boolean ownedByMe = userHomeRepo.existsByUserIdAndHomeId(currentUserHomeId, userId);
+            if (!ownedByMe) throw new IllegalArgumentException("다른 사용자의 허브는 이동할 수 없습니다.");
+            if (currentUserHomeId.equals(targetUserHomeId)) {
+                return new HubRegisterResponse(targetUserHomeId);
+            }
+        }
+        
+        int updated = hubDeviceRepo.swapBind(req.getHubDeviceId(), targetUserHomeId, currentUserHomeId);
+
+        if (updated == 0) {
+            Integer now = hubDeviceRepo.findBoundUserHomeIdOrNull(req.getHubDeviceId());
+            if (now != null && now.equals(targetUserHomeId)) {
+                return new HubRegisterResponse(targetUserHomeId);
+            }
+            throw new IllegalStateException("허브 재할당에 실패했습니다. hubDeviceId=" + req.getHubDeviceId());
+        }
+		return new HubRegisterResponse(targetUserHomeId);
+    }
 }
