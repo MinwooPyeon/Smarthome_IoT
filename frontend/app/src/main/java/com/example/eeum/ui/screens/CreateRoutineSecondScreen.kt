@@ -57,9 +57,16 @@ fun CreateRoutineSecondScreen(
 
     var selectedRoomIdx by remember { mutableIntStateOf(-1) }
     var selectedDeviceIdx by remember { mutableIntStateOf(-1) }
-    var selectedStateIdx by remember { mutableIntStateOf(1) } // 기본: 끄기
-    var windLevel by remember { mutableIntStateOf(2) }
-    var acTemp by remember { mutableIntStateOf(24) }
+
+    // 값 입력 여부(사용자가 직접 선택/조작했는지) 플래그들
+    var stateChosen by remember { mutableStateOf(false) }
+    var windChosen by remember { mutableStateOf(false) }
+    var acTempChosen by remember { mutableStateOf(false) }
+
+    // 실제 값들
+    var selectedStateIdx by remember { mutableIntStateOf(-1) } // -1: 아직 미선택
+    var windLevel by remember { mutableIntStateOf(2) }         // 1..5
+    var acTemp by remember { mutableIntStateOf(24) }           // 16..30
 
     // 진입 시 rooms 요청
     LaunchedEffect(homeId) {
@@ -68,18 +75,29 @@ fun CreateRoutineSecondScreen(
         }
     }
 
-    // 방 선택 시 해당 roomName으로 디바이스 요청
+    // 방 선택 시 해당 roomName으로 디바이스 요청 + 디바이스 선택 초기화
     LaunchedEffect(selectedRoomIdx) {
         if (selectedRoomIdx in rooms.indices) {
             val roomName = rooms[selectedRoomIdx].roomName
-            vm.fetchDevicesSimple(roomName) // roomName 필터
-            // 디바이스 목록이 바뀌므로 선택 초기화
+            vm.fetchDevicesSimple(roomName)
             selectedDeviceIdx = -1
+            // 디바이스가 바뀌므로 종속 값/플래그 초기화
+            stateChosen = false
+            windChosen = false
+            acTempChosen = false
+            selectedStateIdx = -1
         }
     }
 
     val selectedDeviceType: String? = devices.getOrNull(selectedDeviceIdx)?.deviceType?.toString()
     val features = remember(selectedDeviceIdx, devices) { featuresFor(selectedDeviceType) }
+
+    // 저장 버튼 활성화 조건
+    val canSave = (selectedRoomIdx >= 0) &&
+            (selectedDeviceIdx >= 0) &&
+            (!features.showState || stateChosen) &&
+            (!features.showWind || windChosen) &&
+            (!features.showAcTemp || acTempChosen)
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -138,7 +156,14 @@ fun CreateRoutineSecondScreen(
                             iconVector = null,
                             iconResId = iconRes,
                             selected = selectedDeviceIdx == idx,
-                            onClick = { selectedDeviceIdx = idx }
+                            onClick = {
+                                selectedDeviceIdx = idx
+                                // 디바이스가 바뀌면 종속 값/플래그 초기화
+                                stateChosen = false
+                                windChosen = false
+                                acTempChosen = false
+                                selectedStateIdx = -1
+                            }
                         )
                     }
                     if (selectedRoomIdx == -1) {
@@ -149,9 +174,9 @@ fun CreateRoutineSecondScreen(
                 }
             }
 
-            // ✅ 디바이스 선택 전에는 아무 섹션도 보이지 않음
+            // ✅ 디바이스 선택 전에는 아래 섹션 안 보임
             if (selectedDeviceIdx >= 0) {
-                // 상태 설정 (필수인 경우만)
+                // 상태 설정
                 if (features.showState) {
                     SectionCard(title = "상태 설정") {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -162,7 +187,10 @@ fun CreateRoutineSecondScreen(
                                 RadioListRowWithChip(
                                     chipText = item.chip, title = item.title,
                                     selected = selectedStateIdx == idx,
-                                    onClick = { selectedStateIdx = idx }
+                                    onClick = {
+                                        selectedStateIdx = idx
+                                        stateChosen = true
+                                    }
                                 )
                             }
                         }
@@ -173,9 +201,14 @@ fun CreateRoutineSecondScreen(
                 if (features.showWind) {
                     SectionCard(title = "바람 세기") {
                         SegmentedNumberSelector(
-                            count = 5, selected = windLevel,
-                            onSelect = { windLevel = it }
+                            count = 5,
+                            selected = if (windChosen) windLevel else 0, // 0이면 아무것도 선택 안 된 상태처럼 보이게
+                            onSelect = {
+                                windLevel = it
+                                windChosen = true
+                            }
                         )
+                        if (!windChosen) HintText("세기를 선택하세요.")
                     }
                 }
 
@@ -203,11 +236,40 @@ fun CreateRoutineSecondScreen(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                SquareIconButton(icon = Icons.Filled.KeyboardArrowUp) { if (acTemp < 30) acTemp++ }
-                                SquareIconButton(icon = Icons.Filled.KeyboardArrowDown) { if (acTemp > 16) acTemp-- }
+                                SquareIconButton(icon = Icons.Filled.KeyboardArrowUp) {
+                                    if (acTemp < 30) acTemp++
+                                    acTempChosen = true
+                                }
+                                SquareIconButton(icon = Icons.Filled.KeyboardArrowDown) {
+                                    if (acTemp > 16) acTemp--
+                                    acTempChosen = true
+                                }
                             }
+                            if (!acTempChosen) HintText("온도를 조절하여 설정해주세요.")
                         }
                     }
+                }
+
+                // ✅ 동작 저장 버튼 (모든 값 입력 시에만 활성)
+                Spacer(Modifier.height(6.dp))
+                Button(
+                    onClick = {
+                        // TODO: 실제 저장/전송 로직 연결 (예: ViewModel API 호출 또는 이전 화면으로 결과 전달)
+                        navController.popBackStack()
+                    },
+                    enabled = canSave,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TextBlue,
+                        contentColor = Color.White,
+                        disabledContainerColor = Color(0xFFBFD8FF),
+                        disabledContentColor = Color.White.copy(alpha = 0.8f)
+                    )
+                ) {
+                    Text("동작 저장", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -322,7 +384,11 @@ private fun RadioListRowWithChip(chipText: String, title: String, selected: Bool
 }
 
 @Composable
-private fun SegmentedNumberSelector(count: Int, selected: Int, onSelect: (Int) -> Unit) {
+private fun SegmentedNumberSelector(
+    count: Int,
+    selected: Int,
+    onSelect: (Int) -> Unit
+) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         (1..count).forEach { i ->
             val isSelected = i == selected
