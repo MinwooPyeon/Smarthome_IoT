@@ -117,49 +117,13 @@ fun DeviceScreen(navController: NavController? = null) {
 
         Spacer(Modifier.height(40.dp))
 
-        // 1) 더미 리스트 (기존 그대로 유지)
-        val devices = remember {
-            mutableStateListOf(
-                DeviceUi(
-                    id = "hub",
-                    title = "허브",
-                    room = "거실",
-                    statusText = "켜짐",
-                    iconRes = R.drawable.ic_hub,
-                    statusIconRes = R.drawable.ic_device_on,
-                    iconTint = Gray500,
-                    isLarge = true
-                ),
-                DeviceUi(
-                    id = "tv",
-                    title = "텔레비전",
-                    room = "방1",
-                    statusText = "꺼짐",
-                    iconRes = R.drawable.ic_television,
-                    statusIconRes = R.drawable.ic_device_off,
-                    iconTint = Red500
-                ),
-                DeviceUi(
-                    id = "ac",
-                    title = "에어컨",
-                    room = "거실",
-                    statusText = "23°C",
-                    iconRes = R.drawable.ic_air_conditioning,
-                    statusIconRes = R.drawable.ic_device_on,
-                    iconTint = Blue500,
-                    supportsTemperature = true,
-                    defaultTempC = 23
-                )
-            )
-        }
-
-        // 1-1) 서버 목록(ViewModel) - 더미 리스트 아래에 추가
+        // 서버 목록(ViewModel)
         val listVm: DeviceListViewModel = viewModel()
         val serverItems by listVm.items.observeAsState(emptyList())
         val loading by listVm.loading.observeAsState(false)
         val loadError by listVm.error.observeAsState()
 
-        // 최초 진입 시 1회 로드 (원하시면 제거 가능)
+        // 최초 진입 시 1회 로드
         LaunchedEffect(Unit) { listVm.load() }
         // 자동 새로고침 신호 수신 시 서버 목록 재조회
         LaunchedEffect(refreshKey) {
@@ -169,74 +133,21 @@ fun DeviceScreen(navController: NavController? = null) {
             }
         }
 
-        fun toggleDevice(id: String) {
-            val index = devices.indexOfFirst { it.id == id }
-            if (index < 0) return
-            val d = devices[index]
-
-            val newStatus: String
-            val newIcon: Int
-
-            if (d.supportsTemperature) {
-                // 온도 지원 디바이스(예: 에어컨)
-                if (d.statusText.endsWith("°C")) {
-                    // 현재 켜짐(온도 표시) -> 끄기
-                    newStatus = "꺼짐"
-                    newIcon = R.drawable.ic_device_off
-                } else {
-                    // 현재 꺼짐 -> 기본 온도로 켜기
-                    newStatus = "${d.defaultTempC}°C"
-                    newIcon = R.drawable.ic_device_on
-                }
-            } else {
-                // 일반 디바이스: 켜짐/꺼짐 토글
-                val isOn = d.statusText == "켜짐"
-                newStatus = if (isOn) "꺼짐" else "켜짐"
-                newIcon = if (isOn) R.drawable.ic_device_off else R.drawable.ic_device_on
-            }
-
-            devices[index] = d.copy(statusText = newStatus, statusIconRes = newIcon)
-        }
-
-        // 2) 그리드 렌더링 (플러스 추가 카드 포함) - 더미 카드
-        DeviceGrid(items = devices, showAddTile = true, onToggle = ::toggleDevice, onAddClick = {
-            // 등록 초안 초기화 후 등록 플로우 진입
-            regVm.resetDraft()
-            navController?.navigate("device_registration")
-        })
-
-        Spacer(Modifier.height(24.dp))
-
-        // 3) 서버 목록 렌더링 (카드 UI, 페이징/정렬/필터 없음)
-        if (loading) {
-            Text("서버 목록 불러오는 중...", color = Gray600)
-        }
-        loadError?.let { err ->
-            if (err.isNotBlank()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("오류: $err", color = Red500)
-                    Button(
-                        onClick = { listVm.load() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF), contentColor = Color.White),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("다시 시도")
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-            }
-        }
-        if (serverItems.isNotEmpty()) {
-            Text("서버 디바이스 목록", style = TextStyle(fontSize = 16.sp, fontFamily = FontFamily(Font(R.font.goormsansbold)), color = Gray800))
-            Spacer(Modifier.height(8.dp))
-
-            val serverUi = serverItems.map { deviceResponse ->
+        // 허브 데이터 + 서버 데이터 합치기
+        val allDevices = remember(serverItems) {
+            val hubDevice = DeviceUi(
+                id = "hub",
+                title = "허브",
+                room = "거실",
+                statusText = "켜짐",
+                iconRes = R.drawable.ic_hub,
+                statusIconRes = R.drawable.ic_device_on,
+                iconTint = Gray500,
+                isLarge = true
+            )
+            
+            val serverDevices = serverItems.map { deviceResponse ->
                 // 방 이름 추출: deviceName의 첫 공백 이전 부분을 방 이름으로 간주
-                // 예: "방1 에어컨" -> "방1", "거실 TV" -> "거실"
                 val roomName = deviceResponse.deviceName.substringBefore(' ').ifBlank { "방" }
                 
                 // power 상태 체크 (deviceDetail의 power 필드가 Boolean인 경우)
@@ -275,27 +186,48 @@ fun DeviceScreen(navController: NavController? = null) {
                     iconRes = iconResForType(deviceResponse.deviceType),
                     statusIconRes = if (isOn) R.drawable.ic_device_on else R.drawable.ic_device_off,
                     iconTint = iconTint,
-                    isLarge = false
+                    isLarge = false,
+                    supportsTemperature = temperature != null
                 )
             }
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(serverUi) { deviceUi ->
-                    DeviceCardSmall(
-                        title = deviceUi.title,
-                        room = deviceUi.room,
-                        status = deviceUi.statusText,
-                        iconRes = deviceUi.iconRes,
-                        statusIconRes = deviceUi.statusIconRes,
-                        iconTint = deviceUi.iconTint,
-                        onToggle = { /* 서버 기기 토글은 범위 외 */ }
-                    )
+            
+            listOf(hubDevice) + serverDevices
+        }
+
+        if (loading) {
+            Text("디바이스 목록 불러오는 중...", color = Gray600)
+        } else {
+            loadError?.let { err ->
+                if (err.isNotBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("오류: $err", color = Red500)
+                        Button(
+                            onClick = { listVm.load() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF), contentColor = Color.White),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("다시 시도")
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
+            
+            // 통합된 그리드 렌더링 (허브 + 서버 디바이스 + 추가 버튼)
+            DeviceGrid(
+                items = allDevices, 
+                showAddTile = true, 
+                onToggle = { /* TODO: 서버 API 토글 기능 */ }, 
+                onAddClick = {
+                    // 등록 초안 초기화 후 등록 플로우 진입
+                    regVm.resetDraft()
+                    navController?.navigate("device_registration")
+                }
+            )
         }
     }
 }
