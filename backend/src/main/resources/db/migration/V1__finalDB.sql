@@ -127,7 +127,7 @@ CREATE TABLE "ir_button" (
 
 CREATE TABLE "ir_device" (
 	"ir_device_id"	VARCHAR		NOT NULL,
-	"hub_device_id"	VARCHAR		NOT NULL
+	"hub_device_id"	VARCHAR		NULL
 );
 
 
