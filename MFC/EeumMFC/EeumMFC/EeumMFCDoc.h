@@ -26,6 +26,7 @@ public:
 	std::vector<IrEvent> latestIr_;
 private:
 	std::string selectedHub_;
+	std::string lastOrderedHub_;
 // 작업입니다.
 public:
 	void SetSelectedHub(const CString& hub);

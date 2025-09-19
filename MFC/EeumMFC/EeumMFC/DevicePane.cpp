@@ -31,7 +31,7 @@ int CDevicePane::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
     // »ùÇÃ ³ëµå
     HTREEITEM hRoot = m_tree.InsertItem(L"Devices");
-    m_tree.InsertItem(L"hub/001", 0, 0, hRoot);
+    m_tree.InsertItem(L"rasp-1", 0, 0, hRoot);
     m_tree.InsertItem(L"hub/002", 0, 0, hRoot);
     m_tree.Expand(hRoot, TVE_EXPAND);
     return 0;

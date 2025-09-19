@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <mosquittopp.h>
 
 struct EnvSample {
 	long long tsMs;
@@ -26,4 +27,26 @@ struct Metrics {
     double wbgt = NAN;        // WBGT (근사, °C)
     double pmv = NAN;         // PMV (-3 ~ +3)
     double ppd = NAN;         // PPD (%)
+};
+
+struct Config {
+	std::string id = "eeum-mfc";
+	std::string host = "43.201.62.254";
+	int         port = 8883;
+	int         keepalive = 60;
+
+	// 인증
+	std::string user = "eeum";
+	std::string pass = "ssafy2086eeum";
+
+	// TLS
+	std::string caFile = "../../../broker_selfsigned_ca.crt";          // 서버 CA(자체서명이라면 서버 cert 자체를 넣어도 됨)
+	std::string clientCertFile;  // mTLS 필요 시
+	std::string clientKeyFile;   // mTLS 필요 시
+	bool        tlsInsecure = false; // 호스트명 검증 off (테스트용)
+};
+
+struct MosqInitGuard {
+	MosqInitGuard() { mosqpp::lib_init(); }   // 항상 먼저
+	~MosqInitGuard() { /* mosqpp::lib_cleanup();  <- 앱 종료에서 호출 */ }
 };

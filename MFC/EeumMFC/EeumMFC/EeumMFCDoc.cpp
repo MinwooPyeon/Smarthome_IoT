@@ -51,30 +51,38 @@ END_MESSAGE_MAP()
 
 // CEeumMFCDoc 생성/소멸
 
-CEeumMFCDoc::CEeumMFCDoc() noexcept{}
+CEeumMFCDoc::CEeumMFCDoc() noexcept {}
 
-CEeumMFCDoc::~CEeumMFCDoc(){}
+CEeumMFCDoc::~CEeumMFCDoc() {}
 
 void CEeumMFCDoc::SetSelectedHub(const CString& hub)
 {
 	std::wstring ws(hub);
 	std::string s(ws.begin(), ws.end());   // hub/001
 
+	if (s.rfind("hub/", 0) != 0) s = "hub/" + s;
+
+
+
+	if (!lastOrderedHub_.empty() && lastOrderedHub_ != s && mqtt_) {
+		mqtt_->orderEnv(lastOrderedHub_, false); // 그만 보내!
+	}
 	selectedHub_ = s;
 
 	if (mqtt_) {
-		mqtt_->setTopics({
-			selectedHub_ + "/env",
-			selectedHub_ + "/log"
-			});
+		mqtt_->setTopics({ selectedHub_ + "/env", selectedHub_ + "/log" });
+
+		// 스트리밍 시작
+		mqtt_->orderEnv(selectedHub_, true);
+		lastOrderedHub_ = selectedHub_;
 	}
 
-	// (선택 변경 시 버퍼 정리하고 새 데이터만 받도록)
+	// 보기 좋게 버퍼 초기화(선택)
 	{
 		std::lock_guard<std::mutex> lk(mtx_);
 		latestEnv_.clear();
 		latestIr_.clear();
-		// latestMet_는 그대로 두거나 초기화 선택
+		// latestMet_는 필요시 초기화
 	}
 }
 
@@ -96,7 +104,8 @@ BOOL CEeumMFCDoc::OnNewDocument()
 
 	ingestor_.start(2.0);
 
-	mqtt_ = std::make_unique<MqttClient>("eeum", "43.201.62.254", 8883);
+	Config config;
+	mqtt_ = std::make_unique<MqttClient>(config);
 
 	mqtt_->onMessage = [this](const std::string& topic, const std::string& payload) {
 		if (topic.find("/env") != std::string::npos) {
@@ -109,16 +118,17 @@ BOOL CEeumMFCDoc::OnNewDocument()
 				::PostMessage(mf->GetSafeHwnd(), WM_APP_LOG, 0, (LPARAM)msg);
 			}
 		}
-	};
+		};
 
 	return TRUE;
 }
 
 void CEeumMFCDoc::OnCloseDocument() {
-	ingestor_.stop();
-	if (mqtt_) {
-		mqtt_.reset();
+	if (mqtt_ && !lastOrderedHub_.empty()) {
+		mqtt_->orderEnv(lastOrderedHub_, false);
 	}
+	ingestor_.stop();
+	mqtt_.reset();
 	CDocument::OnCloseDocument();
 }
 
@@ -148,7 +158,7 @@ void CEeumMFCDoc::OnDrawThumbnail(CDC& dc, LPRECT lprcBounds)
 	CString strText = _T("TODO: implement thumbnail drawing here");
 	LOGFONT lf;
 
-	CFont* pDefaultGUIFont = CFont::FromHandle((HFONT) GetStockObject(DEFAULT_GUI_FONT));
+	CFont* pDefaultGUIFont = CFont::FromHandle((HFONT)GetStockObject(DEFAULT_GUI_FONT));
 	pDefaultGUIFont->GetLogFont(&lf);
 	lf.lfHeight = 36;
 
@@ -179,7 +189,7 @@ void CEeumMFCDoc::SetSearchContent(const CString& value)
 	}
 	else
 	{
-		CMFCFilterChunkValueImpl *pChunk = nullptr;
+		CMFCFilterChunkValueImpl* pChunk = nullptr;
 		ATLTRY(pChunk = new CMFCFilterChunkValueImpl);
 		if (pChunk != nullptr)
 		{
