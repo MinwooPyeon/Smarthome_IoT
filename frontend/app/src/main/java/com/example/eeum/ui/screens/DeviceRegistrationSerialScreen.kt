@@ -104,17 +104,16 @@ fun DeviceRegistrationSerialScreen(
                 OutlinedTextField(
                     value = serial,
                     onValueChange = { input ->
-                        // 영문과 숫자만 허용하고 자동으로 대문자로 변환
-                        val filtered = input.filter { it.isLetterOrDigit() }
-                        serial = filtered.uppercase()
+                        // 모든 입력 허용 (esp-1 같은 하이픈 포함)
+                        serial = input
                     },
-                    placeholder = { Text("예: AB123CD456", fontSize = 14.sp, color = Gray400) },
+                    placeholder = { Text("예: esp-1, AB123CD456", fontSize = 14.sp, color = Gray400) },
                     singleLine = true,
                     textStyle = TextStyle(fontSize = 14.sp, fontFamily = FontFamily(Font(R.font.goormsansmedium))),
                     shape = RoundedCornerShape(8.dp),
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Ascii,
-                        capitalization = KeyboardCapitalization.Characters
+                        keyboardType = KeyboardType.Text,
+                        capitalization = KeyboardCapitalization.None
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )

@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,7 +34,7 @@ import com.example.eeum.ui.theme.EeumTheme
 fun HomeScreen(
     onOpenMap: () -> Unit = {},   // 카드 클릭과 동일 동작 (요청: 새 집 추가 클릭 시 onCardClick() 실행)
     onAddHome: () -> Unit = {},   // (기존 파라미터 유지, 아래에서는 사용 안 함)
-    vm: HomeViewModel = viewModel()
+    vm: HomeViewModel = viewModel(LocalContext.current as androidx.activity.ComponentActivity)
 ) {
     // 서버 데이터
     val homes by vm.homes.observeAsState(emptyList())

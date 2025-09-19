@@ -18,13 +18,13 @@ import retrofit2.http.Query
 interface DeviceService {
 
     // 디바이스 등록
-    @POST ("api/devices")
+    @POST ("/api/devices")
     suspend fun createDevice(
         @Body body: DeviceRequest
-    ): Response<ApiResponse<BaseResponse>>
+    ): Response<ApiResponse<Boolean>>
 
     // 디바이스 조회
-    @GET("api/devices")
+    @GET("/api/devices")
     suspend fun readDevices(
         @Query("power") power: Boolean? = null,
         @Query("type") type: String? = null,
@@ -33,20 +33,20 @@ interface DeviceService {
     ): Response<ApiResponse<Page<DeviceResponse>>>
 
     // 디바이스 단건 조회
-    @GET("api/devices/{deviceId}")
+    @GET("/api/devices/{deviceId}")
     suspend fun readDevice(
         @Path("deviceId") id: Int,
     ): Response<ApiResponse<DeviceResponse>>
 
     // 디바이스 상태 업데이트
-    @PUT("api/devices/{deviceId}/status")
+    @PUT("/api/devices/{deviceId}/status")
     suspend fun updateDeviceStatus(
         @Path("deviceId") id: Int,
         @Body body: JsonObject
     ): Response<ApiResponse<BaseResponse>>
 
     // 디바이스 삭제
-    @DELETE("api/devices/{deviceId}")
+    @DELETE("/api/devices/{deviceId}")
     suspend fun deleteDevice(
         @Path("deviceId") id: Int,
     ): Response<ApiResponse<BaseResponse>>

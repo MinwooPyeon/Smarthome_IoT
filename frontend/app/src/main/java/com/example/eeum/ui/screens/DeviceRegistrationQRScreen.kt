@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -47,6 +46,8 @@ import com.example.eeum.R
 import com.example.eeum.ui.components.CustomButton
 import com.example.eeum.ui.theme.*
 import com.example.eeum.ui.components.QRScannerView
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.activity.ComponentActivity
 
 @Composable
 fun DeviceRegistrationQRScreen(
@@ -59,6 +60,10 @@ fun DeviceRegistrationQRScreen(
     var isScanning: Boolean by isScanningState
     var scanned: String? by scannedState
     val context = LocalContext.current
+    // HomeViewModel은 Activity 범위로 공유해서 사용합니다.
+    val activity = LocalContext.current as ComponentActivity
+    val homeVm: HomeViewModel = viewModel(activity)
+    val regVm: DeviceRegistrationViewModel = viewModel(activity)
 
     Column(
         modifier = Modifier
@@ -200,8 +205,12 @@ fun DeviceRegistrationQRScreen(
                                 isScanning = false
                                 // 스캔 성공 시: 허브는 완료 화면으로, 그 외는 브랜드 입력 화면으로 이동
                                 val k = kind ?: ""
+                                // 등록 초안에 시리얼 반영
+                                regVm.setSerial(code)
                                 if (k == "HUB") {
-                                    navController?.navigate("device_registration_complete/$k") { launchSingleTop = true }
+                                    val homeId = homeVm.selectedHomeId.value
+                                    val query = homeId?.let { "?homeId=$it" } ?: ""
+                                    navController?.navigate("device_registration_complete/$k$query") { launchSingleTop = true }
                                 } else {
                                     navController?.navigate("device_registration_brand/$k?serial=$code") { launchSingleTop = true }
                                 }

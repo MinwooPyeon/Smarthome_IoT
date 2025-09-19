@@ -126,18 +126,28 @@ fun DeviceRegistrationScreen(
                 ) {
                     // 1) 허브는 한 줄 전체를 차지
                     item(span = { GridItemSpan(2) }) {
+                        val activity = androidx.compose.ui.platform.LocalContext.current as androidx.activity.ComponentActivity
+                        val regVm: DeviceRegistrationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
                         DeviceTile(
                             item = allDevices.first { it.kind == DeviceKind.HUB },
                             modifier = Modifier.fillMaxWidth().height(86.dp),
-                            onClick = { onSelect("HUB") }
+                            onClick = {
+                                regVm.setKind("HUB")
+                                onSelect("HUB")
+                            }
                         )
                     }
                     // 2) 나머지 6개 2x3 그리드
                     items(allDevices.filter { it.kind != DeviceKind.HUB }) { item ->
+                        val activity = androidx.compose.ui.platform.LocalContext.current as androidx.activity.ComponentActivity
+                        val regVm: DeviceRegistrationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
                         DeviceTile(
                             item = item,
                             modifier = Modifier.height(86.dp),
-                            onClick = { onSelect(item.kind.name) }
+                            onClick = {
+                                regVm.setKind(item.kind.name)
+                                onSelect(item.kind.name)
+                            }
                         )
                     }
                 }

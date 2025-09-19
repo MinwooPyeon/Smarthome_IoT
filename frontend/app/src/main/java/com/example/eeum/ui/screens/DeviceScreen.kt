@@ -22,9 +22,21 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.eeum.data.model.response.device.DeviceResponse
+import com.example.eeum.data.remote.RetrofitUtil
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,8 +52,48 @@ import androidx.compose.ui.unit.sp
 import com.example.eeum.R
 import com.example.eeum.ui.theme.*
 
+class DeviceListViewModel : ViewModel() {
+    private val _items = androidx.lifecycle.MutableLiveData<List<DeviceResponse>>(emptyList())
+    val items: androidx.lifecycle.LiveData<List<DeviceResponse>> get() = _items
+    private val _loading = androidx.lifecycle.MutableLiveData(false)
+    val loading: androidx.lifecycle.LiveData<Boolean> get() = _loading
+    private val _error = androidx.lifecycle.MutableLiveData<String?>(null)
+    val error: androidx.lifecycle.LiveData<String?> get() = _error
+
+    fun load() {
+        viewModelScope.launch {
+            _loading.value = true
+            runCatching { RetrofitUtil.deviceService.readDevices() }
+                .onSuccess { res ->
+                    if (res.isSuccessful) {
+                        val body = res.body()
+                        _items.value = body?.data?.items ?: emptyList()
+                        _error.value = null
+                    } else {
+                        _error.value = "HTTP ${res.code()}"
+                    }
+                }
+                .onFailure { e -> _error.value = e.message }
+            _loading.value = false
+        }
+    }
+}
+
 @Composable
 fun DeviceScreen(navController: NavController? = null) {
+    // Activity 범위의 등록 ViewModel을 미리 획득하여 클릭 콜백에서 사용
+    val activity = androidx.compose.ui.platform.LocalContext.current as androidx.activity.ComponentActivity
+    val regVm: DeviceRegistrationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
+
+    // Device 탭 자동 새로고침 신호 구독
+    val mainEntry = remember(navController) {
+        runCatching { navController?.getBackStackEntry("main_tabs") }.getOrNull()
+    }
+    val refreshLiveData = remember(mainEntry) {
+        mainEntry?.savedStateHandle?.getLiveData<Long>("device_refresh")
+    }
+    val refreshKey by refreshLiveData?.observeAsState(0L) ?: remember { mutableStateOf(0L) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -65,7 +117,7 @@ fun DeviceScreen(navController: NavController? = null) {
 
         Spacer(Modifier.height(40.dp))
 
-        // 1) 그리드에 넣을 데이터 리스트 (상태 토글을 위해 가변 리스트로 보관)
+        // 1) 더미 리스트 (기존 그대로 유지)
         val devices = remember {
             mutableStateListOf(
                 DeviceUi(
@@ -101,6 +153,22 @@ fun DeviceScreen(navController: NavController? = null) {
             )
         }
 
+        // 1-1) 서버 목록(ViewModel) - 더미 리스트 아래에 추가
+        val listVm: DeviceListViewModel = viewModel()
+        val serverItems by listVm.items.observeAsState(emptyList())
+        val loading by listVm.loading.observeAsState(false)
+        val loadError by listVm.error.observeAsState()
+
+        // 최초 진입 시 1회 로드 (원하시면 제거 가능)
+        LaunchedEffect(Unit) { listVm.load() }
+        // 자동 새로고침 신호 수신 시 서버 목록 재조회
+        LaunchedEffect(refreshKey) {
+            if (refreshKey != 0L) {
+                android.widget.Toast.makeText(activity, "디바이스 목록을 새로고침했습니다.", android.widget.Toast.LENGTH_SHORT).show()
+                listVm.load()
+            }
+        }
+
         fun toggleDevice(id: String) {
             val index = devices.indexOfFirst { it.id == id }
             if (index < 0) return
@@ -130,10 +198,108 @@ fun DeviceScreen(navController: NavController? = null) {
             devices[index] = d.copy(statusText = newStatus, statusIconRes = newIcon)
         }
 
-        // 2) 그리드 렌더링 (플러스 추가 카드 포함)
-        DeviceGrid(items = devices, showAddTile = true, onToggle = ::toggleDevice, onAddClick = { navController?.navigate("device_registration") })
+        // 2) 그리드 렌더링 (플러스 추가 카드 포함) - 더미 카드
+        DeviceGrid(items = devices, showAddTile = true, onToggle = ::toggleDevice, onAddClick = {
+            // 등록 초안 초기화 후 등록 플로우 진입
+            regVm.resetDraft()
+            navController?.navigate("device_registration")
+        })
+
+        Spacer(Modifier.height(24.dp))
+
+        // 3) 서버 목록 렌더링 (카드 UI, 페이징/정렬/필터 없음)
+        if (loading) {
+            Text("서버 목록 불러오는 중...", color = Gray600)
+        }
+        loadError?.let { err ->
+            if (err.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("오류: $err", color = Red500)
+                    Button(
+                        onClick = { listVm.load() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF), contentColor = Color.White),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("다시 시도")
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+        if (serverItems.isNotEmpty()) {
+            Text("서버 디바이스 목록", style = TextStyle(fontSize = 16.sp, fontFamily = FontFamily(Font(R.font.goormsansbold)), color = Gray800))
+            Spacer(Modifier.height(8.dp))
+
+            val serverUi = serverItems.map { deviceResponse ->
+                // 방 이름 추출: deviceName의 첫 공백 이전 부분을 방 이름으로 간주
+                // 예: "방1 에어컨" -> "방1", "거실 TV" -> "거실"
+                val roomName = deviceResponse.deviceName.substringBefore(' ').ifBlank { "방" }
+                
+                // power 상태 체크 (deviceDetail의 power 필드가 Boolean인 경우)
+                val isOn = runCatching {
+                    val powerEl = deviceResponse.deviceDetail.get("power")
+                    powerEl?.asJsonPrimitive?.asBoolean ?: false
+                }.getOrDefault(false)
+                
+                // 온도 정보가 있는 경우 (에어컨 등)
+                val temperature = runCatching {
+                    val tempEl = deviceResponse.deviceDetail.get("temperature")
+                    tempEl?.asJsonPrimitive?.asInt
+                }.getOrNull()
+                
+                // 상태 텍스트 결정
+                val statusText = when {
+                    !isOn -> "꺼짐"
+                    temperature != null -> "${temperature}°C"
+                    else -> "켜짐"
+                }
+                
+                // 아이콘 색상 결정 (디바이스 타입별)
+                val iconTint = when (deviceResponse.deviceType?.uppercase()) {
+                    "AIR_CONDITIONER" -> if (isOn) Blue500 else Gray500
+                    "TV", "BEAM_PROJECTOR" -> if (isOn) Red500 else Gray500
+                    "FAN", "AIR_PURIFIER" -> if (isOn) Green500 else Gray500
+                    "LIGHT" -> if (isOn) Yellow600 else Gray500
+                    else -> Gray500
+                }
+                
+                DeviceUi(
+                    id = deviceResponse.deviceId.toString(),
+                    title = deviceResponse.deviceName,
+                    room = roomName,
+                    statusText = statusText,
+                    iconRes = iconResForType(deviceResponse.deviceType),
+                    statusIconRes = if (isOn) R.drawable.ic_device_on else R.drawable.ic_device_off,
+                    iconTint = iconTint,
+                    isLarge = false
+                )
+            }
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(serverUi) { deviceUi ->
+                    DeviceCardSmall(
+                        title = deviceUi.title,
+                        room = deviceUi.room,
+                        status = deviceUi.statusText,
+                        iconRes = deviceUi.iconRes,
+                        statusIconRes = deviceUi.statusIconRes,
+                        iconTint = deviceUi.iconTint,
+                        onToggle = { /* 서버 기기 토글은 범위 외 */ }
+                    )
+                }
+            }
+        }
     }
 }
+
 
 @Composable
 private fun DeviceCardLarge(
@@ -353,6 +519,16 @@ private fun DeviceGrid(
             }
         }
     }
+}
+
+private fun iconResForType(type: String?): Int = when (type?.uppercase()) {
+    "AIR_CONDITIONER" -> R.drawable.ic_air_conditioning
+    "FAN" -> R.drawable.ic_electric_fan
+    "TV" -> R.drawable.ic_television
+    "BEAM_PROJECTOR" -> R.drawable.ic_beam_projector
+    "AIR_PURIFIER" -> R.drawable.ic_air_purifier
+    "LIGHT" -> R.drawable.ic_light
+    else -> R.drawable.ic_device
 }
 
 @Preview
