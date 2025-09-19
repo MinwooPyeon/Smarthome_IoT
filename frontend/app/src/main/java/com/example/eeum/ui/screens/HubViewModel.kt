@@ -72,13 +72,13 @@ class HubViewModel : ViewModel() {
     }
 
     // 허브 목록 조회
-    fun getHubs() {
+    fun getHubs(homeId: Int? = null) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             
             runCatching {
-                RetrofitUtil.hubService.getHubs()
+                RetrofitUtil.hubService.getHubs(homeId)
             }.onSuccess { response ->
                 _isLoading.value = false
                 if (response.isSuccessful) {

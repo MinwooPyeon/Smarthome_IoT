@@ -132,7 +132,8 @@ fun DeviceScreen(navController: NavController? = null) {
         // 최초 진입 시 1회 로드
         LaunchedEffect(Unit) { 
             listVm.load() 
-            hubVm.getHubs() // 허브 목록도 로드
+            // 허브 목록도 로드 (기본 homeId 1 사용)
+            hubVm.getHubs(1)
         }
         
         // 허브 등록 성공 시 허브 목록 재조회
@@ -140,7 +141,7 @@ fun DeviceScreen(navController: NavController? = null) {
         val registrationStatus by hubVm.registrationStatus.observeAsState()
         LaunchedEffect(userHomeId, registrationStatus) {
             if (userHomeId != null && registrationStatus == "success") {
-                hubVm.getHubs() // 허브 등록 성공 후 목록 새로고침
+                hubVm.getHubs(1) // 허브 등록 성공 후 목록 새로고침
             }
         }
         // 자동 새로고침 신호 수신 시 서버 목록 재조회
@@ -148,24 +149,32 @@ fun DeviceScreen(navController: NavController? = null) {
             if (refreshKey != 0L) {
                 android.widget.Toast.makeText(activity, "디바이스 목록을 새로고침했습니다.", android.widget.Toast.LENGTH_SHORT).show()
                 listVm.load()
-                hubVm.getHubs() // 허브 목록도 새로고침
+                hubVm.getHubs(1) // 허브 목록도 새로고침
             }
         }
 
         // 허브 데이터 + 서버 데이터 합치기
         val allDevices = remember(serverItems, hubList) {
+            android.util.Log.d("DeviceScreen", "허브 목록 API 응답: $hubList, 갯수: ${hubList.size}")
+            
             // 등록된 허브들을 DeviceUi로 변환
-            val hubDevices = hubList.mapIndexed { index, hubId ->
-                DeviceUi(
-                    id = "hub_$hubId",
-                    title = "허브 ${index + 1}",
-                    room = "거실", // 또는 실제 방 정보가 있다면 사용
-                    statusText = "켜짐",
-                    iconRes = R.drawable.ic_hub,
-                    statusIconRes = R.drawable.ic_device_on,
-                    iconTint = Gray500,
-                    isLarge = true
-                )
+            val hubDevices = if (hubList.isNotEmpty()) {
+                hubList.mapIndexed { index, hubId ->
+                    android.util.Log.d("DeviceScreen", "허브 처리 중: index=$index, hubId=$hubId")
+                    DeviceUi(
+                        id = "hub_$hubId",
+                        title = if (hubId.isNotBlank()) "허브 ($hubId)" else "허브 ${index + 1}",
+                        room = "거실", // 또는 실제 방 정보가 있다면 사용
+                        statusText = "연결됨",
+                        iconRes = R.drawable.ic_hub,
+                        statusIconRes = R.drawable.ic_device_on,
+                        iconTint = Gray500,
+                        isLarge = true
+                    )
+                }
+            } else {
+                android.util.Log.d("DeviceScreen", "등록된 허브가 없습니다.")
+                emptyList()
             }
             
             val serverDevices = serverItems.map { deviceResponse ->
