@@ -19,6 +19,7 @@ import com.eeum.dto.request.RegisterDeviceRequest;
 import com.eeum.dto.request.UpdateDeviceLocationRequest;
 import com.eeum.dto.response.DeviceItemResponse;
 import com.eeum.dto.response.DeviceLocationResponse;
+import com.eeum.dto.response.DeviceLogItemResponse;
 import com.eeum.dto.response.DeviceResponse;
 import com.eeum.entity.Device;
 import com.eeum.entity.IrButton;
@@ -35,10 +36,12 @@ import com.eeum.repository.HubDeviceRepository;
 import com.eeum.repository.IrButtonRepository;
 import com.eeum.repository.IrDeviceRepository;
 import com.eeum.repository.IrEventLogRepository;
+import com.eeum.repository.IrEventLogRepository.LogRow;
 import com.eeum.repository.IrRemoteirRepository;
 import com.eeum.repository.IrSignalRepository;
 import com.eeum.repository.IrTxQueueRepository;
 import com.eeum.repository.RoomRepository;
+import com.eeum.repository.UserHomeRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -62,6 +65,7 @@ public class DeviceService {
     private final IrSignalRepository irSignalRepository;     
     private final IrTxQueueRepository irTxQueueRepository;
     private final IrEventLogRepository irEventLogRepository;
+    private final UserHomeRepository userHomeRepository;
     private final MqttOutService mqttService;
     
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -71,7 +75,9 @@ public class DeviceService {
     	    "조명", Set.of("power"),
     	    "에어컨", Set.of("power", "temperature", "level"),
     	    "공기청정기", Set.of("power", "level"),
-    	    "선풍기", Set.of("power", "level")
+    	    "선풍기", Set.of("power", "level"),
+    	    "티비", Set.of("power"),
+    	    "빔프로젝터", Set.of("power")
     	);
 
     
@@ -504,5 +510,34 @@ public class DeviceService {
                         .y(r.getY())
                         .build())
                 .toList();
+    }
+    
+    
+    // 디바이스 로그
+    @Transactional
+    public List<DeviceLogItemResponse> listRecentLogs(Integer userId, Integer homeId, Integer limit) {
+        if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
+        if (homeId == null) throw new IllegalArgumentException("homeId는 필수입니다.");
+
+        int effectiveLimit = (limit == null || limit <= 0 || limit > 500) ? 100 : limit;
+
+        boolean hasAccess = userHomeRepository.existsByUserIdAndHomeId(userId, homeId);
+        if (!hasAccess) {
+            throw new IllegalArgumentException("해당 집에 대한 접근 권한이 없습니다.");
+        }
+
+        List<LogRow> rows = irEventLogRepository.findRecentLogsByUserAndHome(userId, homeId, effectiveLimit);
+
+        List<DeviceLogItemResponse> result = rows.stream()
+            .map(r -> new DeviceLogItemResponse(
+                r.getDeviceName(),
+                r.getEventTime(),
+                r.getKind(),
+                r.getRoomId(),
+                r.getRoomName()
+            ))
+            .collect(Collectors.toList());
+
+        return result;
     }
 }
