@@ -42,6 +42,7 @@ private val PrimaryBlue = Color(0xFF3D6EF7)
 @Preview
 @Composable
 fun MyRoutinePage(
+    navController: androidx.navigation.NavController? = null,
     viewModel: RoutineViewModel = viewModel()
 ) {
     // 최초 로딩
@@ -112,10 +113,10 @@ fun MyRoutinePage(
             MyRoutineCard(
                 routine = routine,
                 onToggle = { changedTo ->
-                    // 필요 시 토글 API 연동 위치
+                    //토글 API
                 },
                 onEdit = { routineToEdit ->
-                    // TODO: 루틴 수정 화면으로 이동
+                    navController?.navigate("editRoutineFirst")
                 },
                 onDelete = { routine ->
                     routineToDelete = routine

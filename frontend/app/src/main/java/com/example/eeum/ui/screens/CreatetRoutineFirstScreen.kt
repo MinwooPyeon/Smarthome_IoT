@@ -54,7 +54,8 @@ private val BorderGray = Color(0xFFE0E0E0)
 @Composable
 fun CreateRoutineFirstScreen(
     navController: NavController,
-    vm: RoutineViewModel = viewModel()
+    vm: RoutineViewModel = viewModel(),
+    isEditMode: Boolean = false
 ) {
     // --- 입력값들을 모두 rememberSaveable 로 보존 ---
     var title by rememberSaveable { mutableStateOf("") }
@@ -132,7 +133,11 @@ fun CreateRoutineFirstScreen(
                     tint = Color.Black,
                     modifier = Modifier.clickable { navController.popBackStack() }
                 )
-                Text("루틴 만들기", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = if (isEditMode) "루틴 수정" else "루틴 만들기",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 Text(" ", color = TextBlue, fontSize = 16.sp)
             }
         }
@@ -736,6 +741,6 @@ private fun iconResForDevice(deviceType: String?): Int? {
 private fun CreateRoutineFirstScreenPreview() {
     val nav = rememberNavController()
     EeumTheme(dynamicColor = false) {
-        CreateRoutineFirstScreen(nav)
+        CreateRoutineFirstScreen(nav, isEditMode = false)
     }
 }

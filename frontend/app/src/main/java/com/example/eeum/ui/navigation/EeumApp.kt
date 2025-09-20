@@ -51,6 +51,7 @@ private const val LOG_MANAGE_ROUTE = "log_manage"
 private const val ALARM_MANAGE_ROUTE = "alarm_manage"
 private const val ROUTINE_ROUTE = "routine"
 private const val ROUTE_CREATE_ROUTINE_FIRST = "createRoutineFirst"
+private const val ROUTE_EDIT_ROUTINE_FIRST = "editRoutineFirst"
 private const val ROUTE_CREATE_ROUTINE_SECOND = "createRoutineSecond"
 private const val USER_INFORMATION_ROUTE = "user_information"
 private const val DEVICE_REGISTRATION_ROUTE = "device_registration"
@@ -95,6 +96,7 @@ fun EeumApp() {
 
         composable(ROUTINE_ROUTE) { RoutineScreen(navController) }
         composable(ROUTE_CREATE_ROUTINE_FIRST) { CreateRoutineFirstScreen(navController) }
+        composable(ROUTE_EDIT_ROUTINE_FIRST) { CreateRoutineFirstScreen(navController, isEditMode = true) }
         composable(ROUTE_CREATE_ROUTINE_SECOND) { CreateRoutineSecondScreen(navController) }
 
         composable(USER_INFORMATION_ROUTE) { UserInformationScreen(navController) }
