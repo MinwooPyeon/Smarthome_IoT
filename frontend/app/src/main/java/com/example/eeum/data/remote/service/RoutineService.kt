@@ -6,6 +6,7 @@ import com.example.eeum.data.model.response.common.ApiResponse
 import com.example.eeum.data.model.response.common.BaseResponse
 import com.example.eeum.data.model.response.common.Page
 import com.example.eeum.data.model.response.routine.AllRoutine
+import com.example.eeum.data.model.response.routine.DeleteResponse
 import com.example.eeum.data.model.response.routine.RoutineCreateResponse
 import com.example.eeum.data.model.response.routine.RoutineIcon
 import com.example.eeum.data.model.response.routine.RoutineResponse
@@ -64,5 +65,11 @@ interface RoutineService {
     suspend fun deleteRoutine(
         @Path("routineId") id: Int,
     ): Response<ApiResponse<BaseResponse>>
+
+    // 루틴 삭제 (응답 스펙에 맞춰 수정)
+    @DELETE("api/routines/{routineId}")
+    suspend fun removeRoutine(
+        @Path("routineId") id: Int,
+    ): Response<DeleteResponse>
 
 }

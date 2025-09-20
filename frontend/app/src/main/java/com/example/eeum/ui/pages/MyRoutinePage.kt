@@ -47,7 +47,30 @@ fun MyRoutinePage(
     // 최초 로딩
     LaunchedEffect(Unit) { viewModel.fetchAllRoutines() }
 
+    // 삭제 확인 다이얼로그 상태
+    var routineToDelete by remember { mutableStateOf<RoutineData?>(null) }
+
     val routines by viewModel.routines.observeAsState(emptyList())
+    val deleteMessage by viewModel.deleteMessage.observeAsState()
+    val error by viewModel.error.observeAsState()
+    val context = LocalContext.current
+    
+    // 삭제 메시지 처리
+    LaunchedEffect(deleteMessage) {
+        deleteMessage?.let { message ->
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.clearDeleteMessage()
+        }
+    }
+    
+    // 에러 메시지 처리
+    LaunchedEffect(error) {
+        error?.let { errorMsg ->
+            android.widget.Toast.makeText(context, errorMsg, android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.clearError()
+        }
+    }
+    
     val dayTabs = remember { listOf("전체","월","화","수","목","금","토","일") }
     // 요일 필터(응답의 요일을 모아서 구성)
     val allDays = remember(routines) {
@@ -90,9 +113,41 @@ fun MyRoutinePage(
                 routine = routine,
                 onToggle = { changedTo ->
                     // 필요 시 토글 API 연동 위치
+                },
+                onEdit = { routineToEdit ->
+                    // TODO: 루틴 수정 화면으로 이동
+                },
+                onDelete = { routine ->
+                    routineToDelete = routine
                 }
             )
         }
+    }
+
+    // 삭제 확인 다이얼로그
+    routineToDelete?.let { routine ->
+        AlertDialog(
+            onDismissRequest = { routineToDelete = null },
+            title = { Text("루틴 삭제") },
+            text = { Text("'${routine.name}' 루틴을 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.removeRoutine(routine.routineId)
+                        routineToDelete = null
+                    }
+                ) {
+                    Text("삭제", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { routineToDelete = null }
+                ) {
+                    Text("취소")
+                }
+            }
+        )
     }
 }
 
@@ -137,9 +192,12 @@ private fun DayFilterBar(
 @Composable
 private fun MyRoutineCard(
     routine: RoutineData,
-    onToggle: (Boolean) -> Unit
+    onToggle: (Boolean) -> Unit,
+    onEdit: (RoutineData) -> Unit = {},
+    onDelete: (RoutineData) -> Unit = {}
 ) {
     var enabled by remember(routine.routineId) { mutableStateOf(routine.triggerType) }
+    var showMenu by remember { mutableStateOf(false) }
 
     val textIndent = 56.dp + 14.dp
     val statusTextColor = if (enabled) Color(0xFF22C55E) else BodyColor
@@ -184,8 +242,29 @@ private fun MyRoutineCard(
                         color = statusTextColor
                     )
                 }
-                IconButton(onClick = { /* menu */ }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "more")
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "more")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("수정") },
+                            onClick = {
+                                showMenu = false
+                                onEdit(routine)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("삭제", color = Color.Red) },
+                            onClick = {
+                                showMenu = false
+                                onDelete(routine)
+                            }
+                        )
+                    }
                 }
             }
 

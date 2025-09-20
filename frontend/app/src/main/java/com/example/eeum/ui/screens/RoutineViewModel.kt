@@ -37,6 +37,9 @@ class RoutineViewModel : ViewModel() {
     private val _devices = MutableLiveData<List<DeviceItem>>(emptyList())
     val devices: LiveData<List<DeviceItem>> = _devices
 
+    private val _deleteMessage = MutableLiveData<String?>(null)
+    val deleteMessage: LiveData<String?> = _deleteMessage
+
     fun fetchAllRoutines() {
         viewModelScope.launch {
             runCatching { RetrofitUtil.routineService.readAllRoutines() }
@@ -167,9 +170,45 @@ class RoutineViewModel : ViewModel() {
         }
     }
 
+    // 루틴 삭제
+    fun removeRoutine(routineId: Int) {
+        viewModelScope.launch {
+            runCatching { RetrofitUtil.routineService.removeRoutine(routineId) }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body()
+                        val message = body?.data?.message ?: "루틴이 삭제되었어요."
+                        _deleteMessage.value = message
+                        Log.d("RoutineViewModel", "removeRoutine success: id=$routineId, msg=$message")
+
+                        // 현재 메모리 목록에서도 제거 (또는 fetchAllRoutines() 재조회로 대체 가능)
+                        _routines.value = _routines.value?.filterNot { it.routineId == routineId }
+                    } else {
+                        val msg = "removeRoutine failed: code=${response.code()} msg=${response.message()}"
+                        _error.value = msg
+                        Log.e("RoutineViewModel", msg)
+                    }
+                }
+                .onFailure { e ->
+                    val msg = "removeRoutine exception: ${e.message}"
+                    _error.value = msg
+                    Log.e("RoutineViewModel", "removeRoutine exception", e)
+                }
+        }
+    }
+
     // 디바이스 목록 초기화
     fun clearDevices() {
         _devices.value = emptyList()
+    }
+    
+    // 메시지 초기화 함수들
+    fun clearDeleteMessage() {
+        _deleteMessage.value = null
+    }
+    
+    fun clearError() {
+        _error.value = null
     }
 
 }
