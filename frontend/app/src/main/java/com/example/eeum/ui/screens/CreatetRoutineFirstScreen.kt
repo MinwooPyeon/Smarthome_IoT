@@ -1,5 +1,6 @@
 package com.example.eeum.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -31,13 +33,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.eeum.R
 import com.example.eeum.base.ApplicationClass
+import com.example.eeum.data.model.dto.routine.DeviceDetail
+import com.example.eeum.data.model.dto.routine.Detail
+import com.example.eeum.data.model.dto.routine.RoutineRequestDto
 import com.example.eeum.ui.theme.EeumTheme
+import com.example.eeum.util.ResourceUtils
 
 private val TextBlue = Color(0xFF3B82F6)
 private val CardBg = Color(0x80FFFFFF)
@@ -45,43 +52,67 @@ private val BorderGray = Color(0xFFE0E0E0)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateRoutineFirstScreen(navController: NavController) {
-    var title by remember { mutableStateOf("") }
-    var desc by remember { mutableStateOf("") }
-    var selectedDays by remember { mutableStateOf(setOf(0)) } // 0=일 ~ 6=토
+fun CreateRoutineFirstScreen(
+    navController: NavController,
+    vm: RoutineViewModel = viewModel()
+) {
+    // --- 입력값들을 모두 rememberSaveable 로 보존 ---
+    var title by rememberSaveable { mutableStateOf("") }
+    var desc by rememberSaveable { mutableStateOf("") }
 
-    var hour24 by remember { mutableIntStateOf(8) }
-    var minute by remember { mutableIntStateOf(0) }
-    var showTimePicker by remember { mutableStateOf(false) }
+    // Set<Int> 은 기본적으로 저장 불가 → Saver로 저장/복원
+    val setSaver: Saver<Set<Int>, List<Int>> = Saver(
+        save = { it.toList() },
+        restore = { it.toSet() }
+    )
+    var selectedDays by rememberSaveable(stateSaver = setSaver) { mutableStateOf(setOf(0)) } // 0=일 ~ 6=토
+
+    var hour24 by rememberSaveable { mutableIntStateOf(8) }
+    var minute by rememberSaveable { mutableIntStateOf(0) }
+    var showTimePicker by remember { mutableStateOf(false) } // 다이얼로그 노출 여부는 돌아와도 크게 상관없어 non-saveable 유지
     val timeText = remember(hour24, minute) { "%02d:%02d".format(hour24, minute) }
 
-    var selectedIconId by remember { mutableStateOf<Int?>(null) }
-    var selectedIconUrl by remember { mutableStateOf<String?>(null) }
-    var showIconDialog by remember { mutableStateOf(false) }
+    var selectedIconId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var selectedIconUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var showIconDialog by remember { mutableStateOf(false) } // 노출 여부는 돌아와도 상관없어 non-saveable
 
-    // ✅ actions 를 rememberSaveable + listSaver 로 영구화(Parcelable 목록 저장/복원)
+    // 동작 목록(두번째 화면에서 계속 누적) - rememberSaveable + listSaver
     val actions = rememberSaveable(
         saver = listSaver(
-            save = { it.toList() },                // SnapshotStateList -> List
-            restore = { it.toMutableStateList() }  // List -> SnapshotStateList
+            save = { it.toList() },
+            restore = { it.toMutableStateList() }
         )
     ) { mutableStateListOf<ActionAddedPayload>() }
 
+    // 두번째 화면에서 돌아온 payload 수신 및 누적 (BackStack의 LiveData를 관찰)
     val newActionLive = navController.currentBackStackEntry
         ?.savedStateHandle
         ?.getLiveData<ActionAddedPayload>("new_action_full")
-
-    val newAction: ActionAddedPayload? = newActionLive
-        ?.observeAsState()
-        ?.value
-
+    val newAction: ActionAddedPayload? = newActionLive?.observeAsState()?.value
     LaunchedEffect(newAction) {
-        newAction?.let { payload ->
-            actions.add(payload) // 누적
-            // 다음 재구독 시 중복 추가 방지
+        newAction?.let {
+            actions.add(it) // 누적
             navController.currentBackStackEntry
                 ?.savedStateHandle
                 ?.remove<ActionAddedPayload>("new_action_full")
+        }
+    }
+
+    // 완료 버튼 활성화 조건(간단 예시)
+    val canSubmit = selectedIconId != null &&
+            title.isNotBlank() &&
+            selectedDays.isNotEmpty() &&
+            actions.isNotEmpty()
+
+    // ★ 생성 성공 응답을 관찰하고 그때 RoutineScreen 으로 이동
+    val createResult = vm.createResult.observeAsState().value
+    LaunchedEffect(createResult) {
+        createResult?.let {
+            // 성공 응답을 받은 시점에 라우팅 (목록 화면에서 재조회 권장)
+            navController.navigate("routine") {
+                launchSingleTop = true
+                popUpTo("createRoutineFirst") { inclusive = true }
+            }
         }
     }
 
@@ -274,22 +305,63 @@ fun CreateRoutineFirstScreen(navController: NavController) {
                 }
             }
 
-            // 완료 버튼 (TODO: 서버 전송 시 actions 포함)
+            // 완료 버튼 → 서버 전송(성공 응답 후 RoutineScreen으로 이동)
             item {
                 Button(
-                    onClick = { /* TODO */ },
+                    onClick = {
+                        val iconId = selectedIconId ?: return@Button
+
+                        // ISO 시간 변환
+                        val actTimeIso: String = ResourceUtils.toIsoActTime(timeText)
+
+                        // 선택 요일을 문자열로 만들고 parseWeekdays 사용
+                        val idxToName = mapOf(0 to "일", 1 to "월", 2 to "화", 3 to "수", 4 to "목", 5 to "금", 6 to "토")
+                        val daysRaw = selectedDays.sorted().mapNotNull { idxToName[it] }.joinToString(",")
+                        val weekdayMask: Int = ResourceUtils.parseWeekdays(daysRaw) ?: 0
+
+                        // Detail 매핑
+                        val details: List<Detail> = actions.map { p ->
+                            Detail(
+                                deviceId = p.device.deviceId,
+                                deviceDetail = DeviceDetail(
+                                    level = p.windLevel ?: 0,
+                                    power = p.power,
+                                    temperature = p.acTemp ?: 0
+                                )
+                            )
+                        }
+
+                        val body = RoutineRequestDto(
+                            actTime = actTimeIso,
+                            detail = details,
+                            iconId = iconId,
+                            isAi = false,              // ★ 항상 false로 전송
+                            name = title,
+                            routineDescription = desc,
+                            routineWeekday = weekdayMask
+                        )
+
+                        // 디버깅 로그 추가
+                        Log.d("CreateRoutineFirst", "Sending routine with isAi = ${body.isAi}")
+                        
+                        // 전송 (성공 응답을 observe해서 그때 화면 이동)
+                        vm.generateRoutine(body)
+                    },
+                    enabled = canSubmit,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = TextBlue,
-                        contentColor = Color.White
+                        contentColor = Color.White,
+                        disabledContainerColor = Color(0xFFBFD8FF),
+                        disabledContentColor = Color.White.copy(alpha = 0.8f)
                     )
                 ) { Text("완료", fontSize = 16.sp, fontWeight = FontWeight.Medium) }
             }
         }
     }
 
-    // 시간 다이얼로그
+    // 시간 다이얼로그 (시간값은 rememberSaveable 된 hour/minute로 복원됨)
     if (showTimePicker) {
         TimeWheelDialog(
             initialHour24 = hour24,
@@ -301,7 +373,7 @@ fun CreateRoutineFirstScreen(navController: NavController) {
         )
     }
 
-    // 루틴 아이콘 선택 다이얼로그
+    // 루틴 아이콘 선택 다이얼로그 (아이콘 선택값은 rememberSaveable로 복원됨)
     if (showIconDialog) {
         RoutineIconDialog(
             title = "루틴 아이콘",
@@ -315,6 +387,9 @@ fun CreateRoutineFirstScreen(navController: NavController) {
     }
 }
 
+/* =========================
+ * 아이콘 프리뷰
+ * ========================= */
 @Composable
 private fun RoutineIconPreview(
     iconUrl: String?,
@@ -375,12 +450,15 @@ private fun RoutineIconPreview(
     }
 }
 
+/* =========================
+ * 루틴 아이콘 다이얼로그
+ * ========================= */
 @Composable
 private fun RoutineIconDialog(
     title: String,
     onSelect: (iconId: Int, url: String) -> Unit,
     onDismiss: () -> Unit,
-    vm: RoutineViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    vm: RoutineViewModel = viewModel()
 ) {
     LaunchedEffect(Unit) { vm.fetchRoutineIcons() }
     val serverIcons by vm.icons.observeAsState(emptyList())
@@ -424,9 +502,7 @@ private fun RoutineIconDialog(
                             modifier = Modifier
                                 .size(60.dp)
                                 .clip(RoundedCornerShape(corner))
-                                .clickable {
-                                    onSelect(icon.iconId, icon.url)
-                                }
+                                .clickable { onSelect(icon.iconId, icon.url) }
                         ) {
                             AsyncImage(
                                 model = ImageRequest.Builder(ctx)
@@ -450,16 +526,121 @@ private fun RoutineIconDialog(
     }
 }
 
-private fun toAbsoluteUrl(base: String, path: String?): String? {
-    if (path.isNullOrBlank()) return null
-    val b = base.trimEnd('/')
-    val p = path.trim()
-    if (p.startsWith("http://") || p.startsWith("https://")) return p
-    return if (p.startsWith("/")) "$b$p" else "$b/$p"
+/* =========================
+ * 시간 선택 다이얼로그
+ * ========================= */
+@Composable
+private fun TimeWheelDialog(
+    initialHour24: Int,
+    initialMinute: Int,
+    onConfirm: (hour: Int, minute: Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var hour by remember { mutableIntStateOf(initialHour24) }
+    var minute by remember { mutableIntStateOf(initialMinute) }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            tonalElevation = 0.dp,
+            shadowElevation = 6.dp,
+            color = Color.White
+        ) {
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 300.dp)
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("시간 설정", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("시", fontSize = 14.sp, color = Color.Gray)
+                        NumberPicker(
+                            value = hour,
+                            range = 0..23,
+                            onValueChange = { hour = it }
+                        )
+                    }
+                    Text(":", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("분", fontSize = 14.sp, color = Color.Gray)
+                        NumberPicker(
+                            value = minute,
+                            range = 0..59,
+                            onValueChange = { minute = it }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("취소", color = Color.Gray) }
+
+                    Button(
+                        onClick = { onConfirm(hour, minute) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = TextBlue)
+                    ) { Text("확인", color = Color.White) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NumberPicker(
+    value: Int,
+    range: IntRange,
+    onValueChange: (Int) -> Unit
+) {
+    val values = range.toList()
+    val selectedIndex = values.indexOf(value).coerceAtLeast(0)
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState(
+        initialFirstVisibleItemIndex = (selectedIndex - 2).coerceAtLeast(0)
+    )
+    androidx.compose.foundation.lazy.LazyColumn(
+        modifier = Modifier
+            .height(120.dp)
+            .width(60.dp),
+        state = listState
+    ) {
+        items(values.size) { idx ->
+            val v = values[idx]
+            val isSelected = v == value
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .clickable { onValueChange(v) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "%02d".format(v),
+                    fontSize = if (isSelected) 20.sp else 16.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) TextBlue else Color.Gray
+                )
+            }
+        }
+    }
 }
 
 /* =========================
- * 동작 카드 (payload 기반)
+ * 액션 카드 & 보조 함수
  * ========================= */
 @Composable
 private fun ActionCard(
@@ -528,118 +709,25 @@ private fun ActionCard(
     }
 }
 
-/* =========================
- * 시간 선택 다이얼로그 (복원)
- * ========================= */
-@Composable
-private fun TimeWheelDialog(
-    initialHour24: Int,
-    initialMinute: Int,
-    onConfirm: (hour: Int, minute: Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var hour by remember { mutableIntStateOf(initialHour24) }
-    var minute by remember { mutableIntStateOf(initialMinute) }
-
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            tonalElevation = 0.dp,
-            shadowElevation = 6.dp,
-            color = Color.White
-        ) {
-            Column(
-                modifier = Modifier
-                    .widthIn(min = 300.dp)
-                    .padding(horizontal = 20.dp, vertical = 18.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("시간 설정", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // 시
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("시", fontSize = 14.sp, color = Color.Gray)
-                        NumberPicker(
-                            value = hour,
-                            range = 0..23,
-                            onValueChange = { hour = it }
-                        )
-                    }
-                    Text(":", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    // 분
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("분", fontSize = 14.sp, color = Color.Gray)
-                        NumberPicker(
-                            value = minute,
-                            range = 0..59,
-                            onValueChange = { minute = it }
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) { Text("취소", color = Color.Gray) }
-
-                    Button(
-                        onClick = { onConfirm(hour, minute) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = TextBlue)
-                    ) { Text("확인", color = Color.White) }
-                }
-            }
-        }
-    }
+private fun toAbsoluteUrl(base: String, path: String?): String? {
+    if (path.isNullOrBlank()) return null
+    val b = base.trimEnd('/')
+    val p = path.trim()
+    if (p.startsWith("http://") || p.startsWith("https://")) return p
+    return if (p.startsWith("/")) "$b$p" else "$b/$p"
 }
 
-@Composable
-private fun NumberPicker(
-    value: Int,
-    range: IntRange,
-    onValueChange: (Int) -> Unit
-) {
-    val values = range.toList()
-    val selectedIndex = values.indexOf(value).coerceAtLeast(0)
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState(
-        initialFirstVisibleItemIndex = (selectedIndex - 2).coerceAtLeast(0)
-    )
-    androidx.compose.foundation.lazy.LazyColumn(
-        modifier = Modifier
-            .height(120.dp)
-            .width(60.dp),
-        state = listState
-    ) {
-        items(values.size) { idx ->
-            val v = values[idx]
-            val isSelected = v == value
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .clickable { onValueChange(v) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "%02d".format(v),
-                    fontSize = if (isSelected) 20.sp else 16.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) TextBlue else Color.Gray
-                )
-            }
-        }
+// deviceType → icon 매핑
+private fun iconResForDevice(deviceType: String?): Int? {
+    val key = deviceType?.trim()?.lowercase() ?: return null
+    return when (key) {
+        "에어컨" -> R.drawable.ic_air_conditioning
+        "선풍기" -> R.drawable.ic_electric_fan
+        "텔레비전", "tv" -> R.drawable.ic_television
+        "빔프로젝터" -> R.drawable.ic_beam_projector
+        "공기청정기" -> R.drawable.ic_air_purifier
+        "조명" -> R.drawable.ic_light
+        else -> null
     }
 }
 

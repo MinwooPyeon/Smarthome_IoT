@@ -43,7 +43,14 @@ class RoutineViewModel : ViewModel() {
                 .onSuccess { response ->
                     if (response.isSuccessful) {
                         val body = response.body()
-                        _routines.value = body?.data ?: emptyList()
+                        val routineList = body?.data ?: emptyList()
+                        _routines.value = routineList
+                        
+                        // 각 루틴의 isAi 값 로그
+                        routineList.forEach { routine ->
+                            Log.d("RoutineViewModel", "Routine ${routine.routineId}: name=${routine.name}, isAi=${routine.isAi}")
+                        }
+                        
                         Log.d("RoutineViewModel", "fetchAllRoutines size=${_routines.value?.size}")
                     } else {
                         val msg = "readAllRoutines failed: code=${response.code()} msg=${response.message()}"
