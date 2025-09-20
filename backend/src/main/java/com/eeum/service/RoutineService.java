@@ -63,7 +63,7 @@ public class RoutineService {
                 .iconId(req.getIconId())  
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
-                .isAi(true)
+                .isAi(req.getIsAi())
                 .build();
 
         // 요청 detail -> 엔티티 변환
