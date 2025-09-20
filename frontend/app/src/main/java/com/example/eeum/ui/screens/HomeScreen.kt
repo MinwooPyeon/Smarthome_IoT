@@ -406,7 +406,7 @@ private fun FloorplanCard(
                             val topFromTopPx = (topMargin + (drawnH - yPx) - iconSizePx / 2f)
                                 .coerceIn(0f, containerSize.height - iconSizePx)
 
-                            iconResForDevice(item.deviceType)?.let { resId ->
+                            iconResForDevice2(item.deviceType)?.let { resId ->
                                 Image(
                                     painter = painterResource(id = resId),
                                     contentDescription = item.deviceName,
@@ -428,7 +428,7 @@ private fun FloorplanCard(
     }
 }
 
-private fun iconResForDevice(deviceType: Any?): Int? {
+private fun iconResForDevice2(deviceType: Any?): Int? {
     val key = deviceType?.toString()?.trim()?.lowercase() ?: return null
     return when (key) {
         "에어컨" -> R.drawable.ic_icon_air_conditioning

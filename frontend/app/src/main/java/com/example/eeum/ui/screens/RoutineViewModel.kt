@@ -160,4 +160,9 @@ class RoutineViewModel : ViewModel() {
         }
     }
 
+    // 디바이스 목록 초기화
+    fun clearDevices() {
+        _devices.value = emptyList()
+    }
+
 }

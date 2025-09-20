@@ -32,6 +32,8 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.eeum.R
 import com.example.eeum.data.model.response.device.DeviceItem
+import com.example.eeum.data.model.response.routine.RoomData
+import com.example.eeum.ui.theme.EeumTheme
 import com.example.eeum.util.SharedPreferencesUtil
 
 private val TextBlue = Color(0xFF3B82F6)
@@ -47,52 +49,47 @@ fun CreateRoutineSecondScreen(
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SharedPreferencesUtil(ctx) }
-
-    // SharedPreferences 선택된 homeId
     val homeId = prefs.getSelectedHomeId() ?: -1
 
-    // ViewModel rooms, devices 구독
+    // ViewModel state
     val rooms by vm.rooms.observeAsState(emptyList())
     val devices by vm.devices.observeAsState(emptyList())
 
     var selectedRoomIdx by remember { mutableIntStateOf(-1) }
     var selectedDeviceIdx by remember { mutableIntStateOf(-1) }
 
-    // 값 입력 여부(사용자가 직접 선택/조작했는지) 플래그들
+    // 입력 완료 플래그
     var stateChosen by remember { mutableStateOf(false) }
     var windChosen by remember { mutableStateOf(false) }
     var acTempChosen by remember { mutableStateOf(false) }
 
-    // 실제 값들
-    var selectedStateIdx by remember { mutableIntStateOf(-1) } // -1: 아직 미선택
+    // 값
+    var selectedStateIdx by remember { mutableIntStateOf(-1) } // 0=켜기, 1=끄기
     var windLevel by remember { mutableIntStateOf(2) }         // 1..5
     var acTemp by remember { mutableIntStateOf(24) }           // 16..30
 
-    // 진입 시 rooms 요청
+    // 방 목록 로드
     LaunchedEffect(homeId) {
-        if (homeId != -1) {
-            vm.fetchRooms(homeId)
-        }
+        if (homeId != -1) vm.fetchRooms(homeId)
     }
 
-    // 방 선택 시 해당 roomName으로 디바이스 요청 + 디바이스 선택 초기화
+    // 방 선택 시 디바이스 로드 및 초기화
     LaunchedEffect(selectedRoomIdx) {
         if (selectedRoomIdx in rooms.indices) {
-            val roomName = rooms[selectedRoomIdx].roomName
-            vm.fetchDevicesSimple(roomName)
-            selectedDeviceIdx = -1
-            // 디바이스가 바뀌므로 종속 값/플래그 초기화
-            stateChosen = false
-            windChosen = false
-            acTempChosen = false
-            selectedStateIdx = -1
+            vm.fetchDevicesSimple(rooms[selectedRoomIdx].roomName)
+        } else {
+            vm.clearDevices() // 없다면 뷰모델에 빈 리스트 세팅용 메서드 구현
         }
+        selectedDeviceIdx = -1
+        stateChosen = false
+        windChosen = false
+        acTempChosen = false
+        selectedStateIdx = -1
     }
 
     val selectedDeviceType: String? = devices.getOrNull(selectedDeviceIdx)?.deviceType?.toString()
     val features = remember(selectedDeviceIdx, devices) { featuresFor(selectedDeviceType) }
 
-    // 저장 버튼 활성화 조건
     val canSave = (selectedRoomIdx >= 0) &&
             (selectedDeviceIdx >= 0) &&
             (!features.showState || stateChosen) &&
@@ -140,9 +137,7 @@ fun CreateRoutineSecondScreen(
                             onClick = { selectedRoomIdx = idx }
                         )
                     }
-                    if (rooms.isEmpty()) {
-                        HintText("집의 방 정보를 불러오지 못했어요.")
-                    }
+                    if (rooms.isEmpty()) HintText("집의 방 정보를 불러오지 못했어요.")
                 }
             }
 
@@ -158,7 +153,7 @@ fun CreateRoutineSecondScreen(
                             selected = selectedDeviceIdx == idx,
                             onClick = {
                                 selectedDeviceIdx = idx
-                                // 디바이스가 바뀌면 종속 값/플래그 초기화
+                                // 종속값 초기화
                                 stateChosen = false
                                 windChosen = false
                                 acTempChosen = false
@@ -174,9 +169,8 @@ fun CreateRoutineSecondScreen(
                 }
             }
 
-            // ✅ 디바이스 선택 전에는 아래 섹션 안 보임
+            // 디바이스 선택 후 섹션들
             if (selectedDeviceIdx >= 0) {
-                // 상태 설정
                 if (features.showState) {
                     SectionCard(title = "상태 설정") {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -185,7 +179,8 @@ fun CreateRoutineSecondScreen(
                                 StateItem("OFF", "끄기")
                             ).forEachIndexed { idx, item ->
                                 RadioListRowWithChip(
-                                    chipText = item.chip, title = item.title,
+                                    chipText = item.chip,
+                                    title = item.title,
                                     selected = selectedStateIdx == idx,
                                     onClick = {
                                         selectedStateIdx = idx
@@ -197,12 +192,11 @@ fun CreateRoutineSecondScreen(
                     }
                 }
 
-                // 바람 세기
                 if (features.showWind) {
                     SectionCard(title = "바람 세기") {
                         SegmentedNumberSelector(
                             count = 5,
-                            selected = if (windChosen) windLevel else 0, // 0이면 아무것도 선택 안 된 상태처럼 보이게
+                            selected = if (windChosen) windLevel else 0,
                             onSelect = {
                                 windLevel = it
                                 windChosen = true
@@ -212,7 +206,6 @@ fun CreateRoutineSecondScreen(
                     }
                 }
 
-                // 에어컨 온도
                 if (features.showAcTemp) {
                     SectionCard(title = "에어컨 온도") {
                         Column(
@@ -250,11 +243,38 @@ fun CreateRoutineSecondScreen(
                     }
                 }
 
-                // ✅ 동작 저장 버튼 (모든 값 입력 시에만 활성)
+                // 저장 버튼
                 Spacer(Modifier.height(6.dp))
                 Button(
                     onClick = {
-                        // TODO: 실제 저장/전송 로직 연결 (예: ViewModel API 호출 또는 이전 화면으로 결과 전달)
+                        val room: RoomData = rooms[selectedRoomIdx]
+                        val device: DeviceItem = devices[selectedDeviceIdx]
+                        val power = (selectedStateIdx == 0) // 0=켜기
+                        val stateTitle = if (power) "켜기" else "끄기"
+
+                        val roomP = RoomDataP(room.roomColor, room.roomId, room.roomName)
+                        val deviceP = DeviceItemP(
+                            brand = device.brand,
+                            deviceId = device.deviceId,
+                            deviceName = device.deviceName,
+                            deviceType = device.deviceType.toString(),
+                            irDeviceId = device.irDeviceId,
+                            model = device.model,
+                            registeredAt = device.registeredAt,
+                            roomId = device.roomId,
+                            x = device.x,
+                            y = device.y
+                        )
+                        val payload = ActionAddedPayload(
+                            room = roomP,
+                            device = deviceP,
+                            stateTitle = stateTitle,
+                            power = power,
+                            windLevel = if (features.showWind) windLevel else null,
+                            acTemp = if (features.showAcTemp) acTemp else null
+                        )
+
+                        navController.previousBackStackEntry?.savedStateHandle?.set("new_action_full", payload)
                         navController.popBackStack()
                     },
                     enabled = canSave,
@@ -277,6 +297,11 @@ fun CreateRoutineSecondScreen(
 }
 
 private data class StateItem(val chip: String, val title: String)
+
+@Composable
+private fun HintText(text: String) {
+    Text(text = text, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(start = 8.dp, top = 4.dp))
+}
 
 @Composable
 private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
@@ -384,11 +409,7 @@ private fun RadioListRowWithChip(chipText: String, title: String, selected: Bool
 }
 
 @Composable
-private fun SegmentedNumberSelector(
-    count: Int,
-    selected: Int,
-    onSelect: (Int) -> Unit
-) {
+private fun SegmentedNumberSelector(count: Int, selected: Int, onSelect: (Int) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         (1..count).forEach { i ->
             val isSelected = i == selected
@@ -402,18 +423,14 @@ private fun SegmentedNumberSelector(
                     .clickable { onSelect(i) }
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        "$i",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isSelected) Color.White else Color.Black
-                    )
+                    Text("$i", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = if (isSelected) Color.White else Color.Black)
                 }
             }
         }
     }
 }
 
+/** ▷ SecondScreen 전용: 네모 버튼 (위/아래) */
 @Composable
 private fun SquareIconButton(icon: ImageVector, onClick: () -> Unit) {
     Surface(
@@ -427,8 +444,8 @@ private fun SquareIconButton(icon: ImageVector, onClick: () -> Unit) {
     }
 }
 
-// deviceType → icon 매핑
-private fun iconResForDevice(deviceType: Any?): Int? {
+// deviceType → icon 매핑 (public: FirstScreen에서도 사용 가능)
+fun iconResForDevice(deviceType: Any?): Int? {
     val key = deviceType?.toString()?.trim()?.lowercase() ?: return null
     return when (key) {
         "에어컨" -> R.drawable.ic_air_conditioning
@@ -441,37 +458,26 @@ private fun iconResForDevice(deviceType: Any?): Int? {
     }
 }
 
-// 디바이스 타입별 표시할 섹션 결정
+// 디바이스 타입별 노출 섹션
 private data class Features(val showState: Boolean, val showWind: Boolean, val showAcTemp: Boolean)
 private fun featuresFor(deviceType: String?): Features {
     val key = deviceType?.trim()?.lowercase() ?: return Features(false, false, false)
     return when (key) {
-        "조명" -> Features(showState = true, showWind = false, showAcTemp = false)
-        "에어컨" -> Features(showState = true, showWind = true, showAcTemp = true)
-        "공기청정기" -> Features(showState = true, showWind = true, showAcTemp = false)
-        "선풍기" -> Features(showState = true, showWind = true, showAcTemp = false)
-        "tv", "텔레비전" -> Features(showState = true, showWind = false, showAcTemp = false)
-        "빔프로젝터" -> Features(showState = true, showWind = false, showAcTemp = false)
-        else -> Features(showState = true, showWind = false, showAcTemp = false)
+        "조명" -> Features(true, false, false)
+        "에어컨" -> Features(true, true, true)
+        "공기청정기" -> Features(true, true, false)
+        "선풍기" -> Features(true, true, false)
+        "tv", "텔레비전" -> Features(true, false, false)
+        "빔프로젝터" -> Features(true, false, false)
+        else -> Features(true, false, false)
     }
-}
-
-// 힌트 텍스트
-@Composable
-private fun HintText(text: String) {
-    Text(
-        text = text,
-        fontSize = 14.sp,
-        color = Color.Gray,
-        modifier = Modifier.padding(start = 8.dp, top = 4.dp)
-    )
 }
 
 @Preview
 @Composable
 private fun CreateRoutineSecondScreenPreview() {
     val nav = rememberNavController()
-    com.example.eeum.ui.theme.EeumTheme(dynamicColor = false) {
+    EeumTheme(dynamicColor = false) {
         CreateRoutineSecondScreen(nav)
     }
 }
