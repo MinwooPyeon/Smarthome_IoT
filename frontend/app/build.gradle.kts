@@ -135,5 +135,8 @@ dependencies {
     // viewModelScope 등 ViewModel KTX
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
     implementation("io.coil-kt:coil-compose:2.6.0")
+    
+    // SwipeRefresh 지원
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.32.0")
 
 }

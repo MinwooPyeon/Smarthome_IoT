@@ -1,7 +1,9 @@
 package com.example.eeum.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -27,16 +28,15 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.eeum.data.model.response.device.DeviceResponse
-import com.example.eeum.data.remote.RetrofitUtil
-import kotlinx.coroutines.launch
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,35 +49,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.eeum.R
 import com.example.eeum.ui.theme.*
+import com.example.eeum.ui.components.AirConditionerTemperatureControl
+import com.example.eeum.ui.components.FanLevelControl
 
-class DeviceListViewModel : ViewModel() {
-    private val _items = androidx.lifecycle.MutableLiveData<List<DeviceResponse>>(emptyList())
-    val items: androidx.lifecycle.LiveData<List<DeviceResponse>> get() = _items
-    private val _loading = androidx.lifecycle.MutableLiveData(false)
-    val loading: androidx.lifecycle.LiveData<Boolean> get() = _loading
-    private val _error = androidx.lifecycle.MutableLiveData<String?>(null)
-    val error: androidx.lifecycle.LiveData<String?> get() = _error
-
-    fun load() {
-        viewModelScope.launch {
-            _loading.value = true
-            runCatching { RetrofitUtil.deviceService.readDevices() }
-                .onSuccess { res ->
-                    if (res.isSuccessful) {
-                        val body = res.body()
-                        _items.value = body?.data?.items ?: emptyList()
-                        _error.value = null
-                    } else {
-                        _error.value = "HTTP ${res.code()}"
-                    }
-                }
-                .onFailure { e -> _error.value = e.message }
-            _loading.value = false
-        }
-    }
-}
 
 @Composable
 fun DeviceScreen(navController: NavController? = null) {
@@ -85,6 +63,11 @@ fun DeviceScreen(navController: NavController? = null) {
     val activity = androidx.compose.ui.platform.LocalContext.current as androidx.activity.ComponentActivity
     val regVm: DeviceRegistrationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
     val hubVm: HubViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
+    val statusVm: DeviceStatusViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
+    
+    // 새로고침 상태
+    var isRefreshing by remember { mutableStateOf(false) }
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
 
     // Device 탭 자동 새로고침 신호 구독
     val mainEntry = remember(navController) {
@@ -98,7 +81,7 @@ fun DeviceScreen(navController: NavController? = null) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 60.dp)
+            .padding(start = 16.dp, top = 60.dp, end = 16.dp)
     ) {
         // 상단 타이틀 (다른 화면과 일관)
         Row(
@@ -117,7 +100,50 @@ fun DeviceScreen(navController: NavController? = null) {
         }
 
         Spacer(Modifier.height(40.dp))
+        
+        // 스와이프 새로고침 영역
+        SwipeRefresh(
+            state = swipeRefreshState,
+            onRefresh = { isRefreshing = true },
+            modifier = Modifier.weight(1f)
+        ) {
+            RefreshableContent(
+                navController = navController,
+                regVm = regVm,
+                hubVm = hubVm,
+                statusVm = statusVm,
+                activity = activity,
+                refreshKey = refreshKey,
+                isRefreshing = isRefreshing,
+                onRefreshComplete = { isRefreshing = false }
+            )
+        }
+    }
+}
 
+@Composable
+private fun RefreshableContent(
+    navController: NavController?,
+    regVm: DeviceRegistrationViewModel,
+    hubVm: HubViewModel,
+    statusVm: DeviceStatusViewModel,
+    activity: androidx.activity.ComponentActivity,
+    refreshKey: Long,
+    isRefreshing: Boolean,
+    onRefreshComplete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // 다이얼로그 상태 관리
+    var showDialog by remember { mutableStateOf(false) }
+    var selectedDeviceForControl by remember { mutableStateOf<Pair<Int, String>?>(null) } // deviceId, deviceType
+
+    // 개별 디바이스 UI만 갱신하기 위한 로컬 오버라이드 (재구성 트리거 보장)
+    var overrideCounter by remember { mutableIntStateOf(0) }
+    val powerOverrides = remember { mutableStateMapOf<Int, Boolean>() }
+    val tempOverrides = remember { mutableStateMapOf<Int, Int>() }
+    val levelOverrides = remember { mutableStateMapOf<Int, Int>() }
+    
+    Column(modifier = modifier.fillMaxSize()) {
         // 서버 목록(ViewModel)
         val listVm: DeviceListViewModel = viewModel()
         val serverItems by listVm.items.observeAsState(emptyList())
@@ -127,12 +153,28 @@ fun DeviceScreen(navController: NavController? = null) {
         // 허브 목록 상태 관찰
         val hubList by hubVm.hubList.observeAsState(emptyList())
         val hubError by hubVm.error.observeAsState()
+        
+        // 디바이스 상태 변경 관련 상태 관찰
+        val statusChangeResult by statusVm.result.observeAsState()
+        val statusChangeError by statusVm.error.observeAsState()
 
         // 최초 진입 시 1회 로드
         LaunchedEffect(Unit) { 
             listVm.load() 
             // 허브 목록도 로드 (기본 homeId 1 사용)
             hubVm.getHubs(1)
+        }
+        
+        // 수동 새로고침 처리 (필요 시 사용)
+        LaunchedEffect(isRefreshing) {
+            if (isRefreshing) {
+                try {
+                    listVm.load()
+                    hubVm.getHubs(1)
+                } finally {
+                    onRefreshComplete()
+                }
+            }
         }
         
         // 허브 등록 성공 시 허브 목록 재조회
@@ -151,15 +193,28 @@ fun DeviceScreen(navController: NavController? = null) {
                 hubVm.getHubs(1) // 허브 목록도 새로고침
             }
         }
+        
+        // 디바이스 상태 변경 성공 시 개별 상태만 업데이트 (전체 목록 새로고침 제거)
+        LaunchedEffect(statusChangeResult) {
+            statusChangeResult?.let {
+                // 전체 목록 새로고침 제거 - 상태는 자동으로 반영됨
+                statusVm.clearResult() // 결과 초기화
+            }
+        }
+        
+        // 디바이스 상태 변경 에러 처리
+        LaunchedEffect(statusChangeError) {
+            statusChangeError?.let { error ->
+                android.widget.Toast.makeText(activity, "상태 변경 실패: $error", android.widget.Toast.LENGTH_LONG).show()
+                statusVm.clearError()
+            }
+        }
 
-        // 허브 데이터 + 서버 데이터 합치기
-        val allDevices = remember(serverItems, hubList) {
-            android.util.Log.d("DeviceScreen", "허브 목록 API 응답: $hubList, 갯수: ${hubList.size}")
-            
+        // 허브 데이터 + 서버 데이터 합치기 (오버라이드 카운터를 의존성으로 사용)
+        val allDevices = remember(serverItems, hubList, overrideCounter) {
             // 등록된 허브들을 DeviceUi로 변환
             val hubDevices = if (hubList.isNotEmpty()) {
                 hubList.mapIndexed { index, hubId ->
-                    android.util.Log.d("DeviceScreen", "허브 처리 중: index=$index, hubId=$hubId")
                     DeviceUi(
                         id = "hub_$hubId",
                         title = "허브", // 디바이스 ID 표기 제거
@@ -172,29 +227,31 @@ fun DeviceScreen(navController: NavController? = null) {
                     )
                 }
             } else {
-                android.util.Log.d("DeviceScreen", "등록된 허브가 없습니다.")
                 emptyList()
             }
             
             val serverDevices = serverItems.map { deviceResponse ->
+                val deviceIdInt = deviceResponse.deviceId
                 // 방 이름 추출: deviceName의 첫 공백 이전 부분을 방 이름으로 간주
                 val roomName = deviceResponse.deviceName.substringBefore(' ').ifBlank { "방" }
                 
                 // 디바이스 타입을 한국어로 변환
-                android.util.Log.d("DeviceScreen", "deviceType from server: ${deviceResponse.deviceType}")
                 val deviceTypeKorean = convertDeviceTypeToKorean(deviceResponse.deviceType)
                 
-                // power 상태 체크 (deviceDetail의 power 필드가 Boolean인 경우)
-                val isOn = runCatching {
+                // power 상태 체크 (server 값)
+                val serverPower = runCatching {
                     val powerEl = deviceResponse.deviceDetail.get("power")
                     powerEl?.asJsonPrimitive?.asBoolean ?: false
                 }.getOrDefault(false)
+                // 로컬 오버라이드 우선
+                val isOn = powerOverrides[deviceIdInt] ?: serverPower
                 
-                // 온도 정보가 있는 경우 (에어컨 등)
-                val temperature = runCatching {
+                // 온도 정보 (server 값)
+                val serverTemp = runCatching {
                     val tempEl = deviceResponse.deviceDetail.get("temperature")
                     tempEl?.asJsonPrimitive?.asInt
                 }.getOrNull()
+                val temperature = tempOverrides[deviceIdInt] ?: serverTemp
                 
                 // 상태 텍스트 결정
                 val statusText = when {
@@ -269,7 +326,74 @@ fun DeviceScreen(navController: NavController? = null) {
             DeviceGrid(
                 items = allDevices, 
                 showAddTile = true, 
-                onToggle = { /* TODO: 서버 API 토글 기능 */ }, 
+                onToggle = { deviceId ->
+                    // 허브는 토글 불가
+                    if (deviceId.startsWith("hub_")) {
+                        return@DeviceGrid
+                    }
+                    
+                    // 실제 디바이스 토글
+                    val deviceIdInt = deviceId.toIntOrNull()
+                    if (deviceIdInt != null) {
+                        // 현재 디바이스의 전원 상태 찾기 (로컬 오버라이드 우선)
+                        val serverDevice = serverItems.find { it.deviceId == deviceIdInt }
+                        val serverPower = serverDevice?.let {
+                            runCatching {
+                                it.deviceDetail.get("power")?.asJsonPrimitive?.asBoolean ?: false
+                            }.getOrDefault(false)
+                        } ?: false
+                        val currentPower = powerOverrides[deviceIdInt] ?: serverPower
+                        
+                        // 즉시 UI 반영
+                        powerOverrides[deviceIdInt] = !currentPower
+                        overrideCounter++ // 재구성 트리거
+                        
+                        // API 호출
+                        statusVm.toggleDevicePower(deviceIdInt, currentPower)
+                    }
+                },
+                onLongPress = { deviceId ->
+                    // 허브는 제외
+                    if (deviceId.startsWith("hub_")) {
+                        return@DeviceGrid
+                    }
+                    
+                    // 디바이스 타입 찾기
+                    val deviceIdInt = deviceId.toIntOrNull()
+                    if (deviceIdInt != null) {
+                        val device = serverItems.find { it.deviceId == deviceIdInt }
+                        val deviceType = device?.deviceType?.uppercase()
+                        
+                        // 에어컨이나 선풍기인 경우 다이얼로그 표시 (다양한 형식 지원)
+                        val originalType = device?.deviceType?.uppercase()
+                        val isAirConditioner = deviceType?.contains("AIR") == true || 
+                                              deviceType?.contains("CONDITIONER") == true ||
+                                              deviceType == "AC" ||
+                                              deviceType == "AIRCONDITIONER" ||
+                                              originalType?.contains("에어컨") == true ||
+                                              originalType?.contains("AIRCON") == true
+                        val isFan = deviceType?.contains("FAN") == true ||
+                                  originalType?.contains("선풍기") == true
+                        
+                        if (isAirConditioner || isFan) {
+                            // 디바이스가 켜져있는지 확인 (꺼져있으면 다이얼로그 표시 안함)
+                            val serverDevice = serverItems.find { it.deviceId == deviceIdInt }
+                            val serverPower = serverDevice?.let {
+                                runCatching {
+                                    it.deviceDetail.get("power")?.asJsonPrimitive?.asBoolean ?: false
+                                }.getOrDefault(false)
+                            } ?: false
+                            val currentPower = powerOverrides[deviceIdInt] ?: serverPower
+                            
+                            // 켜져있을 때만 다이얼로그 표시
+                            if (currentPower) {
+                                val finalType = if (isAirConditioner) "AIR_CONDITIONER" else "FAN"
+                                selectedDeviceForControl = Pair(deviceIdInt, finalType)
+                                showDialog = true
+                            }
+                        }
+                    }
+                },
                 onAddClick = {
                     // 등록 초안 초기화 후 등록 플로우 진입
                     regVm.resetDraft()
@@ -277,10 +401,46 @@ fun DeviceScreen(navController: NavController? = null) {
                 }
             )
         }
+        
+        // 디바이스 컨트롤 다이얼로그
+        if (showDialog) {
+            selectedDeviceForControl?.let { (deviceId, deviceType) ->
+                DeviceControlDialog(
+                    deviceId = deviceId,
+                    deviceType = deviceType,
+                    serverItems = serverItems,
+                    statusVm = statusVm,
+                    onDismiss = { 
+                        showDialog = false
+                        selectedDeviceForControl = null
+                    },
+                    onApplyAirConditioner = { newTemp ->
+                        tempOverrides[deviceId] = newTemp
+                        powerOverrides[deviceId] = true
+                        overrideCounter++ // 재구성 트리거
+                        statusVm.setAirConditionerTemperature(
+                            deviceId = deviceId,
+                            temperature = newTemp,
+                            power = true
+                        )
+                    },
+                    onApplyFan = { newLevel ->
+                        levelOverrides[deviceId] = newLevel
+                        powerOverrides[deviceId] = true
+                        overrideCounter++ // 재구성 트리거
+                        statusVm.setFanLevel(
+                            deviceId = deviceId,
+                            level = newLevel,
+                            power = true
+                        )
+                    }
+                )
+            }
+        }
     }
 }
 
-
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DeviceCardLarge(
     title: String,
@@ -289,14 +449,20 @@ private fun DeviceCardLarge(
     iconRes: Int,
     statusIconRes: Int,
     iconTint: Color,
-    onToggle: () -> Unit = {}
+    onToggle: () -> Unit = {},
+    onLongPress: () -> Unit = {}
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(1.dp, Gray50),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = {},
+                onLongClick = onLongPress
+            )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // 1행: 좌측 디바이스 아이콘, 우측 on/off 아이콘
@@ -350,6 +516,7 @@ private fun DeviceCardLarge(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DeviceCardSmall(
     title: String,
@@ -359,14 +526,18 @@ private fun DeviceCardSmall(
     statusIconRes: Int,
     iconTint: Color,
     modifier: Modifier = Modifier,
-    onToggle: () -> Unit = {}
+    onToggle: () -> Unit = {},
+    onLongPress: () -> Unit = {}
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(1.dp, Gray50),
-        modifier = modifier
+        modifier = modifier.combinedClickable(
+            onClick = {},
+            onLongClick = onLongPress
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // 1행: 좌측 디바이스 아이콘, 우측 on/off 아이콘
@@ -455,11 +626,87 @@ private data class DeviceUi(
 )
 
 @Composable
+private fun DeviceControlDialog(
+    deviceId: Int,
+    deviceType: String,
+    serverItems: List<com.example.eeum.data.model.response.device.DeviceResponse>,
+    statusVm: DeviceStatusViewModel,
+    onDismiss: () -> Unit,
+    onApplyAirConditioner: (Int) -> Unit = {},
+    onApplyFan: (Int) -> Unit = {}
+) {
+    // 상태 변수들을 기억하여 다이얼로그 닫힘 시 자동 전송
+    var finalTemperature by remember { mutableIntStateOf(23) }
+    var finalLevel by remember { mutableIntStateOf(1) }
+    
+    Dialog(
+        onDismissRequest = {
+            // 다이얼로그가 닫힐 때 자동으로 상태 반영 - 콜백으로 전달
+            when (deviceType.uppercase()) {
+                "AIR_CONDITIONER" -> onApplyAirConditioner(finalTemperature)
+                "FAN" -> onApplyFan(finalLevel)
+            }
+            onDismiss()
+        }
+    ) {
+        when (deviceType) {
+            "AIR_CONDITIONER" -> {
+                // 현재 온도 찾기
+                val device = serverItems.find { it.deviceId == deviceId }
+                val currentTemp = device?.let {
+                    runCatching {
+                        it.deviceDetail.get("temperature")?.asJsonPrimitive?.asInt ?: 23
+                    }.getOrDefault(23)
+                } ?: 23
+                
+                // 초기 온도 설정
+                LaunchedEffect(Unit) {
+                    finalTemperature = currentTemp
+                }
+                
+                AirConditionerTemperatureControl(
+                    currentTemperature = currentTemp,
+                    onTemperatureChange = { newTemp -> 
+                        finalTemperature = newTemp
+                    },
+                    onApply = { /* 사용 안함 */ },
+                    onCancel = { /* 사용 안함 */ }
+                )
+            }
+            "FAN" -> {
+                // 현재 레벨 찾기
+                val device = serverItems.find { it.deviceId == deviceId }
+                val currentLevel = device?.let {
+                    runCatching {
+                        it.deviceDetail.get("level")?.asJsonPrimitive?.asInt ?: 1
+                    }.getOrDefault(1)
+                } ?: 1
+                
+                // 초기 레벨 설정
+                LaunchedEffect(Unit) {
+                    finalLevel = currentLevel
+                }
+                
+                FanLevelControl(
+                    currentLevel = currentLevel,
+                    onLevelChange = { newLevel -> 
+                        finalLevel = newLevel
+                    },
+                    onApply = { /* 사용 안함 */ },
+                    onCancel = { /* 사용 안함 */ }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun DeviceGrid(
     items: List<DeviceUi>,
     modifier: Modifier = Modifier,
     showAddTile: Boolean = true,
     onToggle: (String) -> Unit = {},
+    onLongPress: (String) -> Unit = {},
     onAddClick: () -> Unit = {}
 ) {
     LazyVerticalGrid(
@@ -481,7 +728,8 @@ private fun DeviceGrid(
                     iconRes = d.iconRes,
                     statusIconRes = d.statusIconRes,
                     iconTint = d.iconTint,
-                    onToggle = { onToggle(d.id) }
+                    onToggle = { onToggle(d.id) },
+                    onLongPress = { onLongPress(d.id) }
                 )
             } else {
                 DeviceCardSmall(
@@ -491,7 +739,8 @@ private fun DeviceGrid(
                     iconRes = d.iconRes,
                     statusIconRes = d.statusIconRes,
                     iconTint = d.iconTint,
-                    onToggle = { onToggle(d.id) }
+                    onToggle = { onToggle(d.id) },
+                    onLongPress = { onLongPress(d.id) }
                 )
             }
         }
@@ -502,6 +751,7 @@ private fun DeviceGrid(
         }
     }
 }
+
 
 private fun iconResForType(type: String?): Int {
     if (type == null) return R.drawable.ic_device
@@ -523,10 +773,7 @@ private fun iconResForType(type: String?): Int {
         "빔프로젝터" -> R.drawable.ic_beam_projector
         "공기청정기" -> R.drawable.ic_air_purifier
         "조명" -> R.drawable.ic_light
-        else -> {
-            android.util.Log.d("DeviceScreen", "Unknown deviceType for icon: $type")
-            R.drawable.ic_device
-        }
+        else -> R.drawable.ic_device
     }
 }
 
@@ -550,17 +797,7 @@ private fun convertDeviceTypeToKorean(deviceType: String?): String {
         "빔프로젝터" -> "빔프로젝터"
         "공기청정기" -> "공기청정기"
         "조명" -> "조명"
-        else -> {
-            android.util.Log.d("DeviceScreen", "Unknown deviceType: $deviceType")
-            deviceType
-        }
+        else -> deviceType
     }
 }
 
-@Preview
-@Composable
-private fun DeviceScreenPreview() {
-    EeumTheme(dynamicColor = false) {
-        DeviceScreen()
-    }
-}
