@@ -1,8 +1,6 @@
 package com.example.eeum.login
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -42,12 +41,11 @@ import com.example.eeum.ui.theme.Gray300
 import com.example.eeum.ui.theme.Gray500
 
 @Composable
-fun SignUpIdScreen(
+fun SignUpEmailScreen(
     onBackClick: () -> Unit = {},
-    onNextClick: (String) -> Unit = {},
-    onDuplicateCheck: (String) -> Unit = {}
+    onSendVerificationCode: (String) -> Unit = {}
 ) {
-    var idText by remember { mutableStateOf("") }
+    var emailText by remember { mutableStateOf("") }
     
     Column(
         modifier = Modifier
@@ -91,7 +89,7 @@ fun SignUpIdScreen(
                 .padding(horizontal = 65.dp)
         ) {
             LinearProgressIndicator(
-                progress = { 0.2f }, // 1/5
+                progress = { 0.4f }, // 2/5
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp),
@@ -100,13 +98,13 @@ fun SignUpIdScreen(
             )
             
             Text(
-                text = "1/5",
+                text = "2/5",
                 fontSize = 12.sp,
                 color = Gray500,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.End
             )
         }
         
@@ -120,7 +118,7 @@ fun SignUpIdScreen(
         ) {
             // Title
             Text(
-                text = "아이디를 입력해주세요",
+                text = "이메일을 입력해주세요",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -131,23 +129,42 @@ fun SignUpIdScreen(
             
             // Description
             Text(
-                text = "로그인 시 사용할 아이디를 설정해주세요.",
-                fontSize = 14.sp,
+                text = "계정 인증 및 비밀번호 찾기를 위해\n이메일 주소가 필요합니다.",
+                fontSize = 16.sp,
                 color = Gray500,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                lineHeight = 20.sp
             )
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // ID Input Field
+            // Email Input Label
+            Text(
+                text = "이메일 주소",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Email Input Field
             OutlinedTextField(
-                value = idText,
-                onValueChange = { idText = it },
+                value = emailText,
+                onValueChange = { emailText = it },
                 placeholder = {
                     Text(
-                        text = "아이디 입력",
+                        text = "example@email.com",
                         color = Gray300,
                         fontSize = 16.sp
+                    )
+                },
+                trailingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Email,
+                        contentDescription = "이메일",
+                        tint = Gray300
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -162,70 +179,51 @@ fun SignUpIdScreen(
                 singleLine = true
             )
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(32.dp))
             
-            // Helper text
-            Text(
-                text = "영문, 숫자 조합 5~10자",
-                fontSize = 12.sp,
-                color = Gray500,
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Duplicate Check Button
+            // Verification Code Send Button
             Button(
-                onClick = { onDuplicateCheck(idText) },
+                onClick = { onSendVerificationCode(emailText) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Blue600,
                     contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(16.dp),
-                enabled = idText.isNotEmpty()
+                enabled = emailText.isNotEmpty() && isValidEmail(emailText)
             ) {
                 Text(
-                    text = "중복 확인",
+                    text = "인증 번호 발송",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
             }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Helper text
+            Text(
+                text = "입력하신 이메일로 인증번호를 발송합니다",
+                fontSize = 12.sp,
+                color = Gray500,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
         }
         
         Spacer(modifier = Modifier.weight(1f))
-        
-        // Next Button
-        Button(
-            onClick = { onNextClick(idText) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Gray300,
-                contentColor = Color.White,
-                disabledContainerColor = Gray300,
-                disabledContentColor = Color.White
-            ),
-            shape = RoundedCornerShape(16.dp),
-            enabled = false // Initially disabled, should be enabled after duplicate check
-        ) {
-            Text(
-                text = "다음",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
     }
+}
+
+private fun isValidEmail(email: String): Boolean {
+    return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 }
 
 @Preview
 @Composable
-private fun SignUpIdScreenPreview() {
+private fun SignUpEmailScreenPreview() {
     EeumTheme(dynamicColor = false) {
-        SignUpIdScreen()
+        SignUpEmailScreen()
     }
 }
