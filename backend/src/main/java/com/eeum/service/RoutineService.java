@@ -1,20 +1,5 @@
 package com.eeum.service;
 
-import com.eeum.dto.request.RoutineCreateRequest;
-import com.eeum.dto.request.RoutineDetailRequest;
-import com.eeum.dto.request.RoutineUpdateRequest;
-import com.eeum.dto.response.RoutineDetailResponse;
-import com.eeum.dto.response.RoutineResponse;
-import com.eeum.entity.Routine;
-import com.eeum.entity.RoutineDetail;
-import com.eeum.entity.RoutineIcon;
-import com.eeum.repository.RoutineIconRepository;
-import com.eeum.repository.RoutineRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -27,6 +12,28 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.eeum.dto.request.DeviceStatusRequest;
+import com.eeum.dto.request.RoutineCreateRequest;
+import com.eeum.dto.request.RoutineDetailRequest;
+import com.eeum.dto.request.RoutineUpdateRequest;
+import com.eeum.dto.response.RoutineDetailResponse;
+import com.eeum.dto.response.RoutineResponse;
+import com.eeum.entity.Routine;
+import com.eeum.entity.RoutineDetail;
+import com.eeum.entity.RoutineIcon;
+import com.eeum.notification.RoutineExecutedEvent;
+import com.eeum.repository.DeviceRepository;
+import com.eeum.repository.RoutineIconRepository;
+import com.eeum.repository.RoutineRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import lombok.RequiredArgsConstructor;
+
 @Service
 @RequiredArgsConstructor
 public class RoutineService {
@@ -35,6 +42,10 @@ public class RoutineService {
     private final RoutineIconRepository routineIconRepository;
     private final ObjectMapper objectMapper;
 
+    private final DeviceService deviceService;           
+    private final ApplicationEventPublisher publisher;   
+    private final DeviceRepository deviceRepository;
+    
     // 루틴 생성
     @Transactional
     public Integer create(Integer userId, RoutineCreateRequest req) {
@@ -236,4 +247,65 @@ public class RoutineService {
                 detailDtos
         );
     }
+    
+    @Transactional
+    public void executeRoutine(Integer userId, Integer routineId) {
+        if (userId == null || routineId == null) {
+            throw new IllegalArgumentException("userId, routineId는 필수입니다.");
+        }
+
+        Routine routine = routineRepository.findWithDetailsByRoutineIdAndUserId(routineId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("루틴이 존재하지 않거나 접근 권한이 없습니다."));
+
+        List<RoutineDetail> details = routine.getDetails();
+        if (details == null || details.isEmpty()) {
+            // 상세 액션이 없으면 알림 없이 종료
+            return;
+        }
+
+        // 상세 액션을 순서대로 실행
+        for (RoutineDetail d : details) {
+            // JSON 문자열 -> JsonNode
+            JsonNode node;
+            try {
+                node = (d.getDeviceDetail() == null)
+                        ? objectMapper.createObjectNode()
+                        : objectMapper.readTree(d.getDeviceDetail());
+            } catch (Exception e) {
+                throw new IllegalArgumentException("루틴 detail의 deviceDetail JSON 파싱 실패: id=" + d.getRoutineDetailId(), e);
+            }
+
+            DeviceStatusRequest req = new DeviceStatusRequest();
+            req.setDeviceDetail(node);
+
+            // 실제 IR 제어/로그/큐 적재는 DeviceService가 담당
+            deviceService.updateStatus(d.getDeviceId(), req);
+        }
+
+        // homeId 해석
+        Integer firstDeviceId = details.get(0).getDeviceId();
+        Integer homeId = resolveHomeIdByDevice(firstDeviceId);
+
+        // 트랜잭션 커밋 후 푸시 발송되도록 도메인 이벤트 발행
+        publisher.publishEvent(new RoutineExecutedEvent(
+                homeId,
+                routine.getRoutineId(),
+                routine.getName(),
+                java.time.OffsetDateTime.now()
+        ));
+    }
+    
+    private Integer resolveHomeIdByDevice(Integer deviceId) {
+        // device.user_home_id → user_home.home_id
+        var viaUserHome = deviceRepository.findHomeIdByDeviceIdViaUserHome(deviceId);
+        if (viaUserHome.isPresent()) return viaUserHome.get();
+
+        // device_positions.home_id
+        var viaPositions = deviceRepository.findHomeIdByDeviceId(deviceId);
+        if (viaPositions.isPresent()) return viaPositions.get();
+
+        throw new IllegalStateException("deviceId=" + deviceId + " 에 대한 homeId를 찾을 수 없습니다.");
+    }
+    
+    
 }
