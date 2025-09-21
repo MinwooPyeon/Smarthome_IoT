@@ -5,10 +5,9 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.eeum.entity.Routine;
-
-import io.lettuce.core.dynamic.annotation.Param;
 
 public interface RoutineRepository extends JpaRepository<Routine, Integer> {
 
