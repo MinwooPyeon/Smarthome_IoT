@@ -62,7 +62,7 @@ services:
     expose:
       - "8081"
     volumes:
-      - /etc/eeum/firebase/firebase.json:/run/secrets/firebase.json:ro
+      - /etc/secrets/firebase:/etc/secrets/firebase:ro
 
   nginx:
     image: nginx:1.27-alpine
