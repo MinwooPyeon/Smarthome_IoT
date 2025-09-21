@@ -107,7 +107,7 @@ fun RoutineScreen(navController: NavController) {
                 modifier = Modifier.fillMaxWidth()
             ) { page ->
                 when (page) {
-                    0 -> MyRoutinePage()
+                    0 -> MyRoutinePage(navController)
                     1 -> RecommendRoutinePage()
                 }
             }

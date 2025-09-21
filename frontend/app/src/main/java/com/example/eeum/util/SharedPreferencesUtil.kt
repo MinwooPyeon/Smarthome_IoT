@@ -12,6 +12,9 @@ class SharedPreferencesUtil (context: Context) {
     private val KEY_ACCESS_TOKEN = "access_token"
     private val KEY_REFRESH_TOKEN = "refresh_token"
 
+    private val KEY_SELECTED_HOME_ID = "selected_home_id"
+
+
     var preferences: SharedPreferences =
         context.getSharedPreferences(SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE)
     fun setAccessToken(token: String) {
@@ -24,6 +27,17 @@ class SharedPreferencesUtil (context: Context) {
 
     fun setRefreshToken(token: String) {
         preferences.edit().putString(KEY_REFRESH_TOKEN, token).apply()
+    }
+
+    fun setSelectedHomeId(homeId: Int) {
+        preferences.edit().putInt(KEY_SELECTED_HOME_ID, homeId).apply()
+    }
+
+    fun getSelectedHomeId(): Int? {
+        // 저장된 값이 없거나 유효하지 않으면 null
+        if (!preferences.contains(KEY_SELECTED_HOME_ID)) return null
+        val v = preferences.getInt(KEY_SELECTED_HOME_ID, -1)
+        return if (v != -1) v else null
     }
 
     fun getRefreshToken(): String? {

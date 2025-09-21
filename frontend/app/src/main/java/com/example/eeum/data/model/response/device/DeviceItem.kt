@@ -6,10 +6,10 @@ data class DeviceItem(
     val deviceId: Int,
     val deviceName: String,
     val deviceType: Any,
-    val irDeviceId: Int,
+    val irDeviceId: String,
     val model: String,
     val registeredAt: String,
     val roomId: Int,
     val x: Double,
-    val y: Double
+    val y: Double,
 )

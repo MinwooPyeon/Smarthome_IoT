@@ -263,7 +263,8 @@ class VoiceUseCase(
                         routineWeekday = w,
                         routineDescription = sess.description,
                         actTime = com.example.eeum.util.ResourceUtils.toIsoActTime(t),
-                        detail = sess.details.toList()
+                        detail = sess.details.toList(),
+                        isAi = true  // AI로 생성된 루틴이므로 true로 설정
                     )
 
                     Log.d(TAG, "handleRoutineFlow: $req")

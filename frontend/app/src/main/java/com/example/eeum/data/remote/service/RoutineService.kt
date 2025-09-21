@@ -1,11 +1,16 @@
 package com.example.eeum.data.remote.service
 
 import com.example.eeum.data.model.dto.routine.RoutineRequest
+import com.example.eeum.data.model.dto.routine.RoutineRequestDto
 import com.example.eeum.data.model.response.common.ApiResponse
 import com.example.eeum.data.model.response.common.BaseResponse
 import com.example.eeum.data.model.response.common.Page
+import com.example.eeum.data.model.response.routine.AllRoutine
+import com.example.eeum.data.model.response.routine.DeleteResponse
 import com.example.eeum.data.model.response.routine.RoutineCreateResponse
+import com.example.eeum.data.model.response.routine.RoutineIcon
 import com.example.eeum.data.model.response.routine.RoutineResponse
+import com.example.eeum.data.model.response.routine.RoutineResult
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -23,11 +28,25 @@ interface RoutineService {
         @Body body: RoutineRequest
     ): Response<ApiResponse<RoutineCreateResponse>>
 
+    //루틴 등록 - 새 DTO/응답에 맞춘 버전
+    @POST("api/routines")
+    suspend fun generateRoutine(
+        @Body body: RoutineRequestDto
+    ): Response<RoutineResult>
+
     // 루틴 조회
     @GET("api/routines")
     suspend fun readRoutines(
         @Query("mask") mask: Int? = null,
     ): Response<ApiResponse<Page<RoutineResponse>>>
+
+    //루틴 전체 조회
+    @GET("api/routines")
+    suspend fun readAllRoutines(): Response<AllRoutine>
+
+    // 루틴 아이콘 목록 조회
+    @GET("api/icons")
+    suspend fun readRoutineIcons(): Response<RoutineIcon>
 
     // 루틴 단건 조회
     @GET("api/routines/{routineId}")
@@ -46,5 +65,11 @@ interface RoutineService {
     suspend fun deleteRoutine(
         @Path("routineId") id: Int,
     ): Response<ApiResponse<BaseResponse>>
+
+    // 루틴 삭제 (응답 스펙에 맞춰 수정)
+    @DELETE("api/routines/{routineId}")
+    suspend fun removeRoutine(
+        @Path("routineId") id: Int,
+    ): Response<DeleteResponse>
 
 }

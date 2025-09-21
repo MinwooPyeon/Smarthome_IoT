@@ -48,6 +48,10 @@ fun HomeScreen(
     val floorplans by vm.floorplans.observeAsState(emptyList())
     val devices by vm.devices.observeAsState(emptyList())
 
+    // SharedPreferences 유틸
+    val ctx = LocalContext.current
+    val prefs = remember { com.example.eeum.util.SharedPreferencesUtil(ctx) }
+
     // 최초 진입 시 집 목록 조회
     LaunchedEffect(Unit) { vm.fetchUserHomes() }
 
@@ -112,11 +116,13 @@ fun HomeScreen(
             selectedName = selectedHomeName,
             homes = homes,
             onSelect = { home ->
-                //선택 즉시 UI 반영 + 서버에 대표집 설정
+                // 선택 즉시 UI 반영 + 서버에 대표집 설정 + 로컬에 저장
                 selectedHomeName = home.homeName
                 vm.selectHome(home.homeId)
                 vm.setPrimaryHome(home.homeId)
                 vm.fetchDevicesIcon()
+                // ✅ SharedPreferences에 즉시 저장
+                prefs.setSelectedHomeId(home.homeId)
             },
             onAddNew = onOpenMap
         )
@@ -401,7 +407,7 @@ private fun FloorplanCard(
                             val topFromTopPx = (topMargin + (drawnH - yPx) - iconSizePx / 2f)
                                 .coerceIn(0f, containerSize.height - iconSizePx)
 
-                            iconResForDevice(item.deviceType)?.let { resId ->
+                            iconResForDevice2(item.deviceType)?.let { resId ->
                                 Image(
                                     painter = painterResource(id = resId),
                                     contentDescription = item.deviceName,
@@ -423,24 +429,19 @@ private fun FloorplanCard(
     }
 }
 
-private fun iconResForDevice(deviceType: Any?): Int? {
+private fun iconResForDevice2(deviceType: Any?): Int? {
     val key = deviceType?.toString()?.trim()?.lowercase() ?: return null
     return when (key) {
-        "에어컨" ->
-            R.drawable.ic_icon_air_conditioning
-        "선풍기" ->
-            R.drawable.ic_icon_electric_fan
-        "텔레비전" ->
-            R.drawable.ic_icon_television
-        "빔프로젝터" ->
-            R.drawable.ic_icon_beam_projector
-        "공기청정기" ->
-            R.drawable.ic_icon_air_purifier
-        "조명" ->
-            R.drawable.ic_icon_light
+        "에어컨" -> R.drawable.ic_icon_air_conditioning
+        "선풍기" -> R.drawable.ic_icon_electric_fan
+        "텔레비전" -> R.drawable.ic_icon_television
+        "빔프로젝터" -> R.drawable.ic_icon_beam_projector
+        "공기청정기" -> R.drawable.ic_icon_air_purifier
+        "조명" -> R.drawable.ic_icon_light
         else -> null
     }
 }
+
 private fun toAbsoluteUrl(base: String, path: String?): String? {
     if (path.isNullOrBlank()) return null
     val b = base.trimEnd('/')
