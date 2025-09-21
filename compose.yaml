@@ -57,7 +57,7 @@ services:
       MQTT_BROKER: tcp://mosquitto:1883
       MQTT_USERNAME: eeum
       MQTT_PASSWORD: ssafy2086eeum
-      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase/eeum-c4e71-firebase.json   # FCM 인증 경로
+      GOOGLE_APPLICATION_CREDENTIALS: /etc/secrets/firebase/eeum-c4e71-firebase.json   # FCM 인증 경로
       FCM_ENABLED: "true"
     expose:
       - "8081"
