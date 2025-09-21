@@ -11,13 +11,12 @@
 static const char* TAG = "IR_LEARNER";
 
 IRLearner::IRLearner() : learning_mode_(false), ir_receiver_(nullptr) {
-    ESP_LOGI(TAG, "IR 학습기 초기화 완료");
+    ESP_LOGI(TAG, "IR 학습기 초기화");
 }
 
 IRLearner::IRLearner(IRReceiver* ir_receiver) : learning_mode_(false), ir_receiver_(ir_receiver) {
-    ESP_LOGI(TAG, "IR 학습기 초기화 완료 (IR 수신기 연동)");
+    ESP_LOGI(TAG, "IR 학습기 초기화");
 
-    // IR 수신기 콜백 설정
     if (ir_receiver_) {
         ir_receiver_->setIRCodeCallback([this](const std::string& ir_code) {
             this->onIRCodeReceived(ir_code);
@@ -65,7 +64,6 @@ bool IRLearner::learnIRCode(const std::string& appliance_id, const std::string& 
     }
 
     ESP_LOGI(TAG, "IR 코드 학습 시작: %s - %s", appliance_id.c_str(), command_name.c_str());
-    ESP_LOGI(TAG, "리모컨 버튼을 눌러주세요...");
 
     current_appliance_id_ = appliance_id;
     current_command_name_ = command_name;
@@ -119,12 +117,10 @@ bool IRLearner::validateIRCode(const std::string& ir_code) const {
         return false;
     }
 
-    // 16진수 형식 검증
     if (ir_code.substr(0, 2) != "0x") {
         return false;
     }
 
-    // 16진수 문자 검증
     for (size_t i = 2; i < ir_code.length(); i++) {
         char c = ir_code[i];
         if (!((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'))) {
@@ -136,12 +132,11 @@ bool IRLearner::validateIRCode(const std::string& ir_code) const {
 }
 
 std::string IRLearner::detectProtocol(const std::string& ir_code) const {
-    // 간단한 프로토콜 감지 로직
-    if (ir_code.length() == 10) { // 32비트
+    if (ir_code.length() == 10) {
         return "NEC";
-    } else if (ir_code.length() == 8) { // 24비트
+    } else if (ir_code.length() == 8) {
         return "RC5";
-    } else if (ir_code.length() == 6) { // 12비트
+    } else if (ir_code.length() == 6) {
         return "Sony";
     }
 
@@ -250,8 +245,8 @@ IRCode IRLearner::analyzeIRCode(const std::string& raw_code) const {
     IRCode code;
     code.code = raw_code;
     code.protocol = detectProtocol(raw_code);
-    code.frequency = 38000; // 기본값
-    code.bits = (raw_code.length() - 2) * 4; // 16진수 문자당 4비트
+    code.frequency = 38000;
+    code.bits = (raw_code.length() - 2) * 4;
     code.timestamp = std::chrono::steady_clock::now();
     return code;
 }
@@ -271,18 +266,15 @@ bool IRLearner::isDuplicateCode(const IRCode& code) const {
 }
 
 std::string IRLearner::generateCodeHash(const IRCode& code) const {
-    // 간단한 해시 생성
     std::stringstream ss;
     ss << code.code << "_" << code.protocol << "_" << code.frequency;
     return ss.str();
 }
 
-// IR 수신기 설정
 void IRLearner::setIRReceiver(IRReceiver* ir_receiver) {
     ir_receiver_ = ir_receiver;
 
     if (ir_receiver_) {
-        // IR 수신기 콜백 설정
         ir_receiver_->setIRCodeCallback([this](const std::string& ir_code) {
             this->onIRCodeReceived(ir_code);
         });
@@ -294,7 +286,6 @@ IRReceiver* IRLearner::getIRReceiver() const {
     return ir_receiver_;
 }
 
-// IR 코드 수신 콜백
 void IRLearner::onIRCodeReceived(const std::string& ir_code) {
     if (!learning_mode_ || current_appliance_id_.empty() || current_command_name_.empty()) {
         return;
@@ -302,29 +293,25 @@ void IRLearner::onIRCodeReceived(const std::string& ir_code) {
 
     ESP_LOGI(TAG, "IR 코드 수신됨: %s", ir_code.c_str());
 
-    // IR 코드 분석
     IRCode analyzed_code = analyzeIRCode(ir_code);
     analyzed_code.description = "학습된 코드: " + current_command_name_;
 
-    // 코드 검증
     if (validation_callback_ && !validation_callback_(analyzed_code)) {
         ESP_LOGE(TAG, "IR 코드 검증 실패: %s", ir_code.c_str());
         return;
     }
 
-    // 중복 검사
     if (isDuplicateCode(analyzed_code)) {
         ESP_LOGW(TAG, "중복된 IR 코드 감지: %s", ir_code.c_str());
         return;
     }
 
-    // 학습된 명령 저장
     LearnedCommand command;
     command.appliance_id = current_appliance_id_;
     command.command_name = current_command_name_;
     command.ir_code = analyzed_code;
     command.repeat_count = 1;
-    command.notes = "실제 리모컨에서 학습됨";
+    command.notes = "학습됨";
 
     {
         std::lock_guard<std::mutex> lock(commands_mutex_);
@@ -334,12 +321,10 @@ void IRLearner::onIRCodeReceived(const std::string& ir_code) {
     ESP_LOGI(TAG, "IR 코드 학습 완료: %s -> %s (%s)",
              analyzed_code.code.c_str(), current_appliance_id_.c_str(), current_command_name_.c_str());
 
-    // 콜백 호출
     if (learning_callback_) {
         learning_callback_(analyzed_code);
     }
 
-    // 학습 완료 후 상태 초기화
     current_appliance_id_.clear();
     current_command_name_.clear();
 }

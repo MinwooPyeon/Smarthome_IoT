@@ -55,7 +55,7 @@ MatterClient& MatterClient::operator=(MatterClient&& other) noexcept
         device_statuses_ = std::move(other.device_statuses_);
         network_address_ = std::move(other.network_address_);
         debug_mode_ = other.debug_mode_;
-        
+
         other.network_connected_ = false;
         other.debug_mode_ = false;
     }
@@ -66,20 +66,20 @@ bool MatterClient::initialize(const std::string& fabric_id, const std::string& n
 {
     fabric_id_ = fabric_id;
     node_id_ = node_id;
-    
+
     if (debug_mode_) {
         std::cout << "Matter 클라이언트 초기화: Fabric=" << fabric_id_ << ", Node=" << node_id_ << std::endl;
     }
-    
+
     return true;
 }
 
 bool MatterClient::connect()
 {
     if (debug_mode_) {
-        std::cout << "Matter 네트워크에 연결 중..." << std::endl;
+        std::cout << "Matter 네트워크에 연결" << std::endl;
     }
-    
+
     #ifdef _WIN32
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     network_connected_ = true;
@@ -90,7 +90,7 @@ bool MatterClient::connect()
     return true;
     #else
     network_connected_ = false;
-    last_error_ = "Linux에서 Matter 연결 미구현";
+    last_error_ = "Linux에서 Matter 연결 구현 안됨";
     return false;
     #endif
 }
@@ -100,7 +100,7 @@ void MatterClient::disconnect()
     if (debug_mode_) {
         std::cout << "Matter 네트워크 연결 해제" << std::endl;
     }
-    
+
     network_connected_ = false;
     network_address_.clear();
 }
@@ -113,16 +113,16 @@ bool MatterClient::isConnected() const
 std::vector<MatterDevice> MatterClient::discoverDevices(int timeout_ms)
 {
     if (debug_mode_) {
-        std::cout << "Matter 디바이스 검색 중... (타임아웃: " << timeout_ms << "ms)" << std::endl;
+        std::cout << "Matter 디바이스 검색 (타임아웃: " << timeout_ms << "ms)" << std::endl;
     }
-    
+
     std::vector<MatterDevice> devices;
-    
+
     #ifdef _WIN32
     if (debug_mode_) {
-        std::cout << "Windows 시뮬레이션: 가상 Matter 디바이스 생성" << std::endl;
+        std::cout << "Windows 시뮬레이션 모드: 가상 Matter 디바이스 생성" << std::endl;
     }
-    
+
     MatterDevice ac_device;
     ac_device.device_id = "ac_001";
     ac_device.name = "Samsung Air Conditioner";
@@ -136,7 +136,7 @@ std::vector<MatterDevice> MatterClient::discoverDevices(int timeout_ms)
     ac_device.attributes["fan_speed"] = "auto";
     ac_device.supported_commands = {"power_toggle", "mode_change", "temp_set", "fan_speed"};
     devices.push_back(ac_device);
-    
+
     MatterDevice purifier_device;
     purifier_device.device_id = "purifier_001";
     purifier_device.name = "Samsung Air Purifier";
@@ -150,7 +150,7 @@ std::vector<MatterDevice> MatterClient::discoverDevices(int timeout_ms)
     purifier_device.attributes["mode"] = "auto";
     purifier_device.supported_commands = {"power_toggle", "mode_change", "fan_speed"};
     devices.push_back(purifier_device);
-    
+
     MatterDevice fan_device;
     fan_device.device_id = "fan_001";
     fan_device.name = "Samsung Fan";
@@ -164,7 +164,7 @@ std::vector<MatterDevice> MatterClient::discoverDevices(int timeout_ms)
     fan_device.attributes["timer"] = "0";
     fan_device.supported_commands = {"power_toggle", "speed_set", "oscillation_toggle"};
     devices.push_back(fan_device);
-    
+
     MatterDevice projector_device;
     projector_device.device_id = "projector_001";
     projector_device.name = "Panasonic Projector";
@@ -178,17 +178,17 @@ std::vector<MatterDevice> MatterClient::discoverDevices(int timeout_ms)
     projector_device.attributes["lamp_hours"] = "1200";
     projector_device.supported_commands = {"power_toggle", "input_change", "brightness_set"};
     devices.push_back(projector_device);
-    
+
     #else
     if (debug_mode_) {
-        std::cout << "Linux: 실제 Matter 디바이스 검색 (미구현)" << std::endl;
+        std::cout << "Linux: 실제 Matter 디바이스 검색 (구현 안됨)" << std::endl;
     }
     #endif
-    
+
     if (debug_mode_) {
         std::cout << "검색된 디바이스 수: " << devices.size() << std::endl;
     }
-    
+
     return devices;
 }
 
@@ -197,19 +197,19 @@ bool MatterClient::addDevice(const MatterDevice& device)
     if (debug_mode_) {
         std::cout << "Matter 디바이스 추가: " << device.device_id << std::endl;
     }
-    
+
     DeviceStatus status;
     status.device_id = device.device_id;
     status.online = device.online;
     status.attributes = device.attributes;
     status.last_update = "now";
-    
+
     device_statuses_[device.device_id] = status;
-    
+
     if (debug_mode_) {
         std::cout << "디바이스 상태 업데이트됨: " << device.device_id << std::endl;
     }
-    
+
     return true;
 }
 
@@ -218,7 +218,7 @@ bool MatterClient::removeDevice(const std::string& device_id)
     if (debug_mode_) {
         std::cout << "Matter 디바이스 제거: " << device_id << std::endl;
     }
-    
+
     auto it = device_statuses_.find(device_id);
     if (it != device_statuses_.end()) {
         device_statuses_.erase(it);
@@ -227,7 +227,7 @@ bool MatterClient::removeDevice(const std::string& device_id)
         }
         return true;
     }
-    
+
     if (debug_mode_) {
         std::cout << "디바이스를 찾을 수 없음: " << device_id << std::endl;
     }
@@ -237,7 +237,7 @@ bool MatterClient::removeDevice(const std::string& device_id)
 std::vector<MatterDevice> MatterClient::getDevices() const
 {
     std::vector<MatterDevice> devices;
-    
+
     for (const auto& pair : device_statuses_) {
         MatterDevice device;
         device.device_id = pair.first;
@@ -249,10 +249,10 @@ std::vector<MatterDevice> MatterClient::getDevices() const
         device.model = "Unknown";
         device.firmware_version = "Unknown";
         device.supported_commands = {};
-        
+
         devices.push_back(device);
     }
-    
+
     return devices;
 }
 
@@ -261,11 +261,11 @@ MatterCommandResult MatterClient::sendCommand(const MatterCommand& command)
     if (debug_mode_) {
         std::cout << "Matter 명령 전송: " << command.device_id << " - " << static_cast<int>(command.type) << std::endl;
     }
-    
+
     MatterCommandResult result;
     result.device_id = command.device_id;
     result.correlation_id = command.correlation_id;
-    
+
     auto it = device_statuses_.find(command.device_id);
     if (it == device_statuses_.end()) {
         result.success = false;
@@ -273,27 +273,27 @@ MatterCommandResult MatterClient::sendCommand(const MatterCommand& command)
         result.error_message = "디바이스를 찾을 수 없음: " + command.device_id;
         return result;
     }
-    
+
     #ifdef _WIN32
     if (debug_mode_) {
-        std::cout << "Windows 시뮬레이션: 명령 처리 중..." << std::endl;
+        std::cout << "Windows 시뮬레이션 모드: 명령 처리 중..." << std::endl;
     }
-    
+
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    
+
     switch (command.type) {
         case MatterCommandType::POWER_TOGGLE:
             result.success = true;
             result.status = "success";
             result.response_data["power_state"] = "toggled";
             break;
-            
+
         case MatterCommandType::MODE_CHANGE:
             result.success = true;
             result.status = "success";
             result.response_data["mode"] = "changed";
             break;
-            
+
         case MatterCommandType::TEMPERATURE_SET:
             result.success = true;
             result.status = "success";
@@ -301,24 +301,24 @@ MatterCommandResult MatterClient::sendCommand(const MatterCommand& command)
                 result.response_data["temperature"] = command.parameters.at("temperature");
             }
             break;
-            
+
         default:
             result.success = true;
             result.status = "success";
             result.response_data["command_executed"] = "true";
             break;
     }
-    
+
     #else
     result.success = false;
     result.status = "not_implemented";
-    result.error_message = "Linux에서 Matter 명령 처리 미구현";
+    result.error_message = "Linux에서 Matter 명령 처리 구현 안됨";
     #endif
-    
+
     if (debug_mode_) {
         std::cout << "명령 처리 결과: " << (result.success ? "성공" : "실패") << std::endl;
     }
-    
+
     return result;
 }
 
@@ -330,23 +330,23 @@ MatterCommandResult MatterClient::sendCommand(const std::string& device_id, int 
     command.correlation_id = "auto_" + std::to_string(std::time(nullptr));
     command.priority = 1;
     command.timestamp = "now";
-    
+
     return sendCommand(command);
 }
 
-bool MatterClient::subscribeToDeviceStatus(const std::string& device_id, 
+bool MatterClient::subscribeToDeviceStatus(const std::string& device_id,
                                          std::function<void(const std::string&, const std::map<std::string, std::string>&)> callback)
 {
     if (debug_mode_) {
         std::cout << "디바이스 상태 구독: " << device_id << std::endl;
     }
-    
+
     status_callbacks_[device_id] = callback;
-    
+
     if (debug_mode_) {
         std::cout << "상태 구독 등록됨: " << device_id << std::endl;
     }
-    
+
     return true;
 }
 
@@ -355,7 +355,7 @@ void MatterClient::unsubscribeFromDeviceStatus(const std::string& device_id)
     if (debug_mode_) {
         std::cout << "디바이스 상태 구독 해제: " << device_id << std::endl;
     }
-    
+
     auto it = status_callbacks_.find(device_id);
     if (it != status_callbacks_.end()) {
         status_callbacks_.erase(it);
@@ -388,15 +388,15 @@ bool MatterClient::initializeMatterNetwork()
     if (debug_mode_) {
         std::cout << "Matter 네트워크 초기화 중..." << std::endl;
     }
-    
+
     #ifdef _WIN32
     if (debug_mode_) {
-        std::cout << "Windows 시뮬레이션: Matter 네트워크 초기화됨" << std::endl;
+        std::cout << "Windows 시뮬레이션 모드: Matter 네트워크 초기화됨" << std::endl;
     }
     return true;
     #else
     if (debug_mode_) {
-        std::cout << "Linux: Matter 네트워크 초기화 (미구현)" << std::endl;
+        std::cout << "Linux: Matter 네트워크 초기화 (구현 안됨)" << std::endl;
     }
     return false;
     #endif
@@ -407,10 +407,10 @@ void MatterClient::cleanupMatterNetwork()
     if (debug_mode_) {
         std::cout << "Matter 네트워크 정리 중..." << std::endl;
     }
-    
+
     network_connected_ = false;
     network_address_.clear();
-    
+
     if (debug_mode_) {
         std::cout << "Matter 네트워크 정리 완료" << std::endl;
     }

@@ -12,7 +12,6 @@
 
 static const char* TAG = "ESP32_IR_RECEIVER";
 
-// 정적 래퍼 함수
 static void receiveTaskWrapper(void* pvParameters) {
     ESP32IRReceiver* receiver = static_cast<ESP32IRReceiver*>(pvParameters);
     if (receiver) {
@@ -25,16 +24,13 @@ ESP32IRReceiver::ESP32IRReceiver(int gpio_pin)
     : gpio_pin_(gpio_pin), protocol_("NEC"), is_receiving_(false),
       debug_mode_(false), initialized_(false), rmt_rx_channel_(RMT_CHANNEL_0) {
 
-    // 통계 초기화
     stats_.total_received = 0;
     stats_.valid_codes = 0;
     stats_.invalid_codes = 0;
     stats_.last_receive_time = 0;
 
-    // 큐 생성
     ir_code_queue_ = xQueueCreate(20, sizeof(IRCode));
 
-    // 뮤텍스 초기화 (std::mutex는 자동으로 초기화됨)
 }
 
 ESP32IRReceiver::~ESP32IRReceiver() {
@@ -47,9 +43,8 @@ bool ESP32IRReceiver::initialize() {
         return true;
     }
 
-    ESP_LOGI(TAG, "ESP32 IR 수신기 초기화 시작 - GPIO %d", gpio_pin_);
+    ESP_LOGI(TAG, "ESP32 IR 수신기 초기화 - GPIO %d", gpio_pin_);
 
-    // GPIO 설정
     gpio_config_t io_conf = {};
     io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_INPUT;
@@ -63,7 +58,6 @@ bool ESP32IRReceiver::initialize() {
         return false;
     }
 
-    // RMT 초기화
     if (!initializeRMT()) {
         ESP_LOGE(TAG, "RMT 초기화 실패");
         return false;
@@ -103,7 +97,6 @@ bool ESP32IRReceiver::startReceiving() {
     ESP_LOGI(TAG, "IR 수신 시작");
     is_receiving_ = true;
 
-    // 수신 태스크 생성
     xTaskCreate(receiveTaskWrapper, "IR_Receive_Task", 4096, this, 5, &receive_task_handle_);
 
     return true;
@@ -164,12 +157,11 @@ std::vector<ESP32IRReceiver::IRCode> ESP32IRReceiver::getReceivedCodes() const {
 bool ESP32IRReceiver::initializeRMT() {
     ESP_LOGI(TAG, "RMT 초기화 시작");
 
-    // RMT 설정
     rmt_config_t rmt_cfg = {
         .rmt_mode = RMT_MODE_RX,
         .channel = RMT_CHANNEL_0,
         .gpio_num = (gpio_num_t)gpio_pin_,
-        .clk_div = 80, // 1MHz 클럭
+        .clk_div = 80,
         .mem_block_num = 1,
         .rx_config = {
             .idle_threshold = 10000,
@@ -206,7 +198,6 @@ void ESP32IRReceiver::rmt_rx_done_callback(rmt_channel_t channel,
 
     ESP_LOGI(TAG, "RMT 수신 완료");
 
-    // 프로토콜에 따른 디코딩
     std::string ir_code;
     if (receiver->protocol_ == "NEC") {
         ir_code = receiver->decodeNECProtocol();
@@ -220,27 +211,23 @@ void ESP32IRReceiver::rmt_rx_done_callback(rmt_channel_t channel,
     }
 
     if (!ir_code.empty()) {
-        // IR 코드 콜백 호출
         if (receiver->ir_code_callback_) {
             receiver->ir_code_callback_(ir_code);
         }
 
-        // 통계 업데이트
         receiver->updateStatistics(ir_code, true);
 
-        // 큐에 추가
         IRCode code_data;
         code_data.code = ir_code;
         code_data.protocol = receiver->protocol_;
         code_data.timestamp = esp_timer_get_time();
-        code_data.signal_strength = 0; // 기본값으로 설정
+        code_data.signal_strength = 0;
 
         if (xQueueSend(receiver->ir_code_queue_, &code_data, 0) != pdTRUE) {
             ESP_LOGW(TAG, "IR 코드 큐 전송 실패");
         }
     }
 
-    // 다음 수신 준비 (실제 구현은 나중에)
     // rmt_receive(receiver->rmt_rx_channel_, receiver->ir_code_queue_, -1);
 }
 
@@ -253,13 +240,11 @@ void ESP32IRReceiver::receiveTask(void *pvParameters) {
 
     ESP_LOGI(TAG, "IR 수신 태스크 시작");
 
-    // RMT 수신 시작
     esp_err_t ret = rmt_rx_start(RMT_CHANNEL_0, true);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "RMT 수신 시작 실패: %s", esp_err_to_name(ret));
     }
 
-    // 태스크 루프
     while (receiver->is_receiving_) {
         vTaskDelay(pdMS_TO_TICKS(100));
     }
@@ -269,14 +254,11 @@ void ESP32IRReceiver::receiveTask(void *pvParameters) {
 }
 
 std::string ESP32IRReceiver::decodeNECProtocol() {
-    // 간단한 NEC 프로토콜 디코딩 구현
     ESP_LOGI(TAG, "NEC 프로토콜 디코딩");
 
     uint32_t code = 0;
     uint32_t bit_count = 0;
 
-    // NEC 프로토콜 디코딩 (32비트)
-    // 임시로 더미 코드 반환 (실제 구현에서는 RMT 데이터 분석 필요)
     code = 0x12345678;
     bit_count = 32;
 
@@ -294,13 +276,11 @@ std::string ESP32IRReceiver::decodeNECProtocol() {
 }
 
 std::string ESP32IRReceiver::decodeRC5Protocol() {
-    // RC5 프로토콜 디코딩 구현
     ESP_LOGW(TAG, "RC5 프로토콜은 아직 구현되지 않음");
     return "";
 }
 
 std::string ESP32IRReceiver::decodeSonyProtocol() {
-    // Sony 프로토콜 디코딩 구현
     ESP_LOGW(TAG, "Sony 프로토콜은 아직 구현되지 않음");
     return "";
 }
@@ -317,7 +297,6 @@ void ESP32IRReceiver::updateStatistics(const std::string& code, bool valid) {
     }
     stats_.last_receive_time = esp_timer_get_time();
 
-    // 수신된 코드 저장 (최대 100개)
     if (received_codes_.size() >= 100) {
         received_codes_.erase(received_codes_.begin());
     }
@@ -340,10 +319,8 @@ void ESP32IRReceiver::logMessage(const std::string& message) {
 bool ESP32IRReceiver::validateIRCode(const std::string& ir_code) const {
     if (ir_code.empty() || ir_code.length() < 3) return false;
 
-    // 16진수 형식 검증 (0x로 시작)
     if (ir_code.substr(0, 2) != "0x") return false;
 
-    // 16진수 문자 검증
     for (size_t i = 2; i < ir_code.length(); i++) {
         if (!isxdigit(ir_code[i])) return false;
     }
@@ -354,10 +331,8 @@ bool ESP32IRReceiver::validateIRCode(const std::string& ir_code) const {
 std::string ESP32IRReceiver::normalizeIRCode(const std::string& code) const {
     std::string normalized = code;
 
-    // 대문자로 변환
     std::transform(normalized.begin(), normalized.end(), normalized.begin(), ::toupper);
 
-    // 0x 접두사 확인
     if (normalized.substr(0, 2) != "0x") {
         normalized = "0x" + normalized;
     }

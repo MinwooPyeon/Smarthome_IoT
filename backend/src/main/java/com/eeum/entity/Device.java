@@ -31,7 +31,7 @@ public class Device {
     private String model;
 
     @Column(name = "ir_device_id", nullable = false)
-    private Integer irDeviceId;
+	private String irDeviceId;
     
     @Column(name = "user_home_id", nullable = false)
     private Integer userHomeId;

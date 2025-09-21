@@ -1,13 +1,3 @@
-"""
-ESP32 IR Remote Controller - QR Code Generator
-시리얼번호 QR 코드 생성기
-
-의존성 설치:
-pip install qrcode[pil]
-또는
-pip install -r requirements.txt
-"""
-
 try:
     import qrcode
     import os

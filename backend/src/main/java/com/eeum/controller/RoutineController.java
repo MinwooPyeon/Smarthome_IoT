@@ -1,5 +1,20 @@
 package com.eeum.controller;
 
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.eeum.dto.request.RoutineCreateRequest;
 import com.eeum.dto.request.RoutineUpdateRequest;
 import com.eeum.dto.response.RoutineResponse;
@@ -9,12 +24,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -107,6 +116,21 @@ public class RoutineController implements ControllerHelper {
         try {
             RoutineResponse res = routineService.get(userId, routineId);
             return handleSuccess(res, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    
+    // 루틴 실행 테스트
+    @Operation(summary = "루틴 즉시 실행", description = "해당 루틴을 즉시 실행합니다.")
+    @PostMapping("/routines/{routineId}/execute")
+    public ResponseEntity<?> execute(@PathVariable(name = "routineId") Integer routineId) {
+        Integer userId = 1;
+        try {
+            routineService.executeRoutine(userId, routineId); // ★ RoutineService 실행 진입점
+            return handleSuccess(Map.of("message", "루틴 실행 요청 완료", "routineId", routineId), HttpStatus.OK);
         } catch (IllegalArgumentException e) {
             return handleFail(e, HttpStatus.BAD_REQUEST);
         } catch (Exception e) {

@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -38,9 +39,9 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenMap: () -> Unit = {},
-    onAddHome: () -> Unit = {},
-    vm: HomeViewModel = viewModel()
+    onOpenMap: () -> Unit = {},   // 카드 클릭과 동일 동작 (요청: 새 집 추가 클릭 시 onCardClick() 실행)
+    onAddHome: () -> Unit = {},   // (기존 파라미터 유지, 아래에서는 사용 안 함)
+    vm: HomeViewModel = viewModel(LocalContext.current as androidx.activity.ComponentActivity)
 ) {
     // 서버 데이터
     val homes by vm.homes.observeAsState(emptyList())
@@ -54,7 +55,7 @@ fun HomeScreen(
     // 최초 진입 시 집 목록 조회
     LaunchedEffect(Unit) { vm.fetchUserHomes() }
 
-    // 선택된 집 이름
+    // 선택된 집 이름 (UI 표시용)
     var selectedHomeName by remember { mutableStateOf<String?>(null) }
 
     // homes 갱신 시 초기 선택 & 평면도 자동 조회

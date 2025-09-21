@@ -18,7 +18,7 @@ SerialController::SerialController(int baud_rate)
 }
 
 SerialController::~SerialController() {
-    // 정리 작업
+    // cleanup
 }
 
 bool SerialController::initialize() {
@@ -26,7 +26,6 @@ bool SerialController::initialize() {
         return true;
     }
 
-    // UART 설정
     uart_config_t uart_config = {
         .baud_rate = m_baud_rate,
         .data_bits = UART_DATA_8_BITS,
@@ -36,7 +35,6 @@ bool SerialController::initialize() {
         .source_clk = UART_SCLK_REF_TICK,
     };
 
-    // UART 드라이버 설치
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 1024 * 2, 0, 0, NULL, 0));
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &uart_config));
     ESP_ERROR_CHECK(uart_set_pin(UART_NUM_0, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
@@ -44,11 +42,10 @@ bool SerialController::initialize() {
     m_initialized = true;
     ESP_LOGI(TAG, "시리얼 통신 초기화 완료 (속도: %d bps)", m_baud_rate);
 
-    // 초기화 완료 메시지 전송
     DynamicJsonDocument init_doc(512);
     init_doc["type"] = "init";
     init_doc["status"] = "ready";
-    init_doc["device_id"] = "esp32_ir_controller";
+    init_doc["device_id"] = "esp-1";
     init_doc["version"] = "1.0.0";
 
     std::string init_str;
@@ -64,7 +61,6 @@ void SerialController::loop() {
         return;
     }
 
-    // UART 데이터 수신 처리
     uint8_t data[128];
     int len = uart_read_bytes(UART_NUM_0, data, sizeof(data) - 1, 0);
 
@@ -75,18 +71,15 @@ void SerialController::loop() {
             char c = data[i];
 
             if (c == '\n' || c == '\r') {
-                // 개행 문자는 무시하고 계속 누적
                 continue;
             } else if (m_input_buffer.length() < MAX_BUFFER_SIZE - 1) {
                 m_input_buffer += c;
             } else {
-                // 버퍼 오버플로우
                 ESP_LOGW(TAG, "입력 버퍼 오버플로우");
                 m_input_buffer.clear();
             }
         }
 
-        // JSON 완성도 체크 (중괄호 균형 확인)
         if (!m_input_buffer.empty()) {
             int open_braces = 0;
             int close_braces = 0;
@@ -112,7 +105,6 @@ void SerialController::loop() {
                 }
             }
 
-            // JSON이 완성되었는지 확인 (중괄호 균형 + 최소 길이)
             if (open_braces > 0 && open_braces == close_braces && m_input_buffer.length() > 10) {
                 processInput();
                 m_input_buffer.clear();
@@ -185,20 +177,17 @@ void SerialController::processInput() {
 }
 
 void SerialController::processCommand(const std::string& json_str) {
-    // 보안 검증
     if (!checkRateLimit()) {
         sendError("RATE_LIMIT_EXCEEDED", "속도 제한 초과");
         return;
     }
 
-    // 입력 데이터 sanitization
     std::string sanitized_input = sanitizeInput(json_str);
 
     if (m_debug_mode) {
         ESP_LOGI(TAG, "Sanitized input: %s", sanitized_input.c_str());
     }
 
-    // JSON 유효성 검증
     if (!validateJson(sanitized_input)) {
         ESP_LOGE(TAG, "JSON 유효성 검증 실패: %s", sanitized_input.c_str());
         sendError("INVALID_JSON", "잘못된 JSON 형식");
@@ -221,7 +210,6 @@ void SerialController::processCommand(const std::string& json_str) {
 
     std::string command_str = doc["command"].as<std::string>();
 
-    // 명령어 검증
     if (!validateCommand(command_str)) {
         sendError("INVALID_COMMAND", "허용되지 않은 명령어: " + command_str);
         return;
@@ -237,7 +225,6 @@ void SerialController::processCommand(const std::string& json_str) {
         result = handleDefaultCommand(command_str, params);
     }
 
-    // 응답 전송
     DynamicJsonDocument response_doc(512);
     response_doc["type"] = "response";
     response_doc["command"] = command_str.c_str();
@@ -254,11 +241,10 @@ std::string SerialController::handleDefaultCommand(const std::string& command, c
         return "pong";
     } else if (command == "status") {
         DynamicJsonDocument status_doc(512);
-        status_doc["device_id"] = "esp32_ir_controller";
-        status_doc["uptime"] = esp_timer_get_time() / 1000000; // 초 단위
+        status_doc["device_id"] = "esp-1";
+        status_doc["uptime"] = esp_timer_get_time() / 1000000;
         status_doc["free_heap"] = esp_get_free_heap_size();
 
-        // WiFi 상태 확인
         wifi_ap_record_t ap_info;
         bool wifi_connected = (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK);
         status_doc["wifi_connected"] = wifi_connected;
@@ -305,7 +291,6 @@ void SerialController::debugPrint(const std::string& message) {
     }
 }
 
-// 보안 관련 메서드 구현
 void SerialController::setAuthenticationToken(const std::string& token) {
     m_auth_token = token;
     ESP_LOGI(TAG, "인증 토큰 설정됨");
@@ -322,7 +307,6 @@ void SerialController::setRateLimit(int max_messages_per_second) {
 }
 
 bool SerialController::validateCommand(const std::string& command) const {
-    // 허용된 명령어 목록
     static const std::vector<std::string> allowed_commands = {
         "ping", "status", "ir_send", "raw_send", "ir_receive", "config_get", "config_set",
         "device_list", "device_control", "system_info", "restart",
@@ -340,13 +324,11 @@ bool SerialController::validateCommand(const std::string& command) const {
 }
 
 bool SerialController::validateJson(const std::string& json_str) const {
-    // JSON 크기 검증
     if (json_str.length() > m_max_message_size) {
         ESP_LOGW(TAG, "JSON 메시지가 너무 큼: %zu bytes", json_str.length());
         return false;
     }
 
-    // JSON 파싱 검증
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, json_str);
     if (error) {
@@ -360,16 +342,13 @@ bool SerialController::validateJson(const std::string& json_str) const {
 std::string SerialController::sanitizeInput(const std::string& input) const {
     std::string sanitized = input;
 
-    // NULL 바이트 제거
     sanitized.erase(std::remove(sanitized.begin(), sanitized.end(), '\0'), sanitized.end());
 
-    // 제어 문자 제거 (탭, 개행, 캐리지 리턴 제외)
     sanitized.erase(std::remove_if(sanitized.begin(), sanitized.end(),
         [](char c) {
             return c < 32 && c != '\t' && c != '\n' && c != '\r';
         }), sanitized.end());
 
-    // 최대 길이 제한
     if (sanitized.length() > m_max_message_size) {
         sanitized = sanitized.substr(0, m_max_message_size);
     }
@@ -382,7 +361,6 @@ bool SerialController::checkRateLimit() {
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_last_message_time);
 
     if (elapsed.count() >= 1) {
-        // 1초가 지났으면 카운터 리셋
         m_message_count = 0;
         m_last_message_time = now;
     }

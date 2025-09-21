@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.eeum.dto.response.RoomItemResponse;
 import com.eeum.dto.response.UserHomeItemResponse;
 import com.eeum.repository.UserHomeRepository;
 
@@ -35,5 +36,32 @@ public class UserHomeService {
         userHomeRepository.setPrimary(userId, homeId);
 
         return homeId;
+    }
+    
+    
+    // 유저 집의 방 목록 조회
+    @Transactional
+    public List<RoomItemResponse> listByHomeId(Integer userId, Integer homeId) {
+        if (userId == null || homeId == null) {
+            throw new IllegalArgumentException("userId, homeId는 필수입니다.");
+        }
+        if (!userHomeRepository.existsByUserIdAndHomeId(userId, homeId)) {
+            throw new IllegalArgumentException("해당 집에 대한 접근 권한이 없습니다.");
+        }
+
+        List<UserHomeRepository.RoomRow> rows = userHomeRepository.findRoomsByHomeId(homeId);
+
+        return rows.stream()
+            .map(r -> new RoomItemResponse(
+                    r.getRoomId(),
+                    r.getRoomName(),
+                    toHex(r.getRoomColor())
+            ))
+            .toList();
+    }
+
+    private static String toHex(Integer rgb) {
+        if (rgb == null) return null;
+        return String.format("#%06X", (rgb & 0xFFFFFF));
     }
 }

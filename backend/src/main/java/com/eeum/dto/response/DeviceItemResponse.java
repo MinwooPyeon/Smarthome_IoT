@@ -12,7 +12,7 @@ import java.util.Map;
 public class DeviceItemResponse {
     private Integer deviceId;
     private Integer roomId;
-    private Integer irDeviceId;
+    private String irDeviceId;
     private String  brand;
     private String  model;
     private String  deviceType;

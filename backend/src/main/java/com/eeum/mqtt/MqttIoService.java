@@ -10,18 +10,20 @@ import org.springframework.stereotype.Service;
 import com.eeum.entity.IrButton;
 import com.eeum.entity.IrSignal;
 import com.eeum.mqtt.inbound.EnvIn;
-import com.eeum.mqtt.inbound.ErrorIn;
 import com.eeum.mqtt.inbound.IrProtocolIn;
 import com.eeum.mqtt.inbound.IrSignalIn;
 import com.eeum.mqtt.inbound.RequestIn;
 import com.eeum.repository.IrButtonRepository;
 import com.eeum.repository.IrSignalRepository;
+import com.eeum.repository.IrTxQueueRepository;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -37,12 +39,15 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class MqttIoService {
 	
 	@Autowired
-    private IrSignalRepository irSignalRepository;
+    private final IrSignalRepository irSignalRepository;
 	@Autowired
-	private IrButtonRepository irButtonRepository;
+	private final IrButtonRepository irButtonRepository;
+	@Autowired
+	private final IrTxQueueRepository irTxQueueRepository;
 	
     // 알 수 없는 필드는 무시
     private final ObjectMapper om = new ObjectMapper()
@@ -71,10 +76,14 @@ public class MqttIoService {
                 handleIrProtocol(payload);
             }
             else if (topic.endsWith("/error")) {
-                handleError(payload);
+            	JsonNode node = om.readTree(payload);   
+                handleError(node); 
             }
             else if (topic.endsWith("/request")) {
                 handleRequest(payload);
+            }
+            else if (topic.endsWith("/ack")) {
+                handleAck(payload); 
             }
             else {
                 log.debug("[MQTT] bypass: {} -> {}", topic, payload);
@@ -163,7 +172,7 @@ public class MqttIoService {
                             .samplesUs(m.getRawData())
                             .model(model)
                             .buttonId(button.getButtonId())    // NOT NULL
-                            .protocolId(protocolId)            // NOT NULL
+                            .protocolId(protocolId)           
                             .frameCount(null)                  // 문서에 없음 → null
                             .frameLenUs(null)                  // 문서에 없음 → null
                             .build()
@@ -198,18 +207,14 @@ public class MqttIoService {
     }
 
     // hub/{deviceId}/error
-    public void handleError(String json) {
-        try {
-            ErrorIn m = om.readValue(json, ErrorIn.class);
-            if (!validate(m)) return;
+    private void handleError(JsonNode node) {
+        int txId = node.get("tx_id").asInt();
+        String error = node.has("error") ? node.get("error").asText() : "UNKNOWN";
+        String message = node.has("message") ? node.get("message").asText() : "No error message";
 
-            // 문서 명세 그대로 출력
-            log.warn("[ERR] tx_id={} error={} msg={}",
-            		m.getTxId(), m.getError(), m.getMessage());
+        irTxQueueRepository.updateStatusAndErrorByTxId(txId, "FAILED", error + ": " + message);
 
-        } catch (Exception e) {
-            log.warn("[ERR] parse/handle error: {}", e.getMessage(), e);
-        }
+        log.info("[ERROR 처리] txId={} → FAILED / error={} / msg={}", txId, error, message);
     }
 
     // hub/{deviceId}/request
@@ -225,6 +230,20 @@ public class MqttIoService {
         }
     }
     
+    private void handleAck(String json) {
+        try {
+            JsonNode node = om.readTree(json);
+            int txId = node.get("tx_id").asInt();
+            String message = node.has("message") ? node.get("message").asText() : "ACK received";
+
+            // 상태 저장 등 처리 (예시)
+            irTxQueueRepository.updateStatusAndErrorByTxId(txId, "ACKED", message);
+
+            log.info("[ACK 처리] txId={} → ACKED / msg={}", txId, message);
+        } catch (Exception e) {
+            log.warn("[ACK] parse/handle error: {}", e.getMessage(), e);
+        }
+    }
 
     // ---------- 내부 유틸 ----------
 

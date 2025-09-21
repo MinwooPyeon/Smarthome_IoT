@@ -9,7 +9,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class HubRegisterRequest {
-    @Schema(description = "허브 IP 주소 (PostgreSQL inet)", example = "192.168.0.101", format = "ipv4")
-	private String deviceAddr;
+    @Schema(description = "허브 시리얼 번호", example = "test1_hub")
+	private String hubDeviceId;
     private Integer homeId;
 }

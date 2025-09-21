@@ -339,7 +339,7 @@ class VoiceUseCase(
                 val r = repo.readDeviceBySlots(place, number, device)
                 r.fold(
                     onSuccess = { dev ->
-                        val type = canonicalDevice(dev.type) ?: device
+                        val type = canonicalDevice(dev.deviceType) ?: device
                         val on   = dev.deviceDetail.optBool("power")
                         val t    = dev.deviceDetail.optInt("temperature")
                         val lv   = dev.deviceDetail.optInt("level")

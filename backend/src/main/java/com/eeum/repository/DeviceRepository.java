@@ -1,15 +1,15 @@
 package com.eeum.repository;
 
-import org.springframework.data.jpa.repository.Modifying;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.eeum.entity.Device;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
 
 public interface DeviceRepository extends JpaRepository<Device, Integer> {
 	
@@ -229,7 +229,7 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
     interface DeviceRow {
         Integer getDeviceId();
         Integer getRoomId();
-        Integer getIrDeviceId();
+        String getIrDeviceId();
         String  getBrand();
         String  getModel();
         String  getDeviceType();
@@ -249,5 +249,24 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
         Double  getX();
         Double  getY();
     }
+    
+    
+    @Query(value = """
+            SELECT uh.home_id
+              FROM eeum.device d
+              JOIN eeum.user_home uh
+                ON uh.user_home_id = d.user_home_id
+             WHERE d.device_id = :deviceId
+             LIMIT 1
+            """, nativeQuery = true)
+    Optional<Integer> findHomeIdByDeviceIdViaUserHome(@Param("deviceId") Integer deviceId);
+    
+    @Query(value = """
+            SELECT dp.home_id
+              FROM eeum.device_positions dp
+             WHERE dp.device_id = :deviceId
+             LIMIT 1
+            """, nativeQuery = true)
+    Optional<Integer> findHomeIdByDeviceId(@Param("deviceId") Integer deviceId);
     
 }

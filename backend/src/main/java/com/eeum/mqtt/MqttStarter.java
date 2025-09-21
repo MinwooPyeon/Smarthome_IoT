@@ -27,6 +27,7 @@ public class MqttStarter {
     private static final String IRPROTO_TOPIC   = "hub/+/irProtocol";
     private static final String ERROR_TOPIC     = "hub/+/error";
     private static final String REQUEST_TOPIC   = "hub/+/request";
+    private static final String ACK_TOPIC 		= "hub/+/ack";
     
     @Value("${mqtt.stateTopic:hub/controller-server/state}")
     private String stateTopic; 
@@ -75,6 +76,8 @@ public class MqttStarter {
                      log.info("[ERR ] {}", payload);
                  } else if (topic.endsWith("/request")) { 
                      log.info("[REQ ] {}", payload);
+                 } else if (topic.endsWith("/ack")) {
+                	 log.info("[ACK ] {}", payload);
                  } else {
                      log.info("[MQTT] {} -> {}", topic, payload);
                  }
@@ -108,9 +111,10 @@ public class MqttStarter {
         client.subscribe(IR_TOPIC, 1);        
         client.subscribe(IRPROTO_TOPIC, 1);   
         client.subscribe(ERROR_TOPIC, 1);     
-        client.subscribe(REQUEST_TOPIC, 1);  
-        log.info("[MQTT] subscribed: {}, {}, {}, {}, {}",
-            ENV_TOPIC, IR_TOPIC, IRPROTO_TOPIC, ERROR_TOPIC, REQUEST_TOPIC);
+        client.subscribe(REQUEST_TOPIC, 1);
+        client.subscribe(ACK_TOPIC, 1);
+        log.info("[MQTT] subscribed: {}, {}, {}, {}, {}, {}",
+            ENV_TOPIC, IR_TOPIC, IRPROTO_TOPIC, ERROR_TOPIC, REQUEST_TOPIC, ACK_TOPIC);
     }
     
     // online 상태를 Retain으로 게시

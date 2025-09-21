@@ -1,7 +1,5 @@
 package com.eeum.entity;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
-
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -11,11 +9,7 @@ import lombok.*;
 public class HubDevice {
     @Id
     @Column(name = "hub_device_id")
-    private Integer hubDeviceId;
-
-    @Column(name = "device_addr", columnDefinition = "inet", nullable = false)
-    @JsonAlias("device_addr")
-    private String deviceAddr;
+    private String hubDeviceId;
     
     @Column(name = "user_home_id")
     private Integer userHomeId;

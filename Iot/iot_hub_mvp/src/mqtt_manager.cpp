@@ -16,20 +16,19 @@ MqttManager::MqttManager(const AppConfig& cfg)
 MqttManager::~MqttManager(){ stop(); }
 
 void MqttManager::setup_handlers(){
-    // 토픽 → 핸들러 등록 (가독성 ↑)
     handlers_.emplace(cfg_.topicEnv,        [this](const json& j){ h_env_request(j); });
     handlers_.emplace(cfg_.topicOrderIrReq, [this](const json& j){ h_ir_req(j); });
-    handlers_.emplace(cfg_.topicOrderCtrl,  [this](const json& j){ h_control(j); });
 }
 
 bool MqttManager::start(){
     if(!mqtt_.init(cfg_, "hub_agent_" + cfg_.deviceId)) return false;
 
+    irMgr_.loadData();
+
     // 구독
     mqtt_.subscribe(cfg_.topicEnv, 1);
     mqtt_.subscribe(cfg_.topicOrderIrReq, 1);
-    mqtt_.subscribe(cfg_.topicOrderCtrl, 1);
-
+    mqtt_.subscribe(cfg_.topicRegisDebice, 1);
     // 라우터 준비
     setup_handlers();
 
@@ -77,12 +76,13 @@ void MqttManager::run_loop(){
     auto lastEnv = steady_clock::now();
     while(running_){
         mqtt_.loop_for_ms(50);
+        auto r = dht_.read_with_retry(1, 1500, 1200);
+        envMgr_.addData(EnvSample{now_ms(), r->tempC, r->hum});
 
-        if(cfg_.envStreamOn){
+        if(cfg_.envStreamOn){    
             auto now = steady_clock::now();
             if(now - lastEnv >= milliseconds(cfg_.envIntervalMs)){
                 lastEnv = now;
-                auto r = dht_.read_with_retry(1, 1500, 1200);
                 if(r) publish_env(r->tempC, r->hum, now_ms());
                 else  publish_error(0, "env_read_failed");
             }
@@ -114,7 +114,7 @@ void MqttManager::h_ir_req(const json& j){
 
     IrReceiver ir(cfg_.irPinBcm, cfg_.irGapUs);
     ir.init(50);
-    auto fr = ir.capture_once(3000);
+    auto fr = ir.capture_once(5000);
     if(!fr){ publish_error(tx_id, "ir_capture_timeout"); return; }
 
     // hub/{deviceId}/irsignal 로 raw 전송 (protocol topic은 사용 안 함)
@@ -128,9 +128,41 @@ void MqttManager::h_ir_req(const json& j){
 }
 
 void MqttManager::h_control(const json& j){
-    // 향후 IR TX 붙이면 여기서 송신 처리
-    (void)j;
-    std::cout << "[control] rx\n";
+    Log log;
+
+    log.tx_id = j.value("tx_id", 0);
+    log.deviceId = j.value("deviceId", "");
+    if(log.deviceId == "") {
+        publish_error(log.tx_id, "Send Device Id NULL Reference Exception");
+    }
+    log.deviceType = j.value("device_type", "UNKNOWN");
+    log.function = j.value("function", "NULL");
+    log.metaData = j.value("metaData", "NULL");
+
+    logMgr_.addLog(log);
+}
+
+void MqttManager::h_regist_send(const json& j){
+    int tx_id = j.value("tx_id", 0);
+    IrSendDevice device;
+    device.deviceId = j.value("deviceId", "");
+    if(device.deviceId == "") {
+        publish_error(tx_id, "Send Device Id NULL Reference Exception");
+    }
+    device.deviceType = j.value("device_type", "UNKNOWN");
+    device.consumption = j.value("consumption", 0);
+    
+    bool is_add = j.value("add_rm", true);
+    std::string topic = "hub/"+device.deviceId+"/order/control";
+    if(is_add){
+        irMgr_.addData(device);
+        mqtt_.subscribe(topic, 1);
+        handlers_.emplace(topic, [this](const json& j){ h_ir_req(j); });
+    }else{
+        irMgr_.deleteData(device);
+        mqtt_.unsubscribe(topic);
+        handlers_.erase(topic);
+    }
 }
 
 // ---------- 공용 유틸 ----------

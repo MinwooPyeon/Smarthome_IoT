@@ -107,7 +107,7 @@ void CEeumMFCView::InitWebView() {
 							m_controller = controller;
 							m_controller->get_CoreWebView2(&m_webview);
 							m_controller->put_IsVisible(TRUE);
-							ResizeWebView(); // ← 사이즈 먼저
+							ResizeWebView();
 
 
 							Microsoft::WRL::ComPtr<ICoreWebView2Settings> settings;
@@ -235,7 +235,7 @@ int CEeumMFCView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	InitWebView(); // 비동기 초기화, 완료되면 HTML 로드됨
 
 	//TODO : DUMMY TEST용 코드
-	SetTimer(1, 1000, NULL); // 1초마다 더미 Metrics 발생
+	//SetTimer(1, 1000, NULL); // 1초마다 더미 Metrics 발생
 
 	return 0;
 }
@@ -251,6 +251,19 @@ void CEeumMFCView::OnShowWindow(BOOL bShow, UINT nStatus)
 	CView::OnShowWindow(bShow, nStatus);
 	// 창이 보인 뒤 한 번 더 리사이즈 (초기 0 크기 대비)
 	ResizeWebView();
+}
+
+void CEeumMFCView::OnUpdate(CView*, LPARAM, CObject*) {
+	auto* doc = GetDocument();
+	if (!doc || !m_webview) return;
+
+	Metrics m{};
+	{
+		std::lock_guard<std::mutex> lk(doc->mtx_);
+		m = doc->latestMet_;
+	}
+
+	PushMetrics(m);
 }
 
 void CEeumMFCView::OnTimer(UINT_PTR nIDEvent)
