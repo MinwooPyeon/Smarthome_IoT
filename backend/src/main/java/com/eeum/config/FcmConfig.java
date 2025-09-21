@@ -1,7 +1,6 @@
 package com.eeum.config;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -21,29 +20,20 @@ public class FcmConfig {
 
     @Bean
     public FirebaseApp firebaseApp() throws IOException {
+        // 이미 초기화되어 있으면 재사용
         if (!FirebaseApp.getApps().isEmpty()) {
             log.info("[FCM] FirebaseApp reused");
             return FirebaseApp.getInstance();
         }
 
-        GoogleCredentials credentials;
-        ClassPathResource key = new ClassPathResource("firebase/service-account.json");
-        if (key.exists()) {
-            try (InputStream in = key.getInputStream()) {
-                credentials = GoogleCredentials.fromStream(in);
-                log.info("[FCM] Using service-account.json from classpath");
-            }
-        } else {
-            credentials = GoogleCredentials.getApplicationDefault(); // ADC
-            log.info("[FCM] Using Application Default Credentials (env/metadata)");
-        }
-
+    
+        GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
         FirebaseOptions options = FirebaseOptions.builder()
                 .setCredentials(credentials)
                 .build();
 
         FirebaseApp app = FirebaseApp.initializeApp(options);
-        log.info("[FCM] FirebaseApp initialized");
+        log.info("[FCM] FirebaseApp initialized via ADC");
         return app;
     }
 
