@@ -18,7 +18,7 @@ CREATE TABLE "routine_detail" (
 	"routine_detail"	INTEGER		NOT NULL,
 	"device_id"	INTEGER		NOT NULL,
 	"routine_id"	INTEGER		NOT NULL,
-	"device_detail"	JSON		NULL,
+	"device_detail"	JSONB		NULL,
 	"model"	text		NULL
 );
 

@@ -24,6 +24,6 @@ public class RoutineDetail {
     private Integer deviceId;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "device_detail", columnDefinition = "json")
+    @Column(name = "device_detail", columnDefinition = "jsonb")
     private String deviceDetail;
 }
