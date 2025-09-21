@@ -136,10 +136,17 @@ public class DeviceService {
         	            .model(req.getModel())
         	            .brand(req.getBrand())
         	            .deviceType(req.getDeviceType())
-        	            .createdAt(Instant.now())   
+        	            .createdAt(Instant.now())
+        	            .powerConsumption(500.0f)
         	            .build();
         	        return irRemoteirRepository.save(toSave);
         	    });
+        
+        if (model.getPowerConsumption() == null) {
+            model.setPowerConsumption(500.0f);
+            irRemoteirRepository.save(model); 
+            log.info("[REGISTER] ir_remoteir 기본 소비전력 보정: model={}, power_consumption=500.0", model.getModel());
+        }
         
         String roomName = deviceRepository.findRoomNameById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("room을 찾을 수 없습니다: " + roomId));
@@ -191,7 +198,7 @@ public class DeviceService {
             log.info("[MQTT] sendDevice 발행 완료: hubDeviceId={}, irDeviceId={}, type={}",
                     hubDeviceId, irDevice.getIrDeviceId(), req.getDeviceType()); 
         } catch (Exception e) {
-            // 실패하더라도 디바이스 등록은 진행되도록 로그만 출력
+            
             log.warn("[MQTT] sendDevice 발행 실패(등록은 완료 처리): {}", e.getMessage(), e);
         }
         
@@ -263,18 +270,22 @@ public class DeviceService {
             throw new IllegalArgumentException("deviceId는 필수입니다.");
         }
         if (request == null || request.getDeviceDetail() == null) {
-            throw new IllegalArgumentException("deviceDetail은 필수입니다.");
+            throw new IllegalArgumentException("deviceDetail은 JSON object여야 합니다.");
         }
 
-        Device device = deviceRepository.findById(deviceId)
-            .orElseThrow(() -> new IllegalArgumentException("Device not found: " + deviceId));
+        // Device 조회
+        java.util.Optional<Device> deviceOpt = deviceRepository.findById(deviceId);
+        if (deviceOpt.isEmpty()) {
+            throw new IllegalArgumentException("Device not found: " + deviceId);
+        }
+        Device device = deviceOpt.get();
 
-        // 디바이스 타입 확인
-        String deviceType = irRemoteirRepository.findById(device.getModel())
-                .map(IrRemoteir::getDeviceType)
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "해당 model(" + device.getModel() + ")에 대한 deviceType을 찾을 수 없습니다."
-                ));
+        // 디바이스 타입 확인: 람다 제거 + null 보호
+        java.util.Optional<IrRemoteir> remoteirOpt = irRemoteirRepository.findById(device.getModel());
+        if (remoteirOpt.isEmpty() || remoteirOpt.get().getDeviceType() == null) {
+            throw new IllegalArgumentException("해당 model(" + device.getModel() + ")에 대한 deviceType을 찾을 수 없습니다.");
+        }
+        String deviceType = remoteirOpt.get().getDeviceType();
 
         Set<String> allowed = ALLOWED_KEYS.getOrDefault(deviceType.toLowerCase(), Set.of("power"));
 
@@ -290,16 +301,14 @@ public class DeviceService {
         // 3) 깊은 병합
         JsonNode mergedNode = deepMerge(currentNode, patchNode);
 
-        // 4) 다시 Map으로 변환하여 엔티티에 저장
+        // 4) 다시 Map으로 변환하여 엔티티에 저장 (허용 키만 유지)
         ObjectNode filtered = filterAllowedKeys((ObjectNode) mergedNode, allowed);
-
         Map<String, Object> mergedMap = objectMapper.convertValue(
                 filtered, new TypeReference<Map<String, Object>>() {}
-            );
-        
+        );
         device.setDeviceDetail(mergedMap);
         deviceRepository.save(device);
-        
+
         String model = device.getModel();
         String irDeviceId = device.getIrDeviceId();
         OffsetDateTime now = OffsetDateTime.now();
@@ -310,78 +319,192 @@ public class DeviceService {
             String category = entry.getKey(); // 예: "power", "temperature"
 
             try {
+                // 허용 키만 처리
+                if (!allowed.contains(category)) {
+                    continue;
+                }
+
+                // 현재값과 요청값 정규화 비교 → 동일하면 스킵
+                JsonNode incoming = entry.getValue();
+                JsonNode currentVal = currentNode.get(category);
+                boolean isChanged = false;
+                String kindValue = null;  // 세부 카테고리 (power_on/off, level_N, temperature_N)
+
+                switch (category) {
+                    case "power": {
+                        // 요청값 → boolean 정규화
+                        boolean newPower;
+                        if (incoming.isBoolean()) newPower = incoming.asBoolean();
+                        else if (incoming.isNumber()) newPower = incoming.asInt() != 0;
+                        else if (incoming.isTextual()) {
+                            String s = incoming.asText().trim().toLowerCase();
+                            newPower = "true".equals(s) || "1".equals(s);
+                        } else newPower = false;
+
+                        // 현재값 → boolean 정규화
+                        if (currentVal == null || currentVal.isNull()) {
+                            isChanged = true;
+                        } else if (currentVal.isBoolean()) {
+                            isChanged = currentVal.asBoolean() != newPower;
+                        } else if (currentVal.isNumber()) {
+                            isChanged = (currentVal.asInt() != 0) != newPower;
+                        } else if (currentVal.isTextual()) {
+                            String s = currentVal.asText().trim().toLowerCase();
+                            boolean oldPower = "true".equals(s) || "1".equals(s);
+                            isChanged = oldPower != newPower;
+                        }
+
+                        if (!isChanged) {
+                            continue;
+                        }
+                        kindValue = newPower ? "power_on" : "power_off";
+                        break;
+                    }
+                    case "temperature": {
+                        int newTemp;
+                        if (incoming.isNumber()) newTemp = incoming.asInt();
+                        else if (incoming.isTextual()) {
+                            String s = incoming.asText().trim();
+                            try { newTemp = Integer.parseInt(s); }
+                            catch (NumberFormatException e) { continue; }
+                        } else continue;
+
+                        if (currentVal == null || currentVal.isNull()) {
+                            isChanged = true;
+                        } else if (currentVal.isNumber()) {
+                            isChanged = (currentVal.asInt() != newTemp);
+                        } else if (currentVal.isTextual()) {
+                            String s = currentVal.asText().trim();
+                            try {
+                                int oldTemp = Integer.parseInt(s);
+                                isChanged = (oldTemp != newTemp);
+                            } catch (NumberFormatException e) {
+                                isChanged = true;
+                            }
+                        }
+
+                        if (!isChanged) {
+                            continue;
+                        }
+                        kindValue = "temperature_" + newTemp;
+                        break;
+                    }
+                    case "level": {
+                        int newLevel;
+                        if (incoming.isNumber()) newLevel = incoming.asInt();
+                        else if (incoming.isTextual()) {
+                            String s = incoming.asText().trim();
+                            try { newLevel = Integer.parseInt(s); }
+                            catch (NumberFormatException e) { continue; }
+                        } else continue;
+
+                        if (currentVal == null || currentVal.isNull()) {
+                            isChanged = true;
+                        } else if (currentVal.isNumber()) {
+                            isChanged = (currentVal.asInt() != newLevel);
+                        } else if (currentVal.isTextual()) {
+                            String s = currentVal.asText().trim();
+                            try {
+                                int oldLevel = Integer.parseInt(s);
+                                isChanged = (oldLevel != newLevel);
+                            } catch (NumberFormatException e) {
+                                isChanged = true;
+                            }
+                        }
+
+                        if (!isChanged) {
+                            continue;
+                        }
+                        kindValue = "level_" + newLevel;
+                        break;
+                    }
+                    default:
+                        continue;
+                }
+
                 // buttonId 조회
-                Integer buttonId = irButtonRepository.findByModelAndCategory(model, category)
-                    .map(IrButton::getButtonId)
-                    .orElseThrow(() -> new IllegalArgumentException(
-                        "버튼 없음: model=" + model + ", category=" + category));
+                java.util.Optional<IrButton> buttonOpt = irButtonRepository.findByModelAndCategory(model, kindValue);
+                if (buttonOpt.isEmpty()) {
+                    throw new IllegalArgumentException("버튼 없음: model=" + model + ", category=" + kindValue);
+                }
+                Integer buttonId = buttonOpt.get().getButtonId();
 
                 // signalId 조회
-                Integer signalId = irSignalRepository.findSignalIdByModelAndButtonId(model, buttonId)
-                    .orElseThrow(() -> new IllegalArgumentException(
-                        "시그널 없음: model=" + model + ", buttonId=" + buttonId));
+                java.util.Optional<Integer> signalIdOpt =
+                        irSignalRepository.findSignalIdByModelAndButtonId(model, buttonId);
+                if (signalIdOpt.isEmpty()) {
+                    throw new IllegalArgumentException("시그널 없음: model=" + model + ", buttonId=" + buttonId);
+                }
+                Integer signalId = signalIdOpt.get();
 
-                // signal 객체 조회 → rawData 추출
-                IrSignal signal = irSignalRepository.findById(signalId)
-                    .orElseThrow(() -> new IllegalArgumentException("시그널 객체 없음: signalId=" + signalId));
+                // signal 조회
+                java.util.Optional<IrSignal> signalOpt = irSignalRepository.findById(signalId);
+                if (signalOpt.isEmpty()) {
+                    throw new IllegalArgumentException("시그널 객체 없음: signalId=" + signalId);
+                }
+                IrSignal signal = signalOpt.get();
 
                 List<Integer> rawData = Arrays.stream(signal.getSamplesUs())
-                    .boxed()
-                    .collect(Collectors.toList());
+                        .boxed()
+                        .collect(Collectors.toList());
 
                 // ir_tx_queue insert
                 UUID txId = UUID.randomUUID();
                 IrTxQueue tx = IrTxQueue.builder()
-                    .txId(txId)
-                    .scheduledAt(now)
-                    .priority(1)
-                    .repeatCount(0)
-                    .intervalMs(0)
-                    .status("SENT")
-                    .lastError(null)
-                    .createdAt(now)
-                    .signalId(signalId)
-                    .irDeviceId(irDeviceId)
-                    .model(model)
-                    .build();
+                        .txId(txId)
+                        .scheduledAt(now)
+                        .priority(1)
+                        .repeatCount(0)
+                        .intervalMs(0)
+                        .status("SENT")
+                        .lastError(null)
+                        .createdAt(now)
+                        .signalId(signalId)
+                        .irDeviceId(irDeviceId)
+                        .model(model)
+                        .build();
                 irTxQueueRepository.save(tx);
                 log.info("[IR 큐 등록] txId={}, model={}, category={}", txId, model, category);
-                
-                // 이벤트 로그 저장
+
+                // 이벤트 로그 저장: kind=세부 카테고리
                 irEventLogRepository.save(
                         IrEventLog.builder()
-                            .eventTime(now)
-                            .kind("control")
-                            .irDeviceId(irDeviceId)
-                            .txId(txId)        // DB에는 UUID 그대로 저장
-                            .model(model)
-                            .build()
-                    );
+                                .eventTime(now)
+                                .kind(kindValue)
+                                .irDeviceId(irDeviceId)
+                                .txId(txId)        // DB에는 UUID 그대로 저장
+                                .model(model)
+                                .build()
+                );
 
-                    // 허브 디바이스 ID 조회 (MQTT 발행용)
-                    String hubDeviceId = irDeviceRepository.findById(irDeviceId)
-                            .map(IrDevice::getHubDevice)
-                            .orElseThrow(() -> new IllegalStateException("hub_device_id 없음: " + irDeviceId));
+                // 허브 디바이스 ID 조회
+                java.util.Optional<IrDevice> irDevOpt = irDeviceRepository.findById(irDeviceId);
+                if (irDevOpt.isEmpty() || irDevOpt.get().getHubDevice() == null || irDevOpt.get().getHubDevice().isBlank()) {
+                    throw new IllegalStateException("hub_device_id 없음: " + irDeviceId);
+                }
+                String hubDeviceId = irDevOpt.get().getHubDevice();
 
-                    // MQTT 발행
-                    mqttService.publishControl(
+                // MQTT 발행: function=세부 카테고리(A안)
+                mqttService.publishControl(
                         hubDeviceId,
                         txId,           // UUID를 넘기면 내부에서 hashCode()로 int 변환
                         irDeviceId,
                         deviceType,
                         rawData,
-                        category,
+                        kindValue,      // ← 세부 카테고리 전달
                         List.of(),
                         model
-                    );
-                
+                );
+
             } catch (Exception e) {
                 log.warn("[IR 전송 실패] model={}, category={}, error={}", model, category, e.getMessage(), e);
             }
         }
-        
+
         return device.getDeviceId();
     }
+
+
 
     // 필터링 함수
     private ObjectNode filterAllowedKeys(ObjectNode node, Set<String> allowed) {
