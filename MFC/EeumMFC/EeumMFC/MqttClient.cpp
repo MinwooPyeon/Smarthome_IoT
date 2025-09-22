@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "MqttClient.h"
+#include "MainFrm.h"
 
 static std::string normalizeHub(const std::string& hubIdOrPath){
 	// "hub/001" 오면 그대로, "001" 오면 "hub/001"로
@@ -9,23 +10,23 @@ static std::string normalizeHub(const std::string& hubIdOrPath){
 
 MqttClient::MqttClient(const Config& cfg)
 	: mosquittopp(cfg.id.c_str()), cfg_(cfg){
-	if (!cfg_.user.empty())
-		username_pw_set(cfg_.user.c_str(), cfg_.pass.c_str());
-
-	if (!cfg_.caFile.empty() || !cfg_.clientCertFile.empty() || !cfg_.clientKeyFile.empty()) {
-		tls_set(
-			cfg_.caFile.empty() ? nullptr : cfg_.caFile.c_str(),
-			nullptr,
-			cfg_.clientCertFile.empty() ? nullptr : cfg_.clientCertFile.c_str(),
-			cfg_.clientKeyFile.empty() ? nullptr : cfg_.clientKeyFile.c_str()
-		);
-		
-		tls_insecure_set(cfg_.tlsInsecure);
-	}
+	int rc1 = username_pw_set(cfg_.user.c_str(), cfg_.pass.c_str());
+	int rc2 = tls_set(
+		cfg_.caFile.empty() ? nullptr : cfg_.caFile.c_str(),
+		nullptr,
+		cfg_.clientCertFile.empty() ? nullptr : cfg_.clientCertFile.c_str(),
+		cfg_.clientKeyFile.empty() ? nullptr : cfg_.clientKeyFile.c_str()
+	);
+	tls_insecure_set(cfg_.tlsInsecure);
 	reconnect_delay_set(2, 30, true);
 
-	connect_async(cfg_.host.c_str(), cfg_.port, cfg_.keepalive);
+	int rc3 = connect_async(cfg_.host.c_str(), cfg_.port, cfg_.keepalive);
 	loop_start();
+
+	//CString msg;
+	//msg.Format(L"MQTT r1=%d r2=%d r3=%d host=%S", rc1, rc2, rc3, cfg_.host.c_str());
+	//if (auto* mf = dynamic_cast<CMainFrame*>(AfxGetMainWnd()))
+	//	mf->Log(L"DEBUG", msg);
 }
 
 void MqttClient::on_connect(int rc)

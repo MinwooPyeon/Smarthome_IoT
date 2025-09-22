@@ -2,6 +2,15 @@
 #include <string>
 #include <mosquittopp.h>
 
+static std::string CaPathFromExe(const char* name) {
+    wchar_t exe[MAX_PATH]{};
+    GetModuleFileNameW(nullptr, exe, MAX_PATH);
+    std::wstring dir(exe, wcsrchr(exe, L'\\') + 1);
+    std::wstring w = dir + std::wstring(name, name + strlen(name));
+    std::string  s(w.begin(), w.end()); // ASCII 파일명 가정
+    return s;
+}
+
 struct EnvSample {
 	long long tsMs;
 	double t, h, gas;
@@ -40,7 +49,7 @@ struct Config {
 	std::string pass = "ssafy2086eeum";
 
 	// TLS
-	std::string caFile = "../../../broker_selfsigned_ca.crt";          // 서버 CA(자체서명이라면 서버 cert 자체를 넣어도 됨)
+	std::string caFile = CaPathFromExe("broker_selfsigned_ca.crt");          // 서버 CA(자체서명이라면 서버 cert 자체를 넣어도 됨)
 	std::string clientCertFile;  // mTLS 필요 시
 	std::string clientKeyFile;   // mTLS 필요 시
 	bool        tlsInsecure = false; // 호스트명 검증 off (테스트용)
