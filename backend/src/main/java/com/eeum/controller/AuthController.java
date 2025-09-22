@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.eeum.dto.request.LoginRequest;
 import com.eeum.dto.request.SendEmailRequest;
 import com.eeum.dto.request.SignupRequest;
 import com.eeum.dto.request.VerifyEmailRequest;
@@ -69,6 +70,21 @@ public class AuthController implements ControllerHelper {
     public ResponseEntity<?> signup(@RequestBody SignupRequest req) {
         try {
             Integer userId = userService.signup(req);
+            return handleSuccess(Map.of("userId", userId));
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    
+    
+    // 로그인
+    @PostMapping("/login")
+    @Operation(summary = "로그인", description = "아이디/비밀번호로 로그인합니다. 성공 시 userId 반환")
+    public ResponseEntity<?> login(@RequestBody LoginRequest req) {
+        try {
+            Integer userId = userService.login(req);
             return handleSuccess(Map.of("userId", userId));
         } catch (IllegalArgumentException e) {
             return handleFail(e, HttpStatus.BAD_REQUEST);
