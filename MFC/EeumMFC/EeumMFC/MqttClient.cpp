@@ -7,6 +7,33 @@ static std::string normalizeHub(const std::string& hubIdOrPath){
 	if (hubIdOrPath.rfind("hub/", 0) == 0) return hubIdOrPath;
 	return "hub/" + hubIdOrPath;
 }
+static void LogToPaneOrOutput(const CString& level, const CString& msg)
+{
+	if (auto* mf = dynamic_cast<CMainFrame*>(AfxGetMainWnd()))
+		mf->Log(level, msg);
+	else
+		::OutputDebugStringW((level + L": " + msg + L"\n"));
+}
+static void LogMqttConnectRCs(int rc1, int rc2, int rc3, const std::string& host)
+{
+	CString whost(CA2W(host.c_str())); // std::string → CString(W)
+
+	CString msg;
+	msg.Format(L"MQTT r1=%d r2=%d r3=%d host=%s", rc1, rc2, rc3, whost.GetString());
+	LogToPaneOrOutput(L"DEBUG", msg);
+
+	if (rc3 != MOSQ_ERR_SUCCESS) {
+		// OS 에러 메시지까지 함께 출력
+		DWORD wsa = WSAGetLastError();
+		wchar_t sys[256]{};
+		FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			nullptr, wsa, 0, sys, 256, nullptr);
+
+		CString em;
+		em.Format(L"connect_async FAILED → WSA=%lu (%s)", wsa, sys);
+		LogToPaneOrOutput(L"ERROR", em);
+	}
+}
 
 MqttClient::MqttClient(const Config& cfg)
 	: mosquittopp(cfg.id.c_str()), cfg_(cfg){
@@ -18,15 +45,25 @@ MqttClient::MqttClient(const Config& cfg)
 		cfg_.clientKeyFile.empty() ? nullptr : cfg_.clientKeyFile.c_str()
 	);
 	tls_insecure_set(cfg_.tlsInsecure);
-	reconnect_delay_set(2, 30, true);
 
 	int rc3 = connect_async(cfg_.host.c_str(), cfg_.port, cfg_.keepalive);
 	loop_start();
 
-	//CString msg;
-	//msg.Format(L"MQTT r1=%d r2=%d r3=%d host=%S", rc1, rc2, rc3, cfg_.host.c_str());
-	//if (auto* mf = dynamic_cast<CMainFrame*>(AfxGetMainWnd()))
-	//	mf->Log(L"DEBUG", msg);
+	LogMqttConnectRCs(rc1, rc2, rc3, cfg_.host);
+}
+
+MqttClient::~MqttClient() {
+	try {
+		// 더 이상 콜백 들어오지 않게
+		std::lock_guard<std::mutex> lk(mtx_);
+		for (auto& t : topics_) unsubscribe(nullptr, t.c_str());
+	}
+	catch (...) {}
+
+	try { disconnect(); }
+	catch (...) {}
+	try { loop_stop(true /*force*/); }
+	catch (...) {}
 }
 
 void MqttClient::on_connect(int rc)

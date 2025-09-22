@@ -9,6 +9,7 @@
 class MqttClient : private MosqInitGuard, public mosqpp::mosquittopp {
 public:
 	explicit MqttClient(const Config& cfg);
+	~MqttClient();
 	std::function<void(const std::string&, const std::string&)> onMessage;
 
 	void setTopics(const std::vector<std::string>& topics);

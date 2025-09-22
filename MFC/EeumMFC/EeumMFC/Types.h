@@ -52,7 +52,7 @@ struct Config {
 	std::string caFile = CaPathFromExe("broker_selfsigned_ca.crt");          // 서버 CA(자체서명이라면 서버 cert 자체를 넣어도 됨)
 	std::string clientCertFile;  // mTLS 필요 시
 	std::string clientKeyFile;   // mTLS 필요 시
-	bool        tlsInsecure = false; // 호스트명 검증 off (테스트용)
+	bool        tlsInsecure = true; // 호스트명 검증 off (테스트용)
 };
 
 struct MosqInitGuard {

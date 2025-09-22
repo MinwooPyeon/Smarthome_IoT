@@ -124,11 +124,16 @@ BOOL CEeumMFCDoc::OnNewDocument()
 }
 
 void CEeumMFCDoc::OnCloseDocument() {
-	if (mqtt_ && !lastOrderedHub_.empty()) {
-		mqtt_->orderEnv(lastOrderedHub_, false);
+	if (mqtt_ && !selectedHub_.empty()) {
+		mqtt_->orderEnv(selectedHub_, false);
 	}
-	ingestor_.stop();
+
+	// Ingestor/Analyzer/Timer 같은 내부 스레드 종료
+	ingestor_.stop();   // 내부에서 join!
+	
+	// MQTT 네트워크 스레드 정리 (소멸자에서 loop_stop+disconnect)
 	mqtt_.reset();
+
 	CDocument::OnCloseDocument();
 }
 
