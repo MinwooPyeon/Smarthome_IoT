@@ -96,4 +96,7 @@ public interface UserHomeRepository extends JpaRepository<UserHome, Integer> {
             String  getRoomName();
             Integer getRoomColor();
         }
+        
+        // 유저의 대표집 조회
+        Optional<UserHome> findByUserIdAndIsPrimaryTrue(Integer userId);
     }
