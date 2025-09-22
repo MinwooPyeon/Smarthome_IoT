@@ -37,10 +37,6 @@ import com.example.eeum.ui.screens.DeviceRegistrationBrandScreen
 import com.example.eeum.ui.screens.DeviceRegistrationCompleteScreen
 import com.example.eeum.ui.screens.HomeScreen
 import com.example.eeum.ui.screens.RemoteScreen
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.eeum.ui.screens.HomeViewModel
-import androidx.compose.ui.platform.LocalContext
-import androidx.activity.ComponentActivity
 
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
@@ -144,7 +140,6 @@ fun EeumApp() {
 
         composable("$DEVICE_REGISTRATION_QR_ROUTE/{kind}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
-            // Note: Cannot acquire a ViewModel here (not a @Composable scope for remember). Pass simple lambda only.
             DeviceRegistrationQRScreen(
                 navController = navController,
                 kind = kind,
@@ -158,16 +153,9 @@ fun EeumApp() {
 
         composable("$DEVICE_REGISTRATION_SERIAL_ROUTE/{kind}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
-            // 현재 선택된 homeId를 가져와 완료 화면으로 전달 (Activity 범위의 VM)
-            val activity = LocalContext.current as ComponentActivity
-            val homeVm: HomeViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
-            val regVm: com.example.eeum.ui.screens.DeviceRegistrationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
             DeviceRegistrationSerialScreen(navController) { serial ->
-                regVm.setSerial(serial)
-                val homeId = homeVm.selectedHomeId.value
                 if (kind == "HUB") {
-                    val query = homeId?.let { "?homeId=$it" } ?: ""
-                    navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind$query") {
+                    navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") {
                         launchSingleTop = true
                     }
                 } else {
@@ -180,52 +168,13 @@ fun EeumApp() {
 
         composable("$DEVICE_REGISTRATION_BRAND_ROUTE/{kind}?serial={serial}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
-            val activity = LocalContext.current as ComponentActivity
-            val homeVm: HomeViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
-            val regVm: com.example.eeum.ui.screens.DeviceRegistrationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
-            DeviceRegistrationBrandScreen(navController) { payload ->
-                // payload: "brand|model" 형태
-                val parts = payload.split("|")
-                if (parts.size >= 2) {
-                    regVm.setBrandModel(parts[0], parts[1])
-                }
-                val homeId = homeVm.selectedHomeId.value
-                val query = homeId?.let { "?homeId=$it" } ?: ""
-                navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind$query") {
+            DeviceRegistrationBrandScreen(navController) {
+                navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") {
                     launchSingleTop = true
                 }
             }
         }
 
-        composable(
-            route = "$DEVICE_REGISTRATION_COMPLETE_ROUTE/{kind}?homeId={homeId}",
-            arguments = listOf(
-                navArgument("homeId") { type = NavType.IntType; defaultValue = -1 }
-            )
-        ) { backStackEntry ->
-            val kind = backStackEntry.arguments?.getString("kind")
-            val homeId = backStackEntry.arguments?.getInt("homeId")?.let { if (it == -1) null else it }
-            val lastLogTime = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0L) }
-            DeviceRegistrationCompleteScreen(
-                navController = navController,
-                kind = kind,
-                homeId = homeId,
-                onPositionChange = { x, y, color ->
-                    val now = System.currentTimeMillis()
-                    if (now - lastLogTime.value >= 50L) {
-                        val hex = color?.let {
-                            val a = (it.alpha * 255f).toInt().coerceIn(0, 255)
-                            val r = (it.red   * 255f).toInt().coerceIn(0, 255)
-                            val g = (it.green * 255f).toInt().coerceIn(0, 255)
-                            val b = (it.blue  * 255f).toInt().coerceIn(0, 255)
-                            String.format("#%02X%02X%02X%02X", a, r, g, b) // ARGB
-                        } ?: "null"
-                        android.util.Log.d("DeviceRegComplete", "x=$x, y=$y, color=$hex")
-                        lastLogTime.value = now
-                    }
-                }
-            )
-        }
         composable("$DEVICE_REGISTRATION_COMPLETE_ROUTE/{kind}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
             DeviceRegistrationCompleteScreen(navController, kind)

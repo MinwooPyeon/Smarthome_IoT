@@ -14,6 +14,7 @@ import com.example.eeum.data.model.response.floorplans.FloorPlansList
 import com.example.eeum.data.model.response.home.AllUserHome
 import com.example.eeum.data.model.response.home.Home
 import com.example.eeum.data.model.response.home.PrimaryHome
+import com.example.eeum.data.model.response.home.GetPrimaryHome
 import com.example.eeum.data.remote.RetrofitUtil
 import kotlinx.coroutines.launch
 
@@ -36,6 +37,9 @@ class HomeViewModel : ViewModel() {
 
     private val _primaryHomeId = MutableLiveData<Int?>()
     val primaryHomeId: LiveData<Int?> get() = _primaryHomeId
+
+    private val _primaryHomeName = MutableLiveData<String?>()
+    val primaryHomeName: LiveData<String?> get() = _primaryHomeName
 
     private val _primaryMessage = MutableLiveData<String?>()
     val primaryMessage: LiveData<String?> get() = _primaryMessage
@@ -114,6 +118,43 @@ class HomeViewModel : ViewModel() {
             }.onFailure { e ->
                 _error.value = "네트워크 오류: ${e.message}"
                 Log.e("HomeViewModel", "유저 집 목록 조회 실패", e)
+            }
+        }
+    }
+
+    // 대표 집 조회
+    fun fetchPrimaryHome() {
+        viewModelScope.launch {
+            runCatching {
+                RetrofitUtil.homeService.getPrimaryHome()
+            }.onSuccess { response ->
+                if (response.isSuccessful) {
+                    response.body()?.let { body: GetPrimaryHome ->
+                        _primaryHomeId.value = body.data.homeId
+                        _primaryHomeName.value = body.data.homeName
+                        _status.value = body.status
+                        _error.value = null
+                        // 선택된 집도 대표 집으로 맞춰 둠
+                        _selectedHomeId.value = body.data.homeId
+                        Log.d(
+                            "HomeViewModel",
+                            "대표 집 조회 성공: homeId=${body.data.homeId}, name=${body.data.homeName}"
+                        )
+                        
+                        // 대표 집 조회 성공 시 자동으로 평면도와 디바이스 조회
+                        fetchUserHomeFloorplans(body.data.homeId)
+                        fetchDevicesIcon()
+                    } ?: run {
+                        _error.value = "대표 집 조회 응답이 비어있습니다."
+                        Log.e("HomeViewModel", "대표 집 조회 응답이 비어있습니다.")
+                    }
+                } else {
+                    _error.value = "대표 집 조회 실패: ${response.code()}"
+                    Log.e("HomeViewModel", "대표 집 조회 실패 code=${response.code()}")
+                }
+            }.onFailure { e ->
+                _error.value = "네트워크 오류: ${e.message}"
+                Log.e("HomeViewModel", "대표 집 조회 실패", e)
             }
         }
     }

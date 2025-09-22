@@ -1,6 +1,7 @@
 package com.example.eeum.data.remote.service
 
 import com.example.eeum.data.model.response.home.AllUserHome
+import com.example.eeum.data.model.response.home.GetPrimaryHome
 import com.example.eeum.data.model.response.home.PrimaryHome
 import com.example.eeum.data.model.response.routine.AllRoom
 import retrofit2.Response
@@ -14,6 +15,11 @@ interface HomeService {
     @GET("/api/user-home/address")
     suspend fun getUserHomes(): Response<AllUserHome>
 
+    // 대표 집 조회
+    @GET("/api/user-home/address/primary")
+    suspend fun getPrimaryHome(): Response<GetPrimaryHome>
+
+    // 대표집 수정
     @PUT("/api/user-home/{homeId}/primary")
     suspend fun setPrimaryHome(
         @Path("homeId") homeId: Int
