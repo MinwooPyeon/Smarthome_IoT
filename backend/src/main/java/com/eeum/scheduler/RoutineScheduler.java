@@ -36,7 +36,11 @@ public class RoutineScheduler {
         int minute = now.getMinute();
         int weekdayMask = weekdayToMask(now.getDayOfWeek());
 
+        log.info("[SCHED] tick={} (KST) hour={} minute={} weekdayMask={}",now, hour, minute, weekdayMask);
+        
         List<DueRoutineRow> due = routineRepository.findDueRoutinesKst(hour, minute, weekdayMask);
+
+        log.info("[SCHED] due-count={}", (due == null ? 0 : due.size()));
 
         for (DueRoutineRow row : due) {
             try {
