@@ -180,8 +180,7 @@ fun SignUpEmailScreen(
             )
             
             Spacer(modifier = Modifier.height(32.dp))
-            
-            // Verification Code Send Button
+
             Button(
                 onClick = { onSendVerificationCode(emailText) },
                 modifier = Modifier.fillMaxWidth(),

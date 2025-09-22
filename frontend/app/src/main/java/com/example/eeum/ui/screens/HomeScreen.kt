@@ -34,6 +34,7 @@ import com.example.eeum.base.ApplicationClass
 import com.example.eeum.data.model.response.device.DeviceItem
 import com.example.eeum.data.model.response.home.Home
 import com.example.eeum.ui.theme.EeumTheme
+import com.example.eeum.util.SharedPreferencesUtil
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,7 +51,7 @@ fun HomeScreen(
 
     // SharedPreferences 유틸
     val ctx = LocalContext.current
-    val prefs = remember { com.example.eeum.util.SharedPreferencesUtil(ctx) }
+    val prefs = remember { SharedPreferencesUtil(ctx) }
 
     // 최초 진입 시 집 목록 조회
     LaunchedEffect(Unit) { vm.fetchUserHomes() }
