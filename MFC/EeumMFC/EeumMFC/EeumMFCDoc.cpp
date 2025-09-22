@@ -132,6 +132,8 @@ void CEeumMFCDoc::OnCloseDocument() {
 	ingestor_.stop();   // 내부에서 join!
 	
 	// MQTT 네트워크 스레드 정리 (소멸자에서 loop_stop+disconnect)
+	mqtt_->disconnect();
+	mqtt_->loop_stop(true);
 	mqtt_.reset();
 
 	CDocument::OnCloseDocument();

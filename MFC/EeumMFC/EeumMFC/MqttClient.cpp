@@ -1,55 +1,44 @@
 #include "pch.h"
 #include "MqttClient.h"
 #include "MainFrm.h"
+#include <fstream>
 
-static std::string normalizeHub(const std::string& hubIdOrPath){
+static std::string normalizeHub(const std::string& hubIdOrPath) {
 	// "hub/001" 오면 그대로, "001" 오면 "hub/001"로
 	if (hubIdOrPath.rfind("hub/", 0) == 0) return hubIdOrPath;
 	return "hub/" + hubIdOrPath;
 }
-static void LogToPaneOrOutput(const CString& level, const CString& msg)
-{
-	if (auto* mf = dynamic_cast<CMainFrame*>(AfxGetMainWnd()))
-		mf->Log(level, msg);
-	else
-		::OutputDebugStringW((level + L": " + msg + L"\n"));
-}
-static void LogMqttConnectRCs(int rc1, int rc2, int rc3, const std::string& host)
-{
-	CString whost(CA2W(host.c_str())); // std::string → CString(W)
 
-	CString msg;
-	msg.Format(L"MQTT r1=%d r2=%d r3=%d host=%s", rc1, rc2, rc3, whost.GetString());
-	LogToPaneOrOutput(L"DEBUG", msg);
-
-	if (rc3 != MOSQ_ERR_SUCCESS) {
-		// OS 에러 메시지까지 함께 출력
-		DWORD wsa = WSAGetLastError();
-		wchar_t sys[256]{};
-		FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-			nullptr, wsa, 0, sys, 256, nullptr);
-
-		CString em;
-		em.Format(L"connect_async FAILED → WSA=%lu (%s)", wsa, sys);
-		LogToPaneOrOutput(L"ERROR", em);
+static void PostLogToMain(const CString& line) {
+	if (auto* mf = dynamic_cast<CMainFrame*>(AfxGetMainWnd())) {
+		auto* p = new CString(line);
+		::PostMessage(mf->GetSafeHwnd(), WM_APP_LOG, 0, (LPARAM)p); // UI 스레드에서 Append
 	}
 }
 
 MqttClient::MqttClient(const Config& cfg)
-	: mosquittopp(cfg.id.c_str()), cfg_(cfg){
-	int rc1 = username_pw_set(cfg_.user.c_str(), cfg_.pass.c_str());
-	int rc2 = tls_set(
-		cfg_.caFile.empty() ? nullptr : cfg_.caFile.c_str(),
-		nullptr,
-		cfg_.clientCertFile.empty() ? nullptr : cfg_.clientCertFile.c_str(),
-		cfg_.clientKeyFile.empty() ? nullptr : cfg_.clientKeyFile.c_str()
-	);
-	tls_insecure_set(cfg_.tlsInsecure);
+	: mosquittopp(cfg.id.c_str()), cfg_(cfg) {
+	#ifdef MOSQ_OPT_PROTOCOL_VERSION
+		// mosquittopp 1.5+ : opts_set로 프로토콜 버전 지정 가능
+		// 값은 MQTT_PROTOCOL_V31 / MQTT_PROTOCOL_V311 / MQTT_PROTOCOL_V5 중 선택
+		this->opts_set(MOSQ_OPT_PROTOCOL_VERSION, MQTT_PROTOCOL_V311);
+	#endif
+	reconnect_delay_set(1, 8, true);
 
-	int rc3 = connect_async(cfg_.host.c_str(), cfg_.port, cfg_.keepalive);
-	loop_start();
+	if (!cfg_.user.empty()) username_pw_set(cfg_.user.c_str(), cfg_.pass.c_str());
 
-	LogMqttConnectRCs(rc1, rc2, rc3, cfg_.host);
+	if (!cfg_.caFile.empty()) {
+		std::ifstream f(cfg_.caFile);
+		// 없으면 로그만, 어쨌든 tls_set 시도
+		tls_set(cfg_.caFile.c_str(), nullptr,
+			cfg_.clientCertFile.empty() ? nullptr : cfg_.clientCertFile.c_str(),
+			cfg_.clientKeyFile.empty() ? nullptr : cfg_.clientKeyFile.c_str());
+		tls_insecure_set(cfg_.tlsInsecure);
+	}
+
+	// 비동기 connect + 루프
+	const int rcConn = connect_async(cfg_.host.c_str(), cfg_.port, cfg_.keepalive);
+	const int rcLoop = loop_start();
 }
 
 MqttClient::~MqttClient() {
@@ -62,27 +51,36 @@ MqttClient::~MqttClient() {
 
 	try { disconnect(); }
 	catch (...) {}
-	try { loop_stop(true /*force*/); }
-	catch (...) {}
+	loop_stop(true);
 }
 
 void MqttClient::on_connect(int rc)
 {
 	connected_ = (rc == 0);
-	if (!connected_) return;
-
-	std::lock_guard<std::mutex> lock(mtx_);
-	for (auto& t : topics_) subscribe(nullptr, t.c_str(), 1);
+	{
+		std::lock_guard<std::mutex> lock(mtx_);
+		for (auto& t : topics_) subscribe(nullptr, t.c_str(), 1);
+	}
+	CString m; m.Format(L"[on_connect] rc=%d", rc);
+	PostLogToMain(m);
 }
 
 void MqttClient::on_disconnect(int rc) {
 	connected_ = false;
+	CString m; m.Format(L"[on_disconnect] rc=%d", rc);
+	PostLogToMain(m);
+}
+
+void MqttClient::on_log(int level, const char* s)
+{
+	CString m; m.Format(L"[mosq log %d] %S", level, s ? s : "(null)");
+	PostLogToMain(m);
 }
 
 void MqttClient::setTopics(const std::vector<std::string>& topics) {
 	std::lock_guard<std::mutex> lock(mtx_);
 	if (connected_) {
-		for (auto& oldt : topics)
+		for (auto& oldt : topics_)
 			unsubscribe(nullptr, oldt.c_str());
 	}
 	topics_ = topics;
@@ -98,12 +96,10 @@ bool MqttClient::publishJson(const std::string& topic, const std::string& json, 
 	return rc == MOSQ_ERR_SUCCESS;
 }
 
-bool MqttClient::orderEnv(const std::string& hubId, bool streaming){
+bool MqttClient::orderEnv(const std::string& hubId, bool streaming) {
 	const std::string hub = normalizeHub(hubId);
 	const std::string topic = hub + "/order/env";
 
-	// JSON boolean (true/false). 만약 서버가 "TRUE"/"FALSE" 문자열을 요구하면 아래 줄을 변경:
-	// const std::string payload = std::string("{\"streaming\":\"") + (streaming ? "TRUE" : "FALSE") + "\"}";
 	const std::string payload = std::string("{\"streaming\":") + (streaming ? "true" : "false") + "}";
 
 	return publishJson(topic, payload, 1, false);

@@ -16,10 +16,12 @@ public:
 
 	bool publishJson(const std::string& topic, const std::string& json, int qos = 1, bool retain = false);
 	bool orderEnv(const std::string& hubId, bool streaming);
-protected:
+
 	void on_connect(int rc) override;
 	void on_disconnect(int rc) override;
 	void on_message(const mosquitto_message* m) override;
+	void on_log(int level, const char* s) override;
+protected:
 private:
 	std::mutex mtx_;
 	bool connected_ = false;
