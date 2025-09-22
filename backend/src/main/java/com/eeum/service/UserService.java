@@ -1,9 +1,12 @@
 package com.eeum.service;
 
+import java.time.Instant;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.eeum.dto.request.PasswordUpdateRequest;
+import com.eeum.dto.request.SignupRequest;
 import com.eeum.dto.request.UserImageUpdateRequest;
 import com.eeum.dto.response.UpdateNicknameResponse;
 import com.eeum.dto.response.UserResponse;
@@ -95,5 +98,34 @@ public class UserService {
     @Transactional
     public void deleteUser(Integer userId) {
         userRepository.deleteById(userId);
+    }
+    
+    // 회원가입
+    @Transactional
+    public Integer signup(SignupRequest req) {
+        String loginId = req.getLoginId().trim();
+        String email   = req.getEmail().trim().toLowerCase();
+        String nickname= req.getNickname().trim();
+
+        if (userRepository.existsByLoginId(loginId)) {
+            throw new IllegalArgumentException("이미 사용 중인 아이디입니다.");
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+        }
+
+        String hashed = passwordEncoder.encode(req.getPassword());
+
+        User user = User.builder()
+                .loginId(loginId)
+                .password(hashed)
+                .email(email)
+                .nickname(nickname)
+                .joinDate(Instant.now())
+                .build();
+
+        userRepository.save(user);
+
+        return user.getUserId();
     }
 }
