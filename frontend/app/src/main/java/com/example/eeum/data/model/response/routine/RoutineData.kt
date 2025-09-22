@@ -6,11 +6,11 @@ data class RoutineData(
     val details: List<RoutineDetail>,
     val iconId: Int,
     val isAi: Boolean,
-    val name: String,
-    val routineDescription: String,
+    val name: String?,
+    val routineDescription: String? = "비어있음.",
     val routineId: Int,
     val routineWeekday: Int,
     val triggerType: Boolean,
     val updatedAt: String,
-    val iconUrl: String
+    val iconUrl: String?
 )

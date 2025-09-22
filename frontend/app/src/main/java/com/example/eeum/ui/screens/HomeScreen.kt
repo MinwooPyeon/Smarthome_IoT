@@ -18,6 +18,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +35,7 @@ import com.example.eeum.base.ApplicationClass
 import com.example.eeum.data.model.response.device.DeviceItem
 import com.example.eeum.data.model.response.home.Home
 import com.example.eeum.ui.theme.EeumTheme
+import com.example.eeum.util.SharedPreferencesUtil
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,25 +49,32 @@ fun HomeScreen(
     val homes by vm.homes.observeAsState(emptyList())
     val floorplans by vm.floorplans.observeAsState(emptyList())
     val devices by vm.devices.observeAsState(emptyList())
+    val primaryHomeId by vm.primaryHomeId.observeAsState()
+    val primaryHomeName by vm.primaryHomeName.observeAsState()
 
     // SharedPreferences 유틸
     val ctx = LocalContext.current
     val prefs = remember { com.example.eeum.util.SharedPreferencesUtil(ctx) }
 
-    // 최초 진입 시 집 목록 조회
-    LaunchedEffect(Unit) { vm.fetchUserHomes() }
+    // 최초 진입 시 대표 집 및 집 목록 조회
+    LaunchedEffect(Unit) {
+        vm.fetchUserHomes()
+        vm.fetchPrimaryHome() // 이제 fetchPrimaryHome에서 자동으로 평면도와 디바이스를 조회함
+    }
 
     // 선택된 집 이름 (UI 표시용)
     var selectedHomeName by remember { mutableStateOf<String?>(null) }
 
-    // homes 갱신 시 초기 선택 & 평면도 자동 조회
+    // 대표집 정보가 업데이트될 때 selectedHomeName도 업데이트
+    LaunchedEffect(primaryHomeName) {
+        primaryHomeName?.let { name ->
+            selectedHomeName = name
+        }
+    }
+
+    // 집 목록이 비어있으면 평면도 초기화
     LaunchedEffect(homes) {
-        if (homes.isNotEmpty()) {
-            val initial = selectedHomeName?.let { n -> homes.find { it.homeName == n } } ?: homes.first()
-            selectedHomeName = initial.homeName
-            vm.selectHome(initial.homeId)
-            vm.fetchDevicesIcon()
-        } else {
+        if (homes.isEmpty()) {
             selectedHomeName = null
             vm.clearFloorplans()
         }
@@ -121,7 +130,7 @@ fun HomeScreen(
                 vm.selectHome(home.homeId)
                 vm.setPrimaryHome(home.homeId)
                 vm.fetchDevicesIcon()
-                // ✅ SharedPreferences에 즉시 저장
+                //  SharedPreferences에 즉시 저장
                 prefs.setSelectedHomeId(home.homeId)
             },
             onAddNew = onOpenMap
@@ -251,7 +260,7 @@ private fun StatsRow() {
 private fun StatCard(
     title: String,
     subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    icon: ImageVector? = null,
     iconResource: Int? = null,
     tint: Color,
     modifier: Modifier = Modifier
