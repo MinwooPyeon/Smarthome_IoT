@@ -308,6 +308,8 @@ public class DeviceService {
         );
         device.setDeviceDetail(mergedMap);
         deviceRepository.save(device);
+        
+        log.debug("[DEVICE] saved id={} detail={}", deviceId, safeJson(mergedMap));
 
         String model = device.getModel();
         String irDeviceId = device.getIrDeviceId();
@@ -662,5 +664,9 @@ public class DeviceService {
             .collect(Collectors.toList());
 
         return result;
+    }
+    
+    private String safeJson(Object o) {
+        try { return objectMapper.writeValueAsString(o); } catch (Exception e) { return String.valueOf(o); }
     }
 }
