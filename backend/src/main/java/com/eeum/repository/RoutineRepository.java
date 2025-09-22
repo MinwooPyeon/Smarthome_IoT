@@ -20,18 +20,18 @@ public interface RoutineRepository extends JpaRepository<Routine, Integer> {
            left join fetch r.details d
            where r.routineId = :routineId and r.userId = :userId
            """)
-    Optional<Routine> findWithDetailsByRoutineIdAndUserId(@Param("routineId") Integer routineId,
+    Optional<Routine> findAllWithDetailsByUserId(@Param("routineId") Integer routineId,
                                                           @Param("userId") Integer userId);
 
     // 전체 조회
-//    @Query("""
-//            select distinct r
-//            from Routine r
-//            left join fetch r.details d
-//            where r.userId = :userId
-//            """)
-//     List<Routine> findAllWithDetailsByUserId(@Param("userId") Integer userId);
-//    
+    @Query("""
+            select distinct r
+            from Routine r
+            left join fetch r.details d
+            where r.userId = :userId
+            """)
+     List<Routine> findAllWithDetailsByUserId(@Param("userId") Integer userId);
+    
 //    @Query(value = """
 //    	    SELECT r.routine_id AS routineId,
 //    	           r.user_id    AS userId
