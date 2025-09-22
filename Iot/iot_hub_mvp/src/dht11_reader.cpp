@@ -114,7 +114,7 @@ std::optional<Dht11Data> Dht11Reader::read_once(int timeout_ms) {
         // 핀을 안전 상태로 복구
         gpioSetMode(pin_, PI_OUTPUT);
         gpioWrite(pin_, 1);
-        throw;
+        return std::nullopt;
     }
 
     // 핀을 idle로 복구

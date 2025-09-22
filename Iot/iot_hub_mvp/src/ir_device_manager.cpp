@@ -1,6 +1,7 @@
 #include "ir_device_manager.hpp"
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 
 void IrDeviceManager::loadData(){
     std::ifstream infile(csvPath_);
@@ -54,11 +55,14 @@ void IrDeviceManager::addData(IrSendDevice& device) {
 
 
 void IrDeviceManager::deleteData(IrSendDevice& device){
-    auto it = std::find(devices_.begin(), devices_.end(), device);
+    auto it = std::find_if(devices_.begin(), devices_.end(),
+    [&](const IrSendDevice& d){
+        return d.deviceId == device.deviceId; // 식별 키 기준
+    });
     if(it!= devices_.end()){
         devices_.erase(it);
     }
-    std::ofstream outfile("output.csv", std::ios::trunc);
+    std::ofstream outfile(csvPath_, std::ios::trunc);
 
     outfile << "deviceId,deviceType,consumption\n"; //header
     for(int i =0;i<devices_.size();i++){
