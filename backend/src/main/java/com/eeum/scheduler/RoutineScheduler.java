@@ -32,13 +32,11 @@ public class RoutineScheduler {
     @Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul")
     public void checkAndRunRoutines() {
         LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
-        int hour = now.getHour();
-        int minute = now.getMinute();
+//        int hour = now.getHour();
+//        int minute = now.getMinute();
         int weekdayMask = weekdayToMask(now.getDayOfWeek());
-
-        log.info("[SCHED] tick={} (KST) hour={} minute={} weekdayMask={}",now, hour, minute, weekdayMask);
         
-        List<DueRoutineRow> due = routineRepository.findDueRoutinesKst(hour, minute, weekdayMask);
+        List<DueRoutineRow> due = routineRepository.findDueRoutinesKst(weekdayMask);
 
         log.info("[SCHED] due-count={}", (due == null ? 0 : due.size()));
 
