@@ -53,13 +53,13 @@ public class RoutineScheduler {
     private int weekdayToMask(DayOfWeek day) {
         // 비트마스크: 일=1, 월=2, 화=4 ... 토=64
         return switch (day) {
-            case SUNDAY    -> 1;
-            case MONDAY    -> 2;
-            case TUESDAY   -> 4;
-            case WEDNESDAY -> 8;
-            case THURSDAY  -> 16;
-            case FRIDAY    -> 32;
-            case SATURDAY  -> 64;
+            case MONDAY    -> 1;
+            case TUESDAY    -> 2;
+            case WEDNESDAY   -> 4;
+            case THURSDAY -> 8;
+            case FRIDAY  -> 16;
+            case SATURDAY    -> 32;
+            case SUNDAY  -> 64;
         };
     }
 }
