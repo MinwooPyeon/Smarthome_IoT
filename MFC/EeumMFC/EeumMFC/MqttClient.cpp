@@ -2,6 +2,7 @@
 #include "MqttClient.h"
 #include "MainFrm.h"
 #include <fstream>
+#include <cstring>
 
 static std::string normalizeHub(const std::string& hubIdOrPath) {
 	// "hub/001" 오면 그대로, "001" 오면 "hub/001"로
@@ -13,6 +14,11 @@ static void PostLogToMain(const CString& line) {
 	if (auto* mf = dynamic_cast<CMainFrame*>(AfxGetMainWnd())) {
 		auto* p = new CString(line);
 		::PostMessage(mf->GetSafeHwnd(), WM_APP_LOG, 0, (LPARAM)p); // UI 스레드에서 Append
+	}
+	else {
+		::OutputDebugStringW(line + L"\r\n"); // ★ fallback
+		FILE* fp = nullptr; _wfopen_s(&fp, L"C:\\Temp\\mqtt_debug.log", L"a+, ccs=UTF-8");
+		if (fp) { fwprintf(fp, L"%s\n", line.GetString()); fclose(fp); }
 	}
 }
 
@@ -29,7 +35,6 @@ MqttClient::MqttClient(const Config& cfg)
 
 	if (!cfg_.caFile.empty()) {
 		std::ifstream f(cfg_.caFile);
-		// 없으면 로그만, 어쨌든 tls_set 시도
 		tls_set(cfg_.caFile.c_str(), nullptr,
 			cfg_.clientCertFile.empty() ? nullptr : cfg_.clientCertFile.c_str(),
 			cfg_.clientKeyFile.empty() ? nullptr : cfg_.clientKeyFile.c_str());
@@ -37,8 +42,31 @@ MqttClient::MqttClient(const Config& cfg)
 	}
 
 	// 비동기 connect + 루프
+	this->threaded_set(true);
 	const int rcConn = connect_async(cfg_.host.c_str(), cfg_.port, cfg_.keepalive);
-	const int rcLoop = loop_start();
+	int rcLoop = loop_start();
+	if (rcLoop == MOSQ_ERR_SUCCESS) {
+		loopMode_ = LoopMode::Start;
+		PostLogToMain(L"[mqtt] loop_start OK");
+	}
+	else {
+		// 실패 → loop_forever 폴백
+		CString m;
+		// '→' 문자는 콘솔에서 깨질 수 있으니 "->"로 써도 됩니다.
+		m.Format(L"[mqtt] loop_start failed rc=%d -> fallback to loop_forever", rcLoop);
+		PostLogToMain(m);
+
+		loopMode_ = LoopMode::Forever;
+		loopThread_ = std::thread([this] {
+			PostLogToMain(L"[mqtt] loop_forever start");
+			const int r = this->loop_forever(-1, 1);
+
+			CString m2;
+			m2.Format(L"[mqtt] loop_forever end rc=%d", r);
+			PostLogToMain(m2);
+			});
+	}
+
 }
 
 MqttClient::~MqttClient() {
@@ -51,7 +79,15 @@ MqttClient::~MqttClient() {
 
 	try { disconnect(); }
 	catch (...) {}
-	loop_stop(true);
+	if (loopMode_ == LoopMode::Start) {
+		loop_stop(true);                 // loop_start 썼을 때만
+	}
+	else if (loopMode_ == LoopMode::Forever) {
+		// loop_forever는 내부에서 빠져나오게 신호 줄 수 없으니, 소켓 close로 빠지게 함
+		// 이미 disconnect() 호출했으므로 thread.join() 대기
+		if (loopThread_.joinable()) loopThread_.join();
+	}
+	loopMode_ = LoopMode::None;
 }
 
 void MqttClient::on_connect(int rc)

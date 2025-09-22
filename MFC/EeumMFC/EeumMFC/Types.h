@@ -54,8 +54,3 @@ struct Config {
 	std::string clientKeyFile;   // mTLS 필요 시
 	bool        tlsInsecure = true; // 호스트명 검증 off (테스트용)
 };
-
-struct MosqInitGuard {
-	MosqInitGuard() { mosqpp::lib_init(); }   // 항상 먼저
-	~MosqInitGuard() { /* mosqpp::lib_cleanup();  <- 앱 종료에서 호출 */ }
-};

@@ -6,7 +6,7 @@
 #include <vector>
 #include "Types.h"
 
-class MqttClient : private MosqInitGuard, public mosqpp::mosquittopp {
+class MqttClient : public mosqpp::mosquittopp {
 public:
 	explicit MqttClient(const Config& cfg);
 	~MqttClient();
@@ -27,4 +27,8 @@ private:
 	bool connected_ = false;
 	std::vector<std::string> topics_;
 	Config cfg_;
+
+	enum class LoopMode { None, Start, Forever };
+	LoopMode loopMode_{ LoopMode::None };
+	std::thread loopThread_;
 };
