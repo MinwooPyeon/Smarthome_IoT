@@ -309,7 +309,7 @@ public class DeviceService {
         device.setDeviceDetail(mergedMap);
         deviceRepository.save(device);
         
-        log.debug("[DEVICE] saved id={} detail={}", deviceId, safeJson(mergedMap));
+        log.info("[DEVICE] saved id={} detail={}", deviceId, safeJson(mergedMap));
 
         String model = device.getModel();
         String irDeviceId = device.getIrDeviceId();
