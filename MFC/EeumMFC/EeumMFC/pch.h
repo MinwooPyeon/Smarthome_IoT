@@ -12,6 +12,7 @@
 #define WM_APP_DATAREADY (WM_APP + 100)
 #define WM_APP_SELECT_HUB (WM_APP + 101)
 #define WM_APP_LOG        (WM_APP + 102)
+
 #endif
 // 여기에 미리 컴파일하려는 헤더 추가
 #include "framework.h"
