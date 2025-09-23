@@ -1,7 +1,6 @@
-
 package com.example.eeum
 
-import com.example.eeum.BuildConfig // ← 여기 확인!
+import com.example.eeum.BuildConfig
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -10,6 +9,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -17,7 +17,9 @@ import com.example.eeum.base.DeviceDirectoryCache
 import com.example.eeum.base.RoutineDirectoryCache
 import com.example.eeum.data.remote.RetrofitUtil
 import com.example.eeum.ui.navigation.EeumApp
+import com.example.eeum.ui.screens.HomeViewModel
 import com.example.eeum.ui.theme.EeumTheme
+import com.example.eeum.util.FcmUtil
 import com.example.eeum.util.PermissionRequester
 import com.example.eeum.util.VoiceDeps
 import com.example.eeum.voice.VoiceService
@@ -31,6 +33,9 @@ class MainActivity : ComponentActivity() {
 
     private val perms by lazy { PermissionRequester.from(this) }
 
+    private val homeVm: HomeViewModel by viewModels()
+    private var lastSubscribedHomeId: Int? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -39,7 +44,23 @@ class MainActivity : ComponentActivity() {
                 EeumApp()
             }
         }
-        requestStartupPermissions() // 앱 시작 시 모든 권한(마이크+알림+위치) 요청
+        requestStartupPermissions()
+
+        homeVm.primaryHomeId.observe(this) { id ->
+            id ?: return@observe
+
+            if (lastSubscribedHomeId != id) {
+                lastSubscribedHomeId?.let { FcmUtil.unsubscribeHomeTopic(it) }
+                FcmUtil.subscribeHomeTopic(id)
+                lastSubscribedHomeId = id
+            }
+
+            FcmUtil.uploadFcmTokenOnce { token ->
+                Log.d(TAG, "FCM token=$token")
+                // TODO: 여기서 서버 업로드 호출
+
+            }
+        }
     }
 
     private fun requestStartupPermissions() {
@@ -60,6 +81,20 @@ class MainActivity : ComponentActivity() {
             context = this,
             *toRequest,
             onGranted = {
+
+                homeVm.fetchPrimaryHome()
+                homeVm.primaryHomeId.value?.let { id ->
+                    if (lastSubscribedHomeId != id) {
+                        lastSubscribedHomeId?.let { prev -> FcmUtil.unsubscribeHomeTopic(prev) }
+                        FcmUtil.subscribeHomeTopic(id)
+                        lastSubscribedHomeId = id
+                    }
+                    FcmUtil.uploadFcmTokenOnce { token ->
+                        Log.d(TAG, "FCM token=$token")
+                        // TODO: RetrofitUtil.userService.uploadFcmToken(token)
+                    }
+                }
+
                 // 권한 OK → 기존 로직 유지
                 lifecycleScope.launch {
                     try {

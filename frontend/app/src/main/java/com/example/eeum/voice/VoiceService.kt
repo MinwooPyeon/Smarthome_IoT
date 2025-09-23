@@ -35,11 +35,8 @@ import com.example.eeum.util.RuleCompiler
 import com.example.eeum.util.VoiceBus
 import com.example.eeum.util.VoiceDeps
 import kotlinx.coroutines.launch
-
-// Picovoice (Porcupine)
 import ai.picovoice.porcupine.PorcupineManager
 import ai.picovoice.porcupine.PorcupineManagerCallback
-import ai.picovoice.porcupine.PorcupineManagerErrorCallback
 
 private const val TAG = "EEUM_VoiceService"
 

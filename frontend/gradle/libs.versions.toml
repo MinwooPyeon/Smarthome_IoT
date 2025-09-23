@@ -12,6 +12,7 @@ androidxJunit = "1.2.1"
 espressoCore = "3.6.1"
 playServicesMaps = "19.2.0"
 
+
 [libraries]
 # AndroidX
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }

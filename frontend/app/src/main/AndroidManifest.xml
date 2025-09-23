@@ -35,10 +35,16 @@
             android:name="com.naver.maps.map.NCP_KEY_ID"
             android:value="${NAVER_CLIENT_ID}" />
 
-        <!-- 일부 SDK/예제는 CLIENT_ID 키를 참조하므로 호환을 위해 동일 값으로 추가 -->
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="eeum_default" />
+
+        
         <meta-data
             android:name="com.naver.maps.map.CLIENT_ID"
             android:value="${NAVER_CLIENT_ID}" />
+
 
         <activity
             android:name=".login.LoginActivity"
@@ -62,6 +68,14 @@
             android:name=".voice.VoiceService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+
+        <service
+            android:name=".data.remote.service.FirebaseService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
     </application>
 </manifest>
