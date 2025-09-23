@@ -1,5 +1,7 @@
 package com.example.eeum.ui.navigation
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -37,6 +39,12 @@ import com.example.eeum.ui.screens.DeviceRegistrationBrandScreen
 import com.example.eeum.ui.screens.DeviceRegistrationCompleteScreen
 import com.example.eeum.ui.screens.HomeScreen
 import com.example.eeum.ui.screens.RemoteScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.eeum.ui.screens.HomeViewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.ComponentActivity
+import androidx.core.content.ContextCompat
+import com.example.eeum.voice.VoiceService
 
 import androidx.compose.material.Scaffold as M2Scaffold
 import androidx.compose.material.FabPosition as M2FabPosition
@@ -189,6 +197,7 @@ private fun MainTabsScreen(
     initialTab: String? = null
 ) {
     val tabNavController = rememberNavController()
+    val ctx = LocalContext.current
 
     // 초기 탭 이동 (기본 Home)
     androidx.compose.runtime.LaunchedEffect(initialTab) {
@@ -205,14 +214,15 @@ private fun MainTabsScreen(
         floatingActionButton = {
             EeumFloatingActionButton(
                 onClick = {
-                    mainNavController.navigate(VOICE_ROUTE) {
-                        launchSingleTop = true
-                        restoreState = true
-                        popUpTo(tabNavController.graph.startDestinationId) {
-                            saveState = true
-                        }
-                    }
-                }
+                    startVoiceListening(ctx.applicationContext)
+//                    mainNavController.navigate(VOICE_ROUTE) {
+//                        launchSingleTop = true
+//                        restoreState = true
+//                        popUpTo(tabNavController.graph.startDestinationId) {
+//                            saveState = true
+//                        }
+//                    }
+                },
             )
         },
         bottomBar = {
@@ -252,4 +262,12 @@ private fun MainTabsScreen(
             composable(Tab.Menu.route) { MenuScreen(mainNavController) }
         }
     }
+}
+
+private fun startVoiceListening(context: Context) {
+    val intent = Intent(context, VoiceService::class.java).apply {
+        action = VoiceService.ACTION_START_LISTEN
+    }
+    // ForegroundService 보장해서 백그라운드에서도 즉시 동작
+    ContextCompat.startForegroundService(context, intent)
 }

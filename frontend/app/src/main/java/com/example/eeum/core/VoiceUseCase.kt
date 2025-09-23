@@ -258,13 +258,16 @@ class VoiceUseCase(
                     if (n.isNullOrBlank() || w == null || t.isNullOrBlank() || sess.details.isEmpty()) {
                         return Speech("입력이 부족해요. 동작을 최소 1개 이상 추가해 주세요.", true)
                     }
+
+                    val normalizedDesc = sess.description?.takeIf { it.isNotBlank() } ?: " "
+
                     val req = RoutineRequest(
                         name = n,
                         routineWeekday = w,
-                        routineDescription = sess.description,
+                        routineDescription = normalizedDesc,
                         actTime = com.example.eeum.util.ResourceUtils.toIsoActTime(t),
                         detail = sess.details.toList(),
-                        isAi = true  // AI로 생성된 루틴이므로 true로 설정
+                        isAi = false
                     )
 
                     Log.d(TAG, "handleRoutineFlow: $req")
