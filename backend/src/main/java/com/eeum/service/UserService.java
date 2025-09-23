@@ -12,7 +12,6 @@ import com.eeum.dto.request.UserImageUpdateRequest;
 import com.eeum.dto.response.UpdateNicknameResponse;
 import com.eeum.dto.response.UserResponse;
 import com.eeum.entity.User;
-import com.eeum.repository.UserHomeRepository;
 import com.eeum.repository.UserRepository;
 
 import jakarta.transaction.Transactional;
@@ -150,5 +149,9 @@ public class UserService {
         
         return user.getUserId();
     }
-
+    
+    // 아이디 중복 확인
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
 }

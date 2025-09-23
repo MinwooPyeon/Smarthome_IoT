@@ -103,8 +103,8 @@ public class DeviceService {
         
         // home_id + room_color 로 방 조회
         Room room = roomRepository
-                .findNearestByHomeIdAndRoomColorWithinTol(req.getHomeId(), colorInt, 10)
-                .orElseThrow(() -> new IllegalArgumentException("해당 색상(±" + 10 + ")의 방을 찾을 수 없습니다."));
+                .findNearestByHomeIdAndRoomColorWithinTol(req.getHomeId(), colorInt, 10000000)
+                .orElseThrow(() -> new IllegalArgumentException("해당 색상(±" + 10000000 + ")의 방을 찾을 수 없습니다."));
 
         
         Integer roomId = room.getRoomId();
