@@ -39,6 +39,7 @@ import kotlinx.coroutines.launch
 // Picovoice (Porcupine)
 import ai.picovoice.porcupine.PorcupineManager
 import ai.picovoice.porcupine.PorcupineManagerCallback
+import ai.picovoice.porcupine.PorcupineManagerErrorCallback
 
 private const val TAG = "EEUM_VoiceService"
 
@@ -297,7 +298,7 @@ class VoiceService : Service() {
             return
         }
 
-        val callback = PorcupineManagerCallback { idx ->
+        val callback = PorcupineManagerCallback { _ ->
             if (isListening) return@PorcupineManagerCallback
             Handler(Looper.getMainLooper()).post {
                 try {
@@ -314,9 +315,18 @@ class VoiceService : Service() {
 
         porcupineManager = PorcupineManager.Builder()
             .setAccessKey(pvAccessKey)
-            .setKeywordPath(kwPath)      // jenny_ko_android_v3_0_0.ppn
-            .setModelPath(modelPath)     // porcupine_params_ko.pv
-            .setSensitivity(0.55f)       // 감지 민감도
+            .setKeywordPath(kwPath)          // jenny_ko_android_v3_0_0.ppn
+            .setModelPath(modelPath)         // porcupine_params_ko.pv
+            .setSensitivity(0.55f)           // 민감도
+            .setErrorCallback(
+                 { e ->
+                    Log.e(TAG, "Porcupine error", e)
+                    Handler(Looper.getMainLooper()).post {
+                        safeStopWakeword()
+                        resumeWakewordWithDelay(300)
+                    }
+                }
+            )
             .build(applicationContext, callback)
 
         Log.i(TAG, "Porcupine initialized (ko model, sensitivity=0.55)")
