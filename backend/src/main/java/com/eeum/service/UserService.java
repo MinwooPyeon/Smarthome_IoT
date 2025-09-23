@@ -5,13 +5,13 @@ import java.time.Instant;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.eeum.dto.request.LoginRequest;
 import com.eeum.dto.request.PasswordUpdateRequest;
 import com.eeum.dto.request.SignupRequest;
 import com.eeum.dto.request.UserImageUpdateRequest;
 import com.eeum.dto.response.UpdateNicknameResponse;
 import com.eeum.dto.response.UserResponse;
 import com.eeum.entity.User;
-import com.eeum.repository.UserHomeRepository;
 import com.eeum.repository.UserRepository;
 
 import jakarta.transaction.Transactional;
@@ -127,5 +127,31 @@ public class UserService {
         userRepository.save(user);
 
         return user.getUserId();
+    }
+    
+    // 로그인
+    public Integer login(LoginRequest req) {
+        String loginId = req.getLoginId();
+        String rawPw   = req.getPassword();
+
+        if (loginId == null || loginId.isBlank() || rawPw == null || rawPw.isBlank()) {
+            throw new IllegalArgumentException("아이디와 비밀번호를 입력해 주세요.");
+        }
+
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다."));
+
+        if (!passwordEncoder.matches(rawPw, user.getPassword())) {
+            throw new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다.");
+        }
+        
+        user.setLastActive(Instant.now());
+        
+        return user.getUserId();
+    }
+    
+    // 아이디 중복 확인
+    public boolean existsByLoginId(String loginId) {
+        return userRepository.existsByLoginId(loginId);
     }
 }

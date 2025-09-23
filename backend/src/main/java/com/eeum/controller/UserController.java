@@ -6,12 +6,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.eeum.dto.request.UserImageUpdateRequest;
+import com.eeum.dto.request.LoginRequest;
 import com.eeum.dto.request.PasswordUpdateRequest;
 import com.eeum.dto.request.UpdateNicknameRequest;
 import com.eeum.dto.response.UpdateNicknameResponse;
@@ -89,6 +91,7 @@ public class UserController implements ControllerHelper {
             return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+        
 
     // 회원탈퇴
 //    @Operation(summary = "회원 탈퇴", description = "로그인한 사용자를 탈퇴 처리합니다.")

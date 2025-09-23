@@ -154,7 +154,7 @@ class RoutineViewModel : ViewModel() {
                     if (response.isSuccessful) {
                         val body = response.body()
                         val items = body?.data?.items ?: emptyList()
-                        _devices.value = items.sortedWith(compareBy({ it.deviceName }, { it.deviceType.toString() }))
+                        _devices.value = items.sortedWith(compareBy({ it.deviceName }, { it.deviceType?.toString() ?: "" }))
                         Log.d("RoutineViewModel", "fetchDevicesSimple(roomName=$roomName) size=${_devices.value?.size}")
                     } else {
                         val msg = "readDevicesSimple failed: code=${response.code()} msg=${response.message()}"

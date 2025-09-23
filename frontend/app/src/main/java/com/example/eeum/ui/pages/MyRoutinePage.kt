@@ -55,7 +55,7 @@ fun MyRoutinePage(
     val deleteMessage by viewModel.deleteMessage.observeAsState()
     val error by viewModel.error.observeAsState()
     val context = LocalContext.current
-    
+
     // 삭제 메시지 처리
     LaunchedEffect(deleteMessage) {
         deleteMessage?.let { message ->
@@ -63,7 +63,7 @@ fun MyRoutinePage(
             viewModel.clearDeleteMessage()
         }
     }
-    
+
     // 에러 메시지 처리
     LaunchedEffect(error) {
         error?.let { errorMsg ->
@@ -71,7 +71,7 @@ fun MyRoutinePage(
             viewModel.clearError()
         }
     }
-    
+
     val dayTabs = remember { listOf("전체","월","화","수","목","금","토","일") }
     // 요일 필터(응답의 요일을 모아서 구성)
     val allDays = remember(routines) {
@@ -282,19 +282,23 @@ private fun MyRoutineCard(
                     IconBox(iconUrl = routine.iconUrl)
                     Spacer(Modifier.width(14.dp))
                     Column {
-                        Text(
-                            routine.name,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TitleColor
-                        )
+                        routine.name?.let {
+                            Text(
+                                it,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TitleColor
+                            )
+                        }
                         Spacer(Modifier.height(6.dp))
-                        Text(
-                            routine.routineDescription,
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp,
-                            color = BodyColor
-                        )
+                        routine.routineDescription?.let {
+                            Text(
+                                it,
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp,
+                                color = BodyColor
+                            )
+                        }
                     }
                 }
 
@@ -327,7 +331,7 @@ private fun MyRoutineCard(
 }
 
 @Composable
-private fun IconBox(iconUrl: String) {
+private fun IconBox(iconUrl: String?) {
     val shape = RoundedCornerShape(12.dp)
     val ctx = LocalContext.current
     val absoluteUrl = remember(iconUrl) { toAbsoluteUrl(ApplicationClass.SERVER_URL, iconUrl) }

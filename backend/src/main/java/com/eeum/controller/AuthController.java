@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.eeum.dto.request.LoginRequest;
 import com.eeum.dto.request.SendEmailRequest;
 import com.eeum.dto.request.SignupRequest;
 import com.eeum.dto.request.VerifyEmailRequest;
@@ -72,6 +73,33 @@ public class AuthController implements ControllerHelper {
             return handleSuccess(Map.of("userId", userId));
         } catch (IllegalArgumentException e) {
             return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    
+    
+    // 로그인
+    @PostMapping("/login")
+    @Operation(summary = "로그인", description = "아이디/비밀번호로 로그인합니다. 성공 시 userId 반환")
+    public ResponseEntity<?> login(@RequestBody LoginRequest req) {
+        try {
+            Integer userId = userService.login(req);
+            return handleSuccess(Map.of("userId", userId));
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    
+    @PostMapping("/check-id")
+    @Operation(summary = "아이디 중복 확인", description = "이미 가입된 아이디인지 확인합니다.")
+    public ResponseEntity<?> checkId(@RequestBody Map<String, String> req) {
+        try {
+            String loginId = req.get("loginId");
+            boolean exists = userService.existsByLoginId(loginId);
+            return handleSuccess(Map.of("loginId", loginId, "exists", exists));
         } catch (Exception e) {
             return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
         }

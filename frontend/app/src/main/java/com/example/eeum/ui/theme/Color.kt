@@ -31,3 +31,11 @@ val Gray900 = Color(0xFF111827)
 val SurfaceBase = Color(0xFFFFFFFF)
 val SurfaceAlt  = Color(0xFFF8FAFF)
 val BackgroundColor = Color(0xFFDBF2FD) // 배경 색상
+
+// Pastel Colors for Charts
+val PastelBlue = Color(0xFF84C7FF)     // 파스텔 블루
+val PastelGreen = Color(0xFFB8F6B9)    // 파스텔 그린
+val PastelOrange = Color(0xFFF5D29E)   // 파스텔 오렌지
+val PastelPurple = Color(0xFFEBB6F5)   // 파스텔 퍼플
+val PastelRed = Color(0xFFFAADB3)      // 파스텔 레드
+val PastelYellow = Color(0xFFFCF2A6)   // 파스텔 옐로우

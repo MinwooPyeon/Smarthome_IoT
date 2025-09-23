@@ -25,7 +25,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.eeum"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -138,5 +138,13 @@ dependencies {
     
     // SwipeRefresh 지원
     implementation("com.google.accompanist:accompanist-swiperefresh:0.32.0")
+    
+    // Vico 차트 라이브러리
+    implementation("com.patrykandpatrick.vico:compose:1.13.1")
+    implementation("com.patrykandpatrick.vico:compose-m3:1.13.1")
+    implementation("com.patrykandpatrick.vico:core:1.13.1")
+    
+    // YCharts (파이차트용)
+    implementation("co.yml:ycharts:2.1.0")
 
 }
