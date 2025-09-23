@@ -53,9 +53,10 @@ protected:
 private:
 	HWND m_hWebHost = nullptr;
 	Microsoft::WRL::ComPtr<ICoreWebView2Environment> m_env;
-	Microsoft::WRL::ComPtr<ICoreWebView2Controller> m_controller;
+	Microsoft::WRL::ComPtr<ICoreWebView2Controller> m_ctrl;
 	Microsoft::WRL::ComPtr<ICoreWebView2> m_webview;
-
+	bool    m_pageReady_{ false };
+	Metrics m_last_{};
 private:
 	
 	void CreateWebHostWindow();

@@ -13,7 +13,7 @@ static std::string CaPathFromExe(const char* name) {
 
 struct EnvSample {
 	long long tsMs;
-	double t, h, gas;
+	int t, h;
 };
 
 struct IrEvent {

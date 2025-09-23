@@ -22,8 +22,8 @@ static EnvSample ParseEnv(const std::string& s) {
 	EnvSample e{};
 	try {
 		auto j = json::parse(s);
-		e.t = j.value("t", j.value("temp", NAN));
-		e.h = j.value("h", j.value("hum", NAN));
+		e.t = j.value("t", j.value("temperature", NAN));
+		e.h = j.value("h", j.value("humidity", NAN));
 		e.tsMs = j.value("ts", (int64_t)::GetTickCount64());
 	}
 	catch (...) {}
@@ -102,7 +102,7 @@ BOOL CEeumMFCDoc::OnNewDocument()
 			::PostMessage(pMain->GetSafeHwnd(), WM_APP_DATAREADY, 0, 0);
 		});
 
-	ingestor_.start(2.0);
+	ingestor_.start(0.5);
 
 	Config config;
 	mqtt_ = std::make_unique<MqttClient>(config);
