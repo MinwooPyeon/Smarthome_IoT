@@ -1,8 +1,8 @@
 package com.example.eeum.data.model.response.device
 
-data class Data(
+data class EnergyDeviceUsageData(
     val from: String,
-    val items: List<Item>,
+    val items: List<EnergyDeviceUsageDataList>,
     val range: String,
     val to: String,
     val totalKwh: Double
