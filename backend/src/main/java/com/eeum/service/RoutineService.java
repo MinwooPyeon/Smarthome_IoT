@@ -137,11 +137,9 @@ public class RoutineService {
         if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
 
         Comparator<Routine> cmp = Comparator.<Routine, LocalTime>comparing(r -> {
-            Instant actTime = r.getActTime();
-            return (actTime == null)
-                    ? LocalTime.MAX
-                    : actTime.atZone(ZoneId.of("Asia/Seoul")).toLocalTime();
-        }).thenComparing(r -> r.getRoutineId() == null ? Integer.MAX_VALUE : r.getRoutineId());
+            LocalTime actTime = r.getActTime();
+            return (actTime == null) ? LocalTime.MAX : actTime;
+        });
 
         // 루틴 목록 조회
         List<Routine> routines = routineRepository.findAllWithDetailsByUserId(userId).stream()
