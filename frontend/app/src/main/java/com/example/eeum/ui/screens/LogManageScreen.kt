@@ -16,17 +16,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Divider
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -43,71 +46,42 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.eeum.R
 import com.example.eeum.ui.theme.*
-
-// 로그 데이터 모델
-data class LogRecord(
-    val id: String,
-    val timestamp: Long,
-    val period: String, // "오전" | "오후"
-    val time: String,   // "10:33"
-    val device: String,
-    val location: String,
-    val status: String
-)
+import kotlinx.coroutines.flow.distinctUntilChanged
+import org.threeten.bp.Instant
+import org.threeten.bp.ZoneId
+import org.threeten.bp.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun LogManageScreen(
     navController: NavController? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: LogViewModel = viewModel()
 ) {
-    // 정적 데이터 사용
-    val spaces = listOf("우리 집", "원룸")
-    var selectedSpace by remember { mutableStateOf("우리 집") }
-    val selectedDate = "8. 26. 화요일"
-    
-    // 드롭다운 메뉴 상태
-    var isDropdownExpanded by remember { mutableStateOf(false) }
-    
-    // 더미 로그 데이터
-    val logs = remember {
-        listOf(
-            LogRecord(
-                id = "1",
-                timestamp = System.currentTimeMillis(),
-                period = "오후",
-                time = "10:33",
-                device = "스탠드형 에어컨",
-                location = "거실",
-                status = "전원: 켜짐"
-            ),
-            LogRecord(
-                id = "2",
-                timestamp = System.currentTimeMillis() - 1000,
-                period = "오후",
-                time = "9:52",
-                device = "벽걸이형 에어컨",
-                location = "거실",
-                status = "전원: 켜짐"
-            ),
-            LogRecord(
-                id = "3",
-                timestamp = System.currentTimeMillis() - 2000,
-                period = "오후",
-                time = "9:33",
-                device = "벽걸이형 에어컨",
-                location = "거실",
-                status = "전원: 켜짐"
-            ),
-            LogRecord(
-                id = "4",
-                timestamp = System.currentTimeMillis() - 3000,
-                period = "오전",
-                time = "11:41",
-                device = "스탠드형 에어컨",
-                location = "거실",
-                status = "전원: 켜짐"
-            )
-        )
+    // ViewModel에서 로그 불러오기
+    val logs by viewModel.logs.observeAsState(emptyList())
+    val listState = rememberLazyListState()
+    var headerDate by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) { viewModel.fetchLogs() }
+
+    // 초기 헤더 날짜는 첫 로그 기준
+    LaunchedEffect(logs) {
+        if (logs.isNotEmpty()) {
+            headerDate = formatHeaderDateFromTs(logs.first().timestamp)
+        } else {
+            headerDate = ""
+        }
+    }
+
+    // 스크롤 시, 화면 상단(첫 가시 아이템)의 날짜로 갱신
+    LaunchedEffect(listState, logs) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .collect { idx ->
+                if (idx in logs.indices) {
+                    headerDate = formatHeaderDateFromTs(logs[idx].timestamp)
+                }
+            }
     }
 
     Column(
@@ -139,58 +113,20 @@ fun LogManageScreen(
 
             Spacer(Modifier.height(60.dp))
 
-            // 공간/집 선택 (드롭다운)
-            Box {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { isDropdownExpanded = true }
-                ) {
-                    Text(
-                        text = selectedSpace,
-                        color = Gray900,
-                        style = TextStyle(
-                            fontSize = 20.sp,
-                            fontFamily = FontFamily(Font(R.font.goormsansbold))
-                        ),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_page_move_under),
-                        contentDescription = "목록 열기",
-                        colorFilter = ColorFilter.tint(Gray600),
-                        modifier = Modifier.size(12.dp)
-                    )
-                }
-                
-                DropdownMenu(
-                    expanded = isDropdownExpanded,
-                    onDismissRequest = { isDropdownExpanded = false }
-                ) {
-                    spaces.forEach { space ->
-                        DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    text = space,
-                                    style = TextStyle(
-                                        fontSize = 16.sp,
-                                        fontFamily = FontFamily(Font(R.font.goormsansmedium))
-                                    )
-                                )
-                            },
-                            onClick = {
-                                selectedSpace = space
-                                isDropdownExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
+            Text(
+                text = "우리 집",
+                color = Gray900,
+                style = TextStyle(
+                    fontSize = 20.sp,
+                    fontFamily = FontFamily(Font(R.font.goormsansbold))
+                ),
+            )
 
             Spacer(Modifier.height(16.dp))
 
             // 날짜
             Text(
-                text = selectedDate,
+                text = headerDate,
                 color = Gray600,
                 style = TextStyle(
                     fontSize = 16.sp,
@@ -211,12 +147,13 @@ fun LogManageScreen(
                     .weight(1f) // 나머지 공간을 모두 차지
             ) {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     items(logs) { log ->
                         LogRecordItem(log)
                         // 마지막 아이템이 아닌 경우 Divider 추가
-                        if (log != logs.last()) {
+                        if (log != logs.lastOrNull()) {
                             Divider(
                                 color = Gray50,
                                 modifier = Modifier.padding(vertical = 4.dp)
@@ -234,6 +171,12 @@ private fun LogManageScreenPreview() {
     EeumTheme(dynamicColor = false) {
         LogManageScreen()
     }
+}
+
+private fun formatHeaderDateFromTs(ts: Long): String {
+    val zdt = Instant.ofEpochMilli(ts).atZone(ZoneId.of("Asia/Seoul"))
+    val fmt = DateTimeFormatter.ofPattern("M.d EEEE", Locale.KOREAN)
+    return zdt.format(fmt)
 }
 
 @Composable

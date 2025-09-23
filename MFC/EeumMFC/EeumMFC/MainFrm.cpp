@@ -81,7 +81,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 LRESULT CMainFrame::OnDataReady(WPARAM, LPARAM)
 {
 	CEeumMFCDoc* doc = dynamic_cast<CEeumMFCDoc*>(GetActiveDocument());
-
+	OutputDebugStringW(L"[PIPE] MainFrame: OnDataReady\n");
 	if (doc) {
 		doc->UpdateAllViews(nullptr);
 	}

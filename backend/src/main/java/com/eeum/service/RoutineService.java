@@ -64,13 +64,15 @@ public class RoutineService {
             }
         }
 
+        LocalTime actTimeLocal = instantToKstLocalTimeMinute(req.getActTime());
+        
         Routine routine = Routine.builder()
                 .userId(userId)
                 .name(req.getName())
                 .triggerType(Boolean.TRUE)
                 .routineWeekday(req.getRoutineWeekday())
                 .routineDescription(req.getRoutineDescription())
-                .actTime(req.getActTime())
+                .actTime(actTimeLocal)
                 .iconId(req.getIconId())  
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
@@ -305,5 +307,9 @@ public class RoutineService {
         throw new IllegalStateException("deviceId=" + deviceId + " 에 대한 homeId를 찾을 수 없습니다.");
     }
     
-    
+    // 프론트에서 온 Instant → KST 기준 LocalTime
+    private LocalTime instantToKstLocalTimeMinute(Instant instant) {
+        if (instant == null) return null;
+        return instant.atZone(ZoneId.of("Asia/Seoul")).toLocalTime().withSecond(0).withNano(0);
+    }    
 }

@@ -22,8 +22,8 @@ static EnvSample ParseEnv(const std::string& s) {
 	EnvSample e{};
 	try {
 		auto j = json::parse(s);
-		e.t = j.value("t", j.value("temp", NAN));
-		e.h = j.value("h", j.value("hum", NAN));
+		e.t = j.value("t", j.value("temperature", NAN));
+		e.h = j.value("h", j.value("humidity", NAN));
 		e.tsMs = j.value("ts", (int64_t)::GetTickCount64());
 	}
 	catch (...) {}
@@ -92,17 +92,27 @@ BOOL CEeumMFCDoc::OnNewDocument()
 		return FALSE;
 
 	ingestor_.setCallback([this](const auto& env, const auto& ir, const Metrics& met) {
-		std::lock_guard<std::mutex> lk(mtx_);
-		latestEnv_ = std::move(env);
-		latestIr_ = std::move(ir);
-		latestMet_ = met;
+		{
+			std::lock_guard<std::mutex> lk(mtx_);
+			latestEnv_ = env;
+			latestIr_ = ir;
+			latestMet_ = met;
+		}
 
-		CWnd* pMain = AfxGetMainWnd();
-		if (pMain && ::IsWindow(pMain->GetSafeHwnd()))
+		// 1) 기존 경로 유지 (원하면)
+		if (CWnd* pMain = AfxGetMainWnd()) {
 			::PostMessage(pMain->GetSafeHwnd(), WM_APP_DATAREADY, 0, 0);
+		}
+
+		// 2) ★ 웹뷰로 직통 전송 (끊김 방지)
+		if (viewHwnd_ && ::IsWindow(viewHwnd_)) {
+			// heap에 복사해서 넘기고, 뷰에서 delete(unique_ptr) 처리
+			auto* pm = new Metrics(met);
+			::PostMessage(viewHwnd_, WM_APP_METRICS, 0, reinterpret_cast<LPARAM>(pm));
+		}
 		});
 
-	ingestor_.start(2.0);
+	ingestor_.start(0.5);
 
 	Config config;
 	mqtt_ = std::make_unique<MqttClient>(config);
@@ -124,11 +134,18 @@ BOOL CEeumMFCDoc::OnNewDocument()
 }
 
 void CEeumMFCDoc::OnCloseDocument() {
-	if (mqtt_ && !lastOrderedHub_.empty()) {
-		mqtt_->orderEnv(lastOrderedHub_, false);
+	if (mqtt_ && !selectedHub_.empty()) {
+		mqtt_->orderEnv(selectedHub_, false);
 	}
-	ingestor_.stop();
+
+	// Ingestor/Analyzer/Timer 같은 내부 스레드 종료
+	ingestor_.stop();   // 내부에서 join!
+	
+	// MQTT 네트워크 스레드 정리 (소멸자에서 loop_stop+disconnect)
+	mqtt_->disconnect();
+	mqtt_->loop_stop(true);
 	mqtt_.reset();
+
 	CDocument::OnCloseDocument();
 }
 

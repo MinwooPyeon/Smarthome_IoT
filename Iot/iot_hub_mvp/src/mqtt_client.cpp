@@ -37,6 +37,8 @@ bool MqttClient::init(const AppConfig& cfg, const std::string& clientId){
         std::cerr << "[mqtt] connect failed: " << mosquitto_strerror(rc) << "\n";
         return false;
     }
+
+    
     return true;
 }
 

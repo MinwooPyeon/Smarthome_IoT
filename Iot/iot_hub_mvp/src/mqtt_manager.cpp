@@ -34,7 +34,7 @@ bool MqttManager::start()
     irMgr_.loadData();
 
     // 구독
-    mqtt_.subscribe(cfg_.topicEnv, 1);
+    mqtt_.subscribe(cfg_.topicOrderEnv, 1);
     mqtt_.subscribe(cfg_.topicOrderIrReq, 1);
     mqtt_.subscribe(cfg_.topicRegisDevice, 1);
     // 라우터 준비

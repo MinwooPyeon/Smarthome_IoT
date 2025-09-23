@@ -60,7 +60,7 @@ CEeumMFCApp theApp;
 
 BOOL CEeumMFCApp::InitInstance()
 {
-	int rc = mosqpp::lib_init();
+	//int rc = mosqpp::lib_init();
 	ASSERT(rc == MOSQ_ERR_SUCCESS);	
 	// 애플리케이션 매니페스트가 ComCtl32.dll 버전 6 이상을 사용하여 비주얼 스타일을
 	// 사용하도록 지정하는 경우, Windows XP 상에서 반드시 InitCommonControlsEx()가 필요합니다. 
@@ -71,7 +71,7 @@ BOOL CEeumMFCApp::InitInstance()
 	// 이 항목을 설정하십시오.
 	InitCtrls.dwICC = ICC_WIN95_CLASSES;
 	InitCommonControlsEx(&InitCtrls);
-
+	mosqpp::lib_init();
 	CWinApp::InitInstance();
 
 	// OLE 라이브러리를 초기화합니다.
