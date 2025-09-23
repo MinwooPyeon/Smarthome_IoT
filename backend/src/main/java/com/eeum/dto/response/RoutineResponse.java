@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.List;
 
 @Getter
@@ -14,7 +15,7 @@ public class RoutineResponse {
     private Boolean triggerType;
     private Integer routineWeekday;
     private String routineDescription;
-    private Instant actTime;
+    private LocalTime actTime;
     private Instant createdAt;
     private Instant updatedAt;
     private Integer iconId;

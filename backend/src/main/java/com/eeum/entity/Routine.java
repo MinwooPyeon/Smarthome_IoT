@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,7 +41,7 @@ public class Routine {
     private Integer userId;
 
     @Column(name = "act_time")
-    private Instant actTime;
+    private LocalTime actTime;
     
     @Column(name = "icon_id", nullable = false)
     private Integer iconId;
