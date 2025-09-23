@@ -16,6 +16,8 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import coil.ImageLoader
+import coil.Coil
 
 private const val TAG = "EEUM_ApplicationClass"
 
@@ -27,6 +29,7 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
         lateinit var sharedPreferencesUtil: SharedPreferencesUtil
             private set
         lateinit var retrofit: Retrofit
+        lateinit var imageLoader: ImageLoader
 
         // 로딩 관련
         private var currentActivity: Activity? = null
@@ -116,6 +119,13 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .client(okHttpClient)
             .build()
+
+        // --- Coil ImageLoader (AsyncImage에서 인증 헤더 포함하여 사용) ---
+        imageLoader = ImageLoader.Builder(this)
+            .okHttpClient(okHttpClient)
+            .crossfade(true)
+            .build()
+        Coil.setImageLoader(imageLoader)
     }
 
     /** Manifest의 <meta-data android:name="com.naver.maps.map.CLIENT_ID"> 값을 읽어 SDK에 주입 */

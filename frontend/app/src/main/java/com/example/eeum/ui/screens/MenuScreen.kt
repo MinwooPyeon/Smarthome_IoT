@@ -20,6 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -37,14 +40,50 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.draw.clip
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import android.util.Log
+
+private fun toAbsoluteUrl(base: String, path: String?): String? {
+    if (path.isNullOrBlank()) {
+        Log.d("MenuScreen", "toAbsoluteUrl: path is null or blank")
+        return null
+    }
+    val b = base.trimEnd('/')
+    var p = path.trim().replace('\\', '/')
+    
+    // 이미 절대 URL인 경우
+    if (p.startsWith("http://") || p.startsWith("https://")) {
+        Log.d("MenuScreen", "toAbsoluteUrl: already absolute URL: '$p'")
+        return p
+    }
+    
+    // 상대 경로를 절대 URL로 변환
+    val result = if (p.startsWith("/")) "$b$p" else "$b/$p"
+    Log.d("MenuScreen", "toAbsoluteUrl: converted '$p' to '$result'")
+    return result
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MenuScreen(
     navController: NavController? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: MenuViewModel = viewModel()
 ) {
+    val ctx = LocalContext.current
+    
+    // ViewModel 상태 관찰
+    val userInfo by viewModel.userInfo.observeAsState()
+    
+    // 화면 진입 시 사용자 정보 로드
+    LaunchedEffect(Unit) {
+        viewModel.getUserInfo()
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -76,20 +115,39 @@ fun MenuScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        // Profile row
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_user_photo),
+            val imageUrl = userInfo?.data?.img
+            val absoluteUrl = if (imageUrl.isNullOrBlank()) {
+                Log.d("MenuScreen", "Image URL is null or blank: '$imageUrl'")
+                null
+            } else {
+                val url = toAbsoluteUrl(com.example.eeum.base.ApplicationClass.SERVER_URL, imageUrl)
+                Log.d("MenuScreen", "Image URL constructed: '$url' from base: '${com.example.eeum.base.ApplicationClass.SERVER_URL}' and path: '$imageUrl'")
+                url
+            }
+            
+            AsyncImage(
+                model = ImageRequest.Builder(ctx)
+                    .data(absoluteUrl ?: R.drawable.ic_user_photo)
+                    .crossfade(true)
+                    .placeholder(R.drawable.ic_user_photo)
+                    .error(R.drawable.ic_user_photo)
+                    .fallback(R.drawable.ic_user_photo)
+                    .build(),
+                imageLoader = com.example.eeum.base.ApplicationClass.imageLoader,
                 contentDescription = "프로필",
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(50.dp)
+                    .background(Color.White, shape = androidx.compose.foundation.shape.CircleShape)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                text = "태훈태훈",
+                text = userInfo?.data?.nickname ?: "태훈태훈",
                 style = TextStyle(
                     fontSize = 18.sp,
                     fontFamily = FontFamily(Font(R.font.goormsansmedium)),
