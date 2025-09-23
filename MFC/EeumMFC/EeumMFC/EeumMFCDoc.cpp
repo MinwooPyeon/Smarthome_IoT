@@ -92,14 +92,24 @@ BOOL CEeumMFCDoc::OnNewDocument()
 		return FALSE;
 
 	ingestor_.setCallback([this](const auto& env, const auto& ir, const Metrics& met) {
-		std::lock_guard<std::mutex> lk(mtx_);
-		latestEnv_ = std::move(env);
-		latestIr_ = std::move(ir);
-		latestMet_ = met;
+		{
+			std::lock_guard<std::mutex> lk(mtx_);
+			latestEnv_ = env;
+			latestIr_ = ir;
+			latestMet_ = met;
+		}
 
-		CWnd* pMain = AfxGetMainWnd();
-		if (pMain && ::IsWindow(pMain->GetSafeHwnd()))
+		// 1) 기존 경로 유지 (원하면)
+		if (CWnd* pMain = AfxGetMainWnd()) {
 			::PostMessage(pMain->GetSafeHwnd(), WM_APP_DATAREADY, 0, 0);
+		}
+
+		// 2) ★ 웹뷰로 직통 전송 (끊김 방지)
+		if (viewHwnd_ && ::IsWindow(viewHwnd_)) {
+			// heap에 복사해서 넘기고, 뷰에서 delete(unique_ptr) 처리
+			auto* pm = new Metrics(met);
+			::PostMessage(viewHwnd_, WM_APP_METRICS, 0, reinterpret_cast<LPARAM>(pm));
+		}
 		});
 
 	ingestor_.start(0.5);

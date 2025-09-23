@@ -27,9 +27,12 @@ public:
 private:
 	std::string selectedHub_;
 	std::string lastOrderedHub_;
+
+	HWND viewHwnd_ = nullptr;
 // 작업입니다.
 public:
 	void SetSelectedHub(const CString& hub);
+	void SetDashboardView(HWND h) { viewHwnd_ = h; }
 	const Metrics& GetMetrics()   const { return latestMet_; }
 	const std::vector<EnvSample>& GetEnvBatch()  const { return latestEnv_; }
 	const std::vector<IrEvent>& GetIrBatch()   const { return latestIr_; }

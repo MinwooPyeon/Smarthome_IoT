@@ -19,6 +19,7 @@
 #include <sstream>
 #include <algorithm>      // std::replace
 #include <cmath>          // std::isfinite
+#include <iomanip>
 
 using Microsoft::WRL::ComPtr;
 using Microsoft::WRL::Callback;
@@ -42,6 +43,7 @@ BEGIN_MESSAGE_MAP(CEeumMFCView, CView)
 	ON_WM_CREATE()
 	ON_WM_SIZE()
 	ON_MESSAGE(WM_APP_INIT_WEBVIEW, &CEeumMFCView::OnInitWebViewMsg)
+	ON_MESSAGE(WM_APP_METRICS, &CEeumMFCView::OnMetricsMsg)
 END_MESSAGE_MAP()
 
 static void TraceW(const wchar_t* s) { ::OutputDebugStringW(s); ::OutputDebugStringW(L"\r\n"); }
@@ -238,6 +240,8 @@ void CEeumMFCView::PushMetrics(const Metrics& m)
 	if (!m_webview || !m_pageReady_) return;
 
 	std::ostringstream oss;
+	oss.setf(std::ios::fixed);
+	oss << std::setprecision(3);
 	oss << "{"
 		<< "\"type\":\"metrics\","
 		<< "\"seq\":" << (++seq) << ","            // ★ 추가
@@ -255,8 +259,42 @@ void CEeumMFCView::PushMetrics(const Metrics& m)
 		<< "\"ts\":" << static_cast<long long>(::GetTickCount64())
 		<< "}";
 
-	std::wstring wjson(oss.str().begin(), oss.str().end());
-	m_webview->PostWebMessageAsJson(wjson.c_str());
+	// utf8 JSON -> UTF-16 (예외 없는 안전 변환)
+	auto Utf8ToUtf16 = [](const std::string& utf8) -> std::wstring {
+		if (utf8.empty()) return {};
+		int need = ::MultiByteToWideChar(CP_UTF8, 0, utf8.data(), (int)utf8.size(), nullptr, 0);
+		if (need <= 0) return {};
+
+		std::wstring out; out.resize(need);
+		int got = ::MultiByteToWideChar(CP_UTF8, 0, utf8.data(), (int)utf8.size(), &out[0], need);
+		if (got <= 0) return {};
+		return out;
+		};
+
+	const std::string json8 = oss.str();
+
+	// ★ 길이 가드(UTF-8 기준). 너무 길면 로그만 남기고 drop 하거나, 나눠서 보내도록.
+	constexpr size_t kMaxUtf8Len = 64 * 1024; // 경험상 64KB 넘기지 않는게 안전
+	if (json8.size() > kMaxUtf8Len) {
+		CStringW m; m.Format(L"[WebView] JSON too long: %u bytes (drop)", (unsigned)json8.size());
+		::OutputDebugStringW(m);
+		return; // 또는 여기서 '요약 메시지'만 보내도 됨
+	}
+
+	std::wstring json16 = Utf8ToUtf16(json8);
+	if (json16.empty()) {
+		::OutputDebugStringW(L"[WebView] UTF8->UTF16 conversion failed\n");
+		return;
+	}
+
+	HRESULT hr = m_webview->PostWebMessageAsJson(json16.c_str());
+	wchar_t buf[128];
+	swprintf(buf, 128, L"[PIPE] PushMetrics posted seq=%llu hr=0x%08X\n", seq, (unsigned)hr);
+	OutputDebugStringW(buf);
+	if (FAILED(hr)) {
+		CStringW m; m.Format(L"[WebView] PostWebMessageAsJson failed: 0x%08X\n", hr);
+		::OutputDebugStringW(m);
+	}
 }
 
 int CEeumMFCView::OnCreate(LPCREATESTRUCT cs)
@@ -279,6 +317,9 @@ void CEeumMFCView::OnInitialUpdate()
 		PostMessage(WM_APP_INIT_WEBVIEW, 0, 0);
 		TraceW(L"[View] Post INIT_WEBVIEW from OnInitialUpdate");
 	}
+	if (auto* doc = dynamic_cast<CEeumMFCDoc*>(GetDocument())) {
+		doc->SetDashboardView(this->GetSafeHwnd());
+	}
 }
 LRESULT CEeumMFCView::OnInitWebViewMsg(WPARAM, LPARAM)
 {
@@ -295,7 +336,15 @@ LRESULT CEeumMFCView::OnInitWebViewMsg(WPARAM, LPARAM)
 	m_webviewInitRunning_ = false;
 	return 0;
 }
-
+LRESULT CEeumMFCView::OnMetricsMsg(WPARAM, LPARAM lp)
+{
+	// lParam에 Metrics* 전달받아 복사 후 해제
+	std::unique_ptr<Metrics> pm(reinterpret_cast<Metrics*>(lp));
+	if (pm) {
+		PushMetrics(*pm);
+	}
+	return 0;
+}
 // CEeumMFCView 그리기
 void CEeumMFCView::OnDraw(CDC* /*pDC*/)
 {
@@ -342,7 +391,7 @@ void CEeumMFCView::OnSize(UINT nType, int cx, int cy)
 void CEeumMFCView::OnUpdate(CView*, LPARAM, CObject*) {
 	auto* doc = GetDocument();
 	if (!doc || !m_webview) return;
-
+	OutputDebugStringW(L"[PIPE] View: OnUpdate\n");
 	Metrics m{};
 	{
 		std::lock_guard<std::mutex> lk(doc->mtx_);

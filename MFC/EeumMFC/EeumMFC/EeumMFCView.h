@@ -47,7 +47,7 @@ protected:
 	afx_msg void OnInitialUpdate();
 	afx_msg LRESULT OnInitWebViewMsg(WPARAM, LPARAM);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
-
+	afx_msg LRESULT OnMetricsMsg(WPARAM, LPARAM);
 	DECLARE_MESSAGE_MAP()
 
 private:
@@ -76,5 +76,3 @@ public:
 inline CEeumMFCDoc* CEeumMFCView::GetDocument() const
    { return reinterpret_cast<CEeumMFCDoc*>(m_pDocument); }
 #endif
-
-constexpr UINT WM_APP_INIT_WEBVIEW = WM_APP + 1001;
