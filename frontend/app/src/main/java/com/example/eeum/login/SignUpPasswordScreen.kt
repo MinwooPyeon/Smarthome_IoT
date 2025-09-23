@@ -51,6 +51,8 @@ import com.example.eeum.ui.theme.Gray500
 
 @Composable
 fun SignUpPasswordScreen(
+    userId: String = "",
+    email: String = "",
     onBackClick: () -> Unit = {},
     onNext: (password: String) -> Unit = {}
 ) {
@@ -167,8 +169,7 @@ fun SignUpPasswordScreen(
             )
             
             Spacer(modifier = Modifier.height(8.dp))
-            
-            // Password Input Field
+
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -186,7 +187,7 @@ fun SignUpPasswordScreen(
                         Icon(
                             imageVector = if (isPasswordVisible) Icons.Default.Info else Icons.Default.Done,
                             contentDescription = if (isPasswordVisible) "비밀번호 숨기기" else "비밀번호 보기",
-                            tint = Gray300
+                            tint = if (!isPasswordVisible && isPasswordValid) Color(0xFF4CAF50) else Gray300 // 유효할 때 초록색
                         )
                     }
                 },
@@ -225,8 +226,7 @@ fun SignUpPasswordScreen(
             )
             
             Spacer(modifier = Modifier.height(8.dp))
-            
-            // Confirm Password Input Field
+
             OutlinedTextField(
                 value = confirmPassword,
                 onValueChange = { confirmPassword = it },
@@ -244,7 +244,7 @@ fun SignUpPasswordScreen(
                         Icon(
                             imageVector = if (isConfirmPasswordVisible) Icons.Default.Info else Icons.Default.Done,
                             contentDescription = if (isConfirmPasswordVisible) "비밀번호 숨기기" else "비밀번호 보기",
-                            tint = Gray300
+                            tint = if (!isConfirmPasswordVisible && passwordsMatch && confirmPassword.isNotEmpty()) Color(0xFF4CAF50) else Gray300 // 일치할 때 초록색
                         )
                     }
                 },

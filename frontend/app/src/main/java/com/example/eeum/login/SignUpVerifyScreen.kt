@@ -2,6 +2,7 @@ package com.example.eeum.login
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,8 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -29,14 +31,17 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
@@ -56,15 +61,22 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun SignUpVerifyScreen(
-    email: String = "example@email.com",
+    userId: String = "",
+    email: String = "",
+    signUpViewModel: SignUpViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onVerify: (String) -> Unit = {},
     onResendCode: () -> Unit = {}
 ) {
-    var verificationCode by remember { mutableStateOf(TextFieldValue("")) }
-    var timeLeft by remember { mutableStateOf(180) } // 3분 = 180초
+    var verificationCode by remember { mutableStateOf("") }
+    var timeLeft by remember { mutableStateOf(300) }  // 5분
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
+    
+    // ViewModel 상태 관찰
+    val isVerifying by signUpViewModel.isVerifying.observeAsState(false)
+    val isEmailVerified by signUpViewModel.isEmailVerified.observeAsState(false)
+    val verifyError by signUpViewModel.verifyError.observeAsState()
 
     // 타이머 효과
     LaunchedEffect(timeLeft) {
@@ -73,10 +85,12 @@ fun SignUpVerifyScreen(
             timeLeft--
         }
     }
-
-    // 자동으로 포커스 설정
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+    
+    // 인증 성공 시 처리
+    LaunchedEffect(isEmailVerified) {
+        if (isEmailVerified) {
+            onVerify(verificationCode)
+        }
     }
 
     Column(
@@ -170,39 +184,67 @@ fun SignUpVerifyScreen(
             
             Spacer(modifier = Modifier.height(40.dp))
             
-            // Verification Code Input Boxes
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
-            ) {
-                repeat(6) { index ->
-                    VerificationCodeBox(
-                        value = verificationCode.text.getOrNull(index)?.toString() ?: "",
-                        isFocused = verificationCode.selection.start == index,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-            
-            // Hidden TextField for input handling
-            BasicTextField(
-                value = verificationCode,
-                onValueChange = { newValue ->
-                    if (newValue.text.length <= 6 && newValue.text.all { it.isDigit() }) {
-                        verificationCode = newValue.copy(
-                            selection = TextRange(newValue.text.length)
+            // 인증번호 입력 박스들
+            Column {
+                // 개별 입력 박스들
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            try {
+                                focusRequester.requestFocus()
+                            } catch (e: Exception) {
+                                // 포커스 요청 실패 시 무시
+                            }
+                        },
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
+                ) {
+                    repeat(6) { index ->
+                        VerificationCodeBox(
+                            value = verificationCode.getOrNull(index)?.toString() ?: "",
+                            isFocused = verificationCode.length == index,
+                            isFilled = index < verificationCode.length,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    try {
+                                        focusRequester.requestFocus()
+                                    } catch (e: Exception) {
+                                        // 포커스 요청 실패 시 무시
+                                    }
+                                }
                         )
                     }
-                },
-                modifier = Modifier
-                    .size(0.dp)
-                    .focusRequester(focusRequester),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // 숨겨진 입력 필드
+                OutlinedTextField(
+                    value = verificationCode,
+                    onValueChange = { newValue ->
+                        if (newValue.length <= 6 && newValue.all { it.isDigit() }) {
+                            verificationCode = newValue
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.dp)
+                        .clip(RoundedCornerShape(0.dp))
+                        .focusRequester(focusRequester),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedTextColor = Color.Transparent,
+                        unfocusedTextColor = Color.Transparent,
+                        cursorColor = Color.Transparent
+                    ),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+            }
             
             Spacer(modifier = Modifier.height(32.dp))
-            
-            // Timer
             Text(
                 text = "남은 시간: ${String.format("%02d:%02d", timeLeft / 60, timeLeft % 60)}",
                 fontSize = 14.sp,
@@ -219,7 +261,7 @@ fun SignUpVerifyScreen(
                 onClick = {
                     onResendCode()
                     timeLeft = 180 // 타이머 리셋
-                    verificationCode = TextFieldValue("") // 인증번호 초기화
+                    verificationCode = "" // 인증번호 초기화
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -231,24 +273,40 @@ fun SignUpVerifyScreen(
                 )
             }
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // 에러 메시지 표시
+            verifyError?.let { error ->
+                Text(
+                    text = error,
+                    fontSize = 14.sp,
+                    color = Color.Red,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
             
             // Verify Button
             Button(
                 onClick = { 
-                    onVerify(verificationCode.text)
-                    keyboardController?.hide()
+                    if (verificationCode.length == 6 && !isVerifying) {
+                        signUpViewModel.verifyEmailCode(email, verificationCode)
+                        keyboardController?.hide()
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (verificationCode.text.length == 6) Blue600 else Gray300,
-                    contentColor = Color.White
+                    containerColor = if (verificationCode.length == 6 && !isVerifying) Blue600 else Gray300,
+                    contentColor = Color.White,
+                    disabledContainerColor = Gray300,
+                    disabledContentColor = Color.White
                 ),
                 shape = RoundedCornerShape(16.dp),
-                enabled = verificationCode.text.length == 6
+                enabled = verificationCode.length == 6 && !isVerifying
             ) {
                 Text(
-                    text = "인증 확인",
+                    text = if (isVerifying) "인증 중..." else "인증 확인",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(vertical = 8.dp)
@@ -266,7 +324,7 @@ fun SignUpVerifyScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
+                .padding(bottom = 50.dp),
             textAlign = TextAlign.Center,
             lineHeight = 16.sp
         )
@@ -277,25 +335,30 @@ fun SignUpVerifyScreen(
 private fun VerificationCodeBox(
     value: String,
     isFocused: Boolean,
+    isFilled: Boolean,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .height(56.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(Color.White)
             .border(
                 width = 2.dp,
-                color = if (isFocused) Blue600 else if (value.isNotEmpty()) Blue600 else Gray300,
-                shape = RoundedCornerShape(8.dp)
+                color = when {
+                    isFilled -> Blue600 // 채워진 칸은 파란색
+                    isFocused -> Blue600 // 현재 입력 위치도 파란색
+                    else -> Gray300 // 빈 칸은 회색
+                },
+                shape = RoundedCornerShape(12.dp)
             ),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = value,
             fontSize = 24.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
+            color = if (isFilled) Blue600 else Gray500,
             textAlign = TextAlign.Center
         )
     }

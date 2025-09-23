@@ -1,6 +1,7 @@
 package com.example.eeum.login
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -39,7 +40,11 @@ import com.example.eeum.ui.components.CustomButton
 import com.example.eeum.ui.theme.EeumTheme
 
 @Composable
-fun SignInScreen(modifier: Modifier = Modifier) {
+fun SignInScreen(
+    modifier: Modifier = Modifier,
+    onLoginSuccess: () -> Unit = {},
+    onSignUpClick: () -> Unit = {}
+) {
     var idText by remember { mutableStateOf("") }
     var passwordText by remember { mutableStateOf("") }
 
@@ -119,7 +124,10 @@ fun SignInScreen(modifier: Modifier = Modifier) {
         // 로그인 버튼
         CustomButton(
             text = "로그인",
-            onClick = { /* TODO: 로그인 로직 구현 */ },
+            onClick = { 
+                // TODO: 실제 로그인 로직 구현 (현재는 바로 성공 처리)
+                onLoginSuccess()
+            },
         )
 
         Spacer(modifier = Modifier.height(40.dp))
@@ -137,17 +145,29 @@ fun SignInScreen(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(70.dp))
 
         // 회원가입 텍스트
-        Text(
-            text = buildAnnotatedString {
-                withStyle(style = SpanStyle(color = Color(0xff4b5563), fontSize = 14.sp, fontFamily = FontFamily(Font(R.font.goormsansmedium)))) {
-                    append("‘이음’이 처음이신가요? ")
-                }
-                withStyle(style = SpanStyle(color = Color(0xff03a9f4), fontSize = 14.sp, fontFamily = FontFamily(Font(R.font.goormsansmedium)))) {
-                    append("회원가입")
-                }
+        val annotatedString = buildAnnotatedString {
+            withStyle(style = SpanStyle(color = Color(0xff4b5563), fontSize = 14.sp, fontFamily = FontFamily(Font(R.font.goormsansmedium)))) {
+                append("\'이음\'이 처음이신가요? ")
+            }
+            pushStringAnnotation(tag = "SIGNUP", annotation = "signup")
+            withStyle(style = SpanStyle(color = Color(0xff03a9f4), fontSize = 14.sp, fontFamily = FontFamily(Font(R.font.goormsansmedium)))) {
+                append("회원가입")
+            }
+            pop()
+        }
+        
+        ClickableText(
+            text = annotatedString,
+            onClick = { offset ->
+                annotatedString.getStringAnnotations(tag = "SIGNUP", start = offset, end = offset)
+                    .firstOrNull()?.let {
+                        onSignUpClick()
+                    }
             },
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            style = androidx.compose.ui.text.TextStyle(
+                textAlign = TextAlign.Center
+            )
         )
         }
     }

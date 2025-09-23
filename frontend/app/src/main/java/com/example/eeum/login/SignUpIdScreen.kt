@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -48,6 +50,14 @@ fun SignUpIdScreen(
     onDuplicateCheck: (String) -> Unit = {}
 ) {
     var idText by remember { mutableStateOf("") }
+    
+    // 아이디 유효성 검사: 영문, 숫자 조합 5~10자
+    val isValidId = remember(idText) {
+        idText.length in 5..10 && 
+        idText.matches(Regex("^[a-zA-Z0-9]+$")) &&
+        idText.any { it.isLetter() } && 
+        idText.any { it.isDigit() }
+    }
     
     Column(
         modifier = Modifier
@@ -150,10 +160,20 @@ fun SignUpIdScreen(
                         fontSize = 16.sp
                     )
                 },
+                trailingIcon = {
+                    if (isValidId) {
+                        Icon(
+                            imageVector = Icons.Default.Done,
+                            contentDescription = "유효한 아이디",
+                            tint = Color(0xFF4CAF50), // 초록색
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Blue600,
-                    unfocusedBorderColor = Gray300,
+                    focusedBorderColor = if (isValidId) Color(0xFF4CAF50) else Blue600,
+                    unfocusedBorderColor = if (isValidId) Color(0xFF4CAF50) else Gray300,
                     focusedTextColor = MaterialTheme.colorScheme.onBackground,
                     unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
                     cursorColor = Blue600
@@ -173,25 +193,7 @@ fun SignUpIdScreen(
             )
             
             Spacer(modifier = Modifier.height(24.dp))
-            
-            // Duplicate Check Button
-            Button(
-                onClick = { onDuplicateCheck(idText) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Blue600,
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(16.dp),
-                enabled = idText.isNotEmpty()
-            ) {
-                Text(
-                    text = "중복 확인",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
+
         }
         
         Spacer(modifier = Modifier.weight(1f))
@@ -202,15 +204,15 @@ fun SignUpIdScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
+                .padding(bottom = 50.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Gray300,
+                containerColor = if (isValidId) Blue600 else Gray300,
                 contentColor = Color.White,
                 disabledContainerColor = Gray300,
                 disabledContentColor = Color.White
             ),
             shape = RoundedCornerShape(16.dp),
-            enabled = false // Initially disabled, should be enabled after duplicate check
+            enabled = isValidId // 유효한 아이디일 때만 활성화
         ) {
             Text(
                 text = "다음",
