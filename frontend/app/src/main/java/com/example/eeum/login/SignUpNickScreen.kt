@@ -25,7 +25,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,11 +47,28 @@ import com.example.eeum.ui.theme.Gray500
 @Composable
 fun SignUpNickScreen(
     onBackClick: () -> Unit = {},
-    onComplete: (String) -> Unit = {}
+    onComplete: () -> Unit = {},
+    idText: String = "",
+    emailText: String = "",
+    password: String = "",
+    viewModel: SignUpViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     var nickname by remember { mutableStateOf("") }
     val suggestions = listOf("스마트홈마스터", "홈매니저", "집지킴이")
     val isValid = isValidNickname(nickname)
+    
+    // ViewModel 상태 관찰
+    val isLoading by viewModel.isLoading.observeAsState(false)
+    val isSignUpSuccess by viewModel.isSignUpSuccess.observeAsState(false)
+    val error by viewModel.error.observeAsState()
+    
+    // 회원가입 성공 시 완료 화면으로 이동
+    LaunchedEffect(isSignUpSuccess) {
+        if (isSignUpSuccess) {
+            viewModel.clearSignUpSuccess()
+            onComplete()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -155,8 +174,8 @@ fun SignUpNickScreen(
                 placeholder = { Text(text = "닉네임", color = Gray300, fontSize = 16.sp) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Blue600,
-                    unfocusedBorderColor = Gray300,
+                    focusedBorderColor = if (isValid) Color(0xFF4CAF50) else Blue600,
+                    unfocusedBorderColor = if (isValid) Color(0xFF4CAF50) else Gray300,
                     focusedTextColor = MaterialTheme.colorScheme.onBackground,
                     unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
                     cursorColor = Blue600
@@ -214,13 +233,36 @@ fun SignUpNickScreen(
         }
 
         Spacer(modifier = Modifier.weight(1f))
+        
+        // 에러 메시지 표시
+        error?.let { errorMessage ->
+            Text(
+                text = errorMessage,
+                color = Color.Red,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 8.dp),
+                textAlign = TextAlign.Center
+            )
+        }
 
         Button(
-            onClick = { onComplete(nickname) },
+            onClick = { 
+                if (isValid && !isLoading) {
+                    viewModel.signUp(
+                        email = emailText,
+                        loginId = idText,
+                        nickname = nickname,
+                        password = password
+                    )
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
+                .padding(bottom = 50.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isValid) Blue600 else Gray300,
                 contentColor = Color.White,
@@ -228,10 +270,10 @@ fun SignUpNickScreen(
                 disabledContentColor = Color.White
             ),
             shape = RoundedCornerShape(16.dp),
-            enabled = isValid
+            enabled = isValid && !isLoading
         ) {
             Text(
-                text = "완료",
+                text = if (isLoading) "처리 중..." else "완료",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(vertical = 8.dp)

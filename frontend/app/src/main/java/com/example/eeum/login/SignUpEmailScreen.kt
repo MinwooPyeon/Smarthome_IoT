@@ -155,7 +155,7 @@ fun SignUpEmailScreen(
                 onValueChange = { emailText = it },
                 placeholder = {
                     Text(
-                        text = "example@email.com",
+                        text = "이메일을 입력해주세요.",
                         color = Gray300,
                         fontSize = 16.sp
                     )
@@ -181,15 +181,19 @@ fun SignUpEmailScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
 
+            val isEmailValid = emailText.isNotEmpty() && isValidEmail(emailText)
+            
             Button(
                 onClick = { onSendVerificationCode(emailText) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Blue600,
-                    contentColor = Color.White
+                    containerColor = if (isEmailValid) Blue600 else Gray300,
+                    contentColor = Color.White,
+                    disabledContainerColor = Gray300,
+                    disabledContentColor = Color.White
                 ),
                 shape = RoundedCornerShape(16.dp),
-                enabled = emailText.isNotEmpty() && isValidEmail(emailText)
+                enabled = isEmailValid
             ) {
                 Text(
                     text = "인증 번호 발송",
@@ -212,6 +216,9 @@ fun SignUpEmailScreen(
         }
         
         Spacer(modifier = Modifier.weight(1f))
+        
+        // Bottom padding
+        Spacer(modifier = Modifier.height(50.dp))
     }
 }
 
