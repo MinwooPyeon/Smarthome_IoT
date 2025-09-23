@@ -97,9 +97,9 @@ public class AuthController implements ControllerHelper {
     @Operation(summary = "아이디 중복 확인", description = "이미 가입된 아이디인지 확인합니다.")
     public ResponseEntity<?> checkId(@RequestBody Map<String, String> req) {
         try {
-            String email = req.get("email");
-            boolean exists = userService.existsByEmail(email);
-            return handleSuccess(Map.of("email", email, "exists", exists));
+            String loginId = req.get("loginId");
+            boolean exists = userService.existsByEmail(loginId);
+            return handleSuccess(Map.of("loginId", loginId, "exists", exists));
         } catch (Exception e) {
             return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
         }

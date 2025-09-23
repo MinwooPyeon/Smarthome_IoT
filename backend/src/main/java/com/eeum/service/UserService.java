@@ -151,7 +151,7 @@ public class UserService {
     }
     
     // 아이디 중복 확인
-    public boolean existsByEmail(String email) {
-        return userRepository.existsByEmail(email);
+    public boolean existsByLoginId(String loginId) {
+        return userRepository.existsByLoginId(loginId);
     }
 }
