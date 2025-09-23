@@ -52,14 +52,19 @@ fun HomeScreen(
     val primaryHomeId by vm.primaryHomeId.observeAsState()
     val primaryHomeName by vm.primaryHomeName.observeAsState()
 
+    // 사용자 정보 (MenuViewModel 재사용)
+    val menuVm: MenuViewModel = viewModel(LocalContext.current as androidx.activity.ComponentActivity)
+    val userInfo by menuVm.userInfo.observeAsState()
+
     // SharedPreferences 유틸
     val ctx = LocalContext.current
     val prefs = remember { com.example.eeum.util.SharedPreferencesUtil(ctx) }
 
-    // 최초 진입 시 대표 집 및 집 목록 조회
+    // 최초 진입 시 대표 집 및 집 목록 조회 + 사용자 정보 조회
     LaunchedEffect(Unit) {
         vm.fetchUserHomes()
         vm.fetchPrimaryHome() // 이제 fetchPrimaryHome에서 자동으로 평면도와 디바이스를 조회함
+        menuVm.getUserInfo()
     }
 
     // 선택된 집 이름 (UI 표시용)
@@ -93,7 +98,8 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Greeting("제니님!")
+            val nickname = userInfo?.data?.nickname?.takeIf { it.isNotBlank() } ?: "제니"
+            Greeting("${nickname}님!")
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -220,7 +226,7 @@ private fun HomeDropdown(
 private fun Greeting(name: String) {
     Text(
         text = name,
-        fontSize = 20.sp,
+        fontSize = 30.sp,
         fontWeight = FontWeight.ExtraBold,
         color = Color(0xFF0F172A)
     )

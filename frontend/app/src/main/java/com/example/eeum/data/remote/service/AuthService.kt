@@ -21,7 +21,6 @@ interface AuthService {
     ): retrofit2.Call<RefreshResponse>
 
     // IR 이벤트 로그 조회
-    // GET /api/ir/logs?homeId={id} -> { status: "SUCCESS", data: List<LogData> }
     @GET("/api/ir/logs")
     fun getIrLogs(
         @Query("homeId") homeId: Int

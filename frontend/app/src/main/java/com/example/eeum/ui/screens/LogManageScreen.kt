@@ -113,7 +113,6 @@ fun LogManageScreen(
 
             Spacer(Modifier.height(60.dp))
 
-            // 공간/집 선택 드롭다운 제거 -> 고정 텍스트 "우리 집"
             Text(
                 text = "우리 집",
                 color = Gray900,
