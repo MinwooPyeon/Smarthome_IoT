@@ -98,7 +98,7 @@ public class AuthController implements ControllerHelper {
     public ResponseEntity<?> checkId(@RequestBody Map<String, String> req) {
         try {
             String loginId = req.get("loginId");
-            boolean exists = userService.existsByEmail(loginId);
+            boolean exists = userService.existsByLoginId(loginId);
             return handleSuccess(Map.of("loginId", loginId, "exists", exists));
         } catch (Exception e) {
             return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
