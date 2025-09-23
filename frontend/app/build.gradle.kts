@@ -6,6 +6,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.parcelize")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.gms.google-services")
 }
 
 val localProperties = Properties().apply {
@@ -147,4 +148,7 @@ dependencies {
     // YCharts (파이차트용)
     implementation("co.yml:ycharts:2.1.0")
 
+    // FireBase
+    implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
+    implementation("com.google.firebase:firebase-messaging")
 }
