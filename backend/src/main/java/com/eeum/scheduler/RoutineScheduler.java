@@ -36,7 +36,7 @@ public class RoutineScheduler {
         int minute = now.getMinute();
         int weekdayMask = weekdayToMask(now.getDayOfWeek());
         
-        List<DueRoutineRow> due = routineRepository.findDueRoutinesKst(hour, minute, weekdayMask);
+        List<DueRoutineRow> due = routineRepository.findDueRoutinesDailyKst(weekdayMask);
         
         log.info("[SCHED] due-count={}", (due == null ? 0 : due.size()));
 
