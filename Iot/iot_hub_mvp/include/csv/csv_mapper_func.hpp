@@ -48,7 +48,7 @@ namespace csv
         return m;
     }
 
-    inline CsvMapper<IrSignalLog> make_ir_signal_mapper()
+    inline CsvMapper<IrSignalLog> make_log_mapper()
     {
         CsvMapper<IrSignalLog> m;
         m.add(make_column<IrSignalLog>("ts", [](const IrSignalLog &e)
@@ -72,7 +72,9 @@ namespace csv
         return m;
     }
 
-    inline CsvMapper<IrSendDevice> make_ir_device_mapper(){
-        
+    inline CsvMapper<IrSendDevice> make_device_mapper()
+    {
+        CsvMapper<IrSendDevice> m;
+        m.add(make_column<IrSendDevice>())
     }
 }
