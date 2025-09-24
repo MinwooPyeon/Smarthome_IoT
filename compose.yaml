@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: eeum
       POSTGRES_USER: eeum
-      POSTGRES_PASSWORD: eeum
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     networks:
       - eeum-net
     healthcheck:
@@ -51,14 +51,16 @@ services:
       SERVER_PORT: "8081"
       DB_URL: jdbc:postgresql://db:5432/eeum
       DB_USERNAME: eeum
-      DB_PASSWORD: eeum
+      DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       MQTT_BROKER: tcp://mosquitto:1883
-      MQTT_USERNAME: eeum
-      MQTT_PASSWORD: ssafy2086eeum
+      MQTT_USERNAME: ${MQTT_USERNAME}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
       GOOGLE_APPLICATION_CREDENTIALS: /etc/secrets/firebase/eeum-c4e71-firebase.json   # FCM 인증 경로
       FCM_ENABLED: "true"
+      GMS_API_KEY: ${GMS_API_KEY}
+      GMS_API_URL: ${GMS_API_URL}
     expose:
       - "8081"
     volumes:

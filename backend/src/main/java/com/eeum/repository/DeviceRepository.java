@@ -62,22 +62,19 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
 
 	
 
-    // user_home + 같은 방(room) + 같은 모델(model) 기기 존재 여부
+    // user_home + 같은 방(room) + 같은 기기 존재 여부
     @Query(value = """
-        SELECT EXISTS (
-          SELECT 1
-            FROM eeum.device d
-            JOIN eeum.device_positions dp ON dp.device_id = d.device_id
-           WHERE d.user_home_id = :userHomeId
-             AND dp.room_id      = :roomId
-             AND d.model         = :model
-          LIMIT 1
-        )
-        """, nativeQuery = true)
-    boolean existsDeviceInRoomByModel(@Param("userHomeId") Integer userHomeId,
-                                      @Param("roomId") Integer roomId,
-                                      @Param("model") String model);
-    
+            SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END
+              FROM device d
+              JOIN device_positions dp ON dp.device_id = d.device_id
+              JOIN ir_remoteir irm      ON irm.model = d.model
+             WHERE d.user_home_id = :userHomeId
+               AND dp.room_id     = :roomId
+               AND LOWER(irm.device_type) = LOWER(:deviceType)
+            """, nativeQuery = true)
+        boolean existsDeviceInRoomByDeviceType(@Param("userHomeId") Integer userHomeId,
+                                               @Param("roomId") Integer roomId,
+                                               @Param("deviceType") String deviceType);
 	
 	// 유저가 home에 소속인지 확인
     @Query(value = """

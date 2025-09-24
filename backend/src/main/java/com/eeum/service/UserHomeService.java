@@ -1,6 +1,7 @@
 package com.eeum.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -85,6 +86,10 @@ public class UserHomeService {
                 .homeId(uh.getUserHomeId())
                 .homeName(addr.getHomeName())
                 .build();
+    }
+    
+    public Optional<Integer> getIsPrimaryHomeId(Integer userId) {
+        return userHomeRepository.findIsPrimaryHomeId(userId);
     }
 
     private static String toHex(Integer rgb) {
