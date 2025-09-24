@@ -75,6 +75,17 @@ namespace csv
     inline CsvMapper<IrSendDevice> make_device_mapper()
     {
         CsvMapper<IrSendDevice> m;
-        m.add(make_column<IrSendDevice>())
+        m.add(make_column<IrSendDevice>("ts", [](const IrSendDevice &e)
+                                       { return to_iso8601(e.ts); }, [](IrSendDevice &e, const std::string &s)
+                                       { e.ts = from_iso8601(s).value_or(std::chrono::system_clock::time_point{}); }));
+        m.add(make_column<IrSendDevice>("deviceId", [](const IrSendDevice &e)
+                                       { return e.deviceId; }, [](IrSendDevice &e, const std::string &s)
+                                       { e.deviceId = s; }));
+        m.add(make_column<IrSendDevice>("deviceType", [](const IrSendDevice &e)
+                                       { return e.deviceType; }, [](IrSendDevice &e, const std::string &s)
+                                       { e.deviceType = s; }));
+        m.add(make_column<IrSendDevice>("consumption", [](const IrSendDevice &e)
+                                       { return std::to_string(e.consumption); }, [](IrSendDevice &e, const std::string &s)
+                                       { e.consumption = to_f64(s).value_or(0.0); }));
     }
 }
