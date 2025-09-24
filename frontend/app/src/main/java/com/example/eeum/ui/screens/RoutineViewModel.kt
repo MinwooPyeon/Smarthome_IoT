@@ -7,11 +7,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eeum.data.model.dto.routine.RoutineRequestDto
 import com.example.eeum.data.model.response.device.DeviceItem
+import com.example.eeum.data.model.response.device.DeviceResponse
 import com.example.eeum.data.model.response.routine.IconData
 import com.example.eeum.data.model.response.routine.RoomData
 import com.example.eeum.data.model.response.routine.RoutineData
 import com.example.eeum.data.model.response.routine.RoutineResult
 import com.example.eeum.data.remote.RetrofitUtil
+import com.example.eeum.data.model.response.routine.RoutineResponse
+import com.example.eeum.data.model.response.routine.DataInRoutine
 import kotlinx.coroutines.launch
 
 class RoutineViewModel : ViewModel() {
@@ -39,6 +42,20 @@ class RoutineViewModel : ViewModel() {
 
     private val _deleteMessage = MutableLiveData<String?>(null)
     val deleteMessage: LiveData<String?> = _deleteMessage
+
+    private val _routineDetail = MutableLiveData<RoutineResponse?>(null)
+    val routineDetail: LiveData<RoutineResponse?> = _routineDetail
+
+    private val _routineDetailV2 = MutableLiveData<DataInRoutine?>(null)
+    val routineDetailV2: LiveData<DataInRoutine?> = _routineDetailV2
+    
+    // 개별 디바이스 정보를 저장하기 위한 Map
+    private val _deviceInfoMap = MutableLiveData<Map<Int, DeviceResponse>>(emptyMap())
+    val deviceInfoMap: LiveData<Map<Int, DeviceResponse>> = _deviceInfoMap
+    
+    // 방 정보를 저장하기 위한 Map (roomId -> roomName)
+    private val _roomInfoMap = MutableLiveData<Map<Int, String>>(emptyMap())
+    val roomInfoMap: LiveData<Map<Int, String>> = _roomInfoMap
 
     fun fetchAllRoutines() {
         viewModelScope.launch {
@@ -170,6 +187,31 @@ class RoutineViewModel : ViewModel() {
         }
     }
 
+    // 루틴 수정
+    fun updateRoutine(routineId: Int, body: RoutineRequestDto) {
+        viewModelScope.launch {
+            runCatching { RetrofitUtil.routineService.updateRoutine(routineId, body) }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        val result = response.body()
+                        _createResult.value = result
+                        Log.d("RoutineViewModel", "updateRoutine success: routineId=$routineId")
+                    } else {
+                        val errorBody = response.errorBody()?.string()
+                        val msg = "updateRoutine failed: code=${response.code()} msg=${response.message()}"
+                        _error.value = "$msg\nError: $errorBody"
+                        Log.e("RoutineViewModel", msg)
+                        Log.e("RoutineViewModel", "Error body: $errorBody")
+                    }
+                }
+                .onFailure { e ->
+                    val msg = "updateRoutine exception: ${e.message}"
+                    _error.value = msg
+                    Log.e("RoutineViewModel", "updateRoutine exception", e)
+                }
+        }
+    }
+
     // 루틴 삭제
     fun removeRoutine(routineId: Int) {
         viewModelScope.launch {
@@ -195,6 +237,96 @@ class RoutineViewModel : ViewModel() {
                     Log.e("RoutineViewModel", "removeRoutine exception", e)
                 }
         }
+    }
+    //루틴 단건 조회
+    fun fetchRoutine(routineId: Int) {
+        viewModelScope.launch {
+            runCatching { RetrofitUtil.routineService.readRoutine(routineId) }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body()
+                        val data = body?.data
+                        _routineDetail.value = data
+                        Log.d("RoutineViewModel", "fetchRoutine success: id=$routineId, name=${data?.name}")
+                    } else {
+                        val msg = "readRoutine failed: code=${response.code()} msg=${response.message()}"
+                        _error.value = msg
+                        _routineDetail.value = null
+                        Log.e("RoutineViewModel", msg)
+                    }
+                }
+                .onFailure { e ->
+                    val msg = "readRoutine exception: ${e.message}"
+                    _error.value = msg
+                    _routineDetail.value = null
+                    Log.e("RoutineViewModel", "readRoutine exception", e)
+                }
+        }
+    }
+
+    fun fetchRoutineDetail(routineId: Int) {
+        viewModelScope.launch {
+            runCatching { RetrofitUtil.routineService.readRoutineDetail(routineId) }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        val data = response.body()?.data
+                        _routineDetailV2.value = data
+                        Log.d(
+                            "RoutineViewModel",
+                            "fetchRoutineDetail success: id=$routineId, name=${data?.name}, details=${data?.details?.size}"
+                        )
+                    } else {
+                        val msg = "readRoutineDetail failed: code=${response.code()} msg=${response.message()}"
+                        _error.value = msg
+                        _routineDetailV2.value = null
+                        Log.e("RoutineViewModel", msg)
+                    }
+                }
+                .onFailure { e ->
+                    val msg = "readRoutineDetail exception: ${e.message}"
+                    _error.value = msg
+                    _routineDetailV2.value = null
+                    Log.e("RoutineViewModel", "readRoutineDetail exception", e)
+                }
+        }
+    }
+
+    // 새 상세 초기화
+    fun clearRoutineDetailV2() { _routineDetailV2.value = null }
+    
+    // 개별 디바이스 정보 조회
+    fun fetchDeviceInfo(deviceId: Int) {
+        viewModelScope.launch {
+            runCatching { RetrofitUtil.deviceService.readDevice(deviceId) }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        val deviceInfo = response.body()?.data
+                        deviceInfo?.let {
+                            val currentDeviceMap = _deviceInfoMap.value ?: emptyMap()
+                            _deviceInfoMap.value = currentDeviceMap + (deviceId to it)
+                            
+                            // 방 정보도 함께 저장 (실제로는 방 API를 따로 호출해야 하지만 임시로 처리)
+                            val currentRoomMap = _roomInfoMap.value ?: emptyMap()
+                            if (!currentRoomMap.containsKey(it.roomId)) {
+                                _roomInfoMap.value = currentRoomMap + (it.roomId to "방 ${it.roomId}")
+                            }
+                            
+                            Log.d("RoutineViewModel", "fetchDeviceInfo success: deviceId=$deviceId, name=${it.deviceName}, roomId=${it.roomId}")
+                        }
+                    } else {
+                        Log.e("RoutineViewModel", "fetchDeviceInfo failed: deviceId=$deviceId, code=${response.code()}")
+                    }
+                }
+                .onFailure { e ->
+                    Log.e("RoutineViewModel", "fetchDeviceInfo exception: deviceId=$deviceId", e)
+                }
+        }
+    }
+    
+    // 디바이스 정보 초기화
+    fun clearDeviceInfoMap() {
+        _deviceInfoMap.value = emptyMap()
+        _roomInfoMap.value = emptyMap()
     }
 
     // 디바이스 목록 초기화

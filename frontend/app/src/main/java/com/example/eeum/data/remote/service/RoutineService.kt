@@ -11,6 +11,7 @@ import com.example.eeum.data.model.response.routine.RoutineCreateResponse
 import com.example.eeum.data.model.response.routine.RoutineIcon
 import com.example.eeum.data.model.response.routine.RoutineResponse
 import com.example.eeum.data.model.response.routine.RoutineResult
+import com.example.eeum.data.model.response.routine.Routine
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -54,11 +55,18 @@ interface RoutineService {
         @Path("routineId") id: Int,
     ): Response<ApiResponse<RoutineResponse>>
 
+    // 루틴 단건 조회
+    @GET("api/routines/{routineId}")
+    suspend fun readRoutineDetail(
+        @Path("routineId") id: Int,
+    ): Response<Routine>
+
     // 루틴 수정
     @PUT("api/routines/{routineId}")
     suspend fun updateRoutine(
         @Path("routineId") id: Int,
-    ): Response<ApiResponse<BaseResponse>>
+        @Body body: RoutineRequestDto
+    ): Response<RoutineResult>
 
     // 루틴 삭제
     @DELETE("api/routines/{routineId}")

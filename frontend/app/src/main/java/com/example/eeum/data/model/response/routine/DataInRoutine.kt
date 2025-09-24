@@ -1,9 +1,9 @@
 package com.example.eeum.data.model.response.routine
 
-data class Data(
+data class DataInRoutine(
     val actTime: String,
     val createdAt: String,
-    val details: List<Detail>,
+    val details: List<DetailInRoutine>,
     val iconId: Int,
     val iconUrl: String,
     val isAi: Boolean,

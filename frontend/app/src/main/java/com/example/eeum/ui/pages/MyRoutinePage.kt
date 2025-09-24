@@ -116,7 +116,7 @@ fun MyRoutinePage(
                     //토글 API
                 },
                 onEdit = { routineToEdit ->
-                    navController?.navigate("editRoutineFirst")
+                    navController?.navigate("editRoutineFirst/${routineToEdit.routineId}")
                 },
                 onDelete = { routine ->
                     routineToDelete = routine

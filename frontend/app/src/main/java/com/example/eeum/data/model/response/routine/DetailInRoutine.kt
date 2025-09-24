@@ -1,6 +1,6 @@
 package com.example.eeum.data.model.response.routine
 
-data class Detail(
+data class DetailInRoutine(
     val deviceDetail: String,
     val deviceId: Int,
     val routineDetailId: Int,

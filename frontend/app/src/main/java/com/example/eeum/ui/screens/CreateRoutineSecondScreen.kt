@@ -45,7 +45,7 @@ private val IconBg = Color(0xFFEAF2FF)
 @Composable
 fun CreateRoutineSecondScreen(
     navController: NavController,
-    vm: RoutineViewModel = viewModel()
+    vm: RoutineViewModel = viewModel(),
 ) {
     val ctx = LocalContext.current
     val prefs = remember { SharedPreferencesUtil(ctx) }

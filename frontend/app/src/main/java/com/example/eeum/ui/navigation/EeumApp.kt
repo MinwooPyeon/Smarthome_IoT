@@ -104,7 +104,13 @@ fun EeumApp() {
 
         composable(ROUTINE_ROUTE) { RoutineScreen(navController) }
         composable(ROUTE_CREATE_ROUTINE_FIRST) { CreateRoutineFirstScreen(navController) }
-        composable(ROUTE_EDIT_ROUTINE_FIRST) { CreateRoutineFirstScreen(navController, isEditMode = true) }
+        composable(
+            route = "editRoutineFirst/{routineId}",
+            arguments = listOf(navArgument("routineId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val routineId = backStackEntry.arguments?.getInt("routineId") ?: 0
+            CreateRoutineFirstScreen(navController, routineId = routineId, isEditMode = true)
+        }
         composable(ROUTE_CREATE_ROUTINE_SECOND) { CreateRoutineSecondScreen(navController) }
 
         composable(USER_INFORMATION_ROUTE) { UserInformationScreen(navController) }
