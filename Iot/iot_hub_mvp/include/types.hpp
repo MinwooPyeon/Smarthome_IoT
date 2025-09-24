@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
-
+#include <chrono>
 
 struct EnvSample{
     long long tsMs; // timestamp
@@ -14,7 +14,7 @@ struct IrSample{
 };
 
 struct Metrics{
-    long long tsMs;
+    std::chrono::system_clock::time_point ts{};
 
     double tAvg = 0;
     double hAvg = 0;
@@ -35,12 +35,13 @@ struct IrSendDevice{
     float       consumption;
 };
 
-struct Log{
-    int tx_id;
-    std::string deviceId;
-    std::string deviceType;
-    std::string function;
-    std::string metaData;
+struct IrSignalLog {
+    std::chrono::system_clock::time_point ts{};
+    int64_t tx_id{};
+    std::string send_device_id;
+    std::string device_type;
+    std::string function_label;
+    std::vector<std::string> meta_data;
 };
 
 struct Dialect{

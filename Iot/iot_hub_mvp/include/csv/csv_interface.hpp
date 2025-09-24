@@ -6,7 +6,7 @@
 #include <iosfwd>
 #include "types.hpp"
 
-
+namespace csv{
 class CsvInterface{
 public:
     std::string escape_field(const std::string& in, const Dialect& d);
@@ -17,3 +17,4 @@ protected:
     std::optional<double> to_f64 (const std::string& s);
     std::optional<bool> to_bool(const std::string& s);
 };
+}
