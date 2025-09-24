@@ -8,7 +8,6 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-import com.eeum.dto.response.RoomItemResponse;
 import com.eeum.entity.UserHome;
 
 public interface UserHomeRepository extends JpaRepository<UserHome, Integer> {
@@ -99,4 +98,23 @@ public interface UserHomeRepository extends JpaRepository<UserHome, Integer> {
         
         // 유저의 대표집 조회
         Optional<UserHome> findByUserIdAndIsPrimaryTrue(Integer userId);
+        
+        @Query("""
+                select uh.homeId
+                from UserHome uh
+                where uh.userId = :userId
+                  and uh.isPrimary = true
+                """)
+            Optional<Integer> findIsPrimaryHomeId(@Param("userId") Integer userId);
+        
+        
+        @Query("""
+                SELECT uh.userHomeId
+                  FROM UserHome uh
+                 WHERE uh.userId = :userId
+                   AND uh.homeId = :homeId
+                """)
+            Optional<Integer> findUserHomeId(@Param("userId") Integer userId,
+                                             @Param("homeId") Integer homeId);
+        
     }
