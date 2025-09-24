@@ -37,11 +37,6 @@ struct AppConfig {
     bool envStreamOn = false;
     int envIntervalMs = 2000;
 
-    // --- pin nubmer ---
-    int         dhtPinBcm = 4;
-    int         irPinBcm  = 17;
-    int         irGapUs   = 8000;
-
     // --- EMWA Alpha ---
     double      ewmaAlphaT = 0.2;
     double      ewmaAlphaH = 0.2;
@@ -50,4 +45,15 @@ struct AppConfig {
     double      comfortTr = 0;
     double      comfortVel = 0.1;
 
+};
+
+struct ActuatorConfig {
+    int dhtPinBcm    = 4;     // DHT11 GPIO (BCM)
+    int irPinBcm     = 17;    // IR Receiver GPIO (BCM)
+    int irGapUs      = 8000;  // 프레임 구분 gap(us) — IrReceiver 생성자 인자
+    int irGlitchUs   = 50;    // glitch filter (us) — IrReceiver::init(glitchUs)
+    // DHT11 재시도/타임아웃
+    int dhtAttempts     = 1;
+    int dhtTimeoutMs    = 1500;
+    int dhtCooldownMs   = 1200;
 };
