@@ -42,20 +42,26 @@ namespace manager
 
         // ---- 읽기 사이드 ----
         std::vector<Metrics> read_metrics_all(std::optional<std::string> path = std::nullopt) const;
-        std::vector<IrSignalLog> read_ir_all(std::optional<std::string> path = std::nullopt) const;
+        std::vector<IrSignalLog> read_log_all(std::optional<std::string> path = std::nullopt) const;
+        std::vector<IrSendDevice> read_device_all(std::optional<std::string> path = std::nullopt) const;
 
         std::vector<Metrics> read_metrics_range(std::chrono::system_clock::time_point start,
                                                         std::chrono::system_clock::time_point end,
                                                         std::optional<std::string> path = std::nullopt) const;
-        std::vector<IrSignalLog> read_ir_range(std::chrono::system_clock::time_point start,
+        std::vector<IrSignalLog> read_log_range(std::chrono::system_clock::time_point start,
+                                                       std::chrono::system_clock::time_point end,
+                                                       std::optional<std::string> path = std::nullopt) const;
+        std::vector<IrSendDevice> read_device_range(std::chrono::system_clock::time_point start,
                                                        std::chrono::system_clock::time_point end,
                                                        std::optional<std::string> path = std::nullopt) const;
 
         std::vector<Metrics> read_metrics_last(size_t n, std::optional<std::string> path = std::nullopt) const;
-        std::vector<IrSignalLog> read_ir_last(size_t n, std::optional<std::string> path = std::nullopt) const;
+        std::vector<IrSignalLog> read_log_last(size_t n, std::optional<std::string> path = std::nullopt) const;
+        std::vector<IrSendDevice> read_device_last(size_t n, std::optional<std::string> path = std::nullopt) const;
 
         std::string current_metrics_path() const;
-        std::string current_ir_path() const;
+        std::string current_log_path() const;
+        std::string current_device_path() const;
 
     private:
         // ---- 내부 쓰기 구현 ----
@@ -70,10 +76,12 @@ namespace manager
         void open_or_rotate_files(const std::tm &tm_utc);
 
         std::string resolve_metrics_path_for_today() const;
-        std::string resolve_ir_path_for_today() const;
+        std::string resolve_log_path_for_today() const;
+        std::string resolve_device_path_for_today() const;
 
         void write_metrics_row(const Metrics &m);
-        void write_ir_row(const IrSignalLog &l);
+        void write_log_row(const IrSignalLog &l);
+        void write_device_row(const IrSendDevice &d);
 
     private:
         // 옵션
@@ -94,7 +102,8 @@ namespace manager
         std::ofstream log_ofs_;
         std::ofstream device_ofs_;
         std::unique_ptr<csv::Writer> env_writer_;
-        std::unique_ptr<csv::Writer> ir_writer_;
+        std::unique_ptr<csv::Writer> log_writer_;
+        std::unique_ptr<csv::Writer> device_writer_;
         int current_yyyymmdd_{-1}; // 롤링 기준(UTC)
 
         // 매퍼 & 헤더

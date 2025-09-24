@@ -34,6 +34,7 @@ struct Metrics
 
 struct IrSendDevice
 {
+    std::chrono::system_clock::time_point ts{};
     std::string deviceId;
     std::string deviceType;
     float consumption;

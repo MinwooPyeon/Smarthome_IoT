@@ -38,13 +38,17 @@ CsvManager::CsvManager(CsvOptions opt)
 : opt_(std::move(opt)) {
     // 매퍼/헤더 준비
     metrics_mapper_ = make_metrics_mapper();
-    ir_mapper_      = make_ir_signal_mapper();
+    log_mapper_      = make_log_mapper();
+    device_mapper_ = make_device_mapper();
 
     env_header_.reserve(metrics_mapper_.columns().size());
     for (auto& c : metrics_mapper_.columns()) env_header_.push_back(c.name);
 
-    ir_header_.reserve(ir_mapper_.columns().size());
-    for (auto& c : ir_mapper_.columns()) ir_header_.push_back(c.name);
+    log_header_.reserve(log_mapper_.columns().size());
+    for (auto& c : log_mapper_.columns()) log_header_.push_back(c.name);
+
+    device_header_.reserve(device_mapper_.columns().size());
+    for (auto& c : device_mapper_.columns()) device_header_.push_back(c.name);
 }
 
 CsvManager::~CsvManager() {
@@ -70,11 +74,16 @@ void CsvManager::stop() {
     if (worker_.joinable()) worker_.join();
 
     if (env_ofs_.is_open()) env_ofs_.flush();
-    if (ir_ofs_.is_open())  ir_ofs_.flush();
+    if (log_ofs_.is_open())  log_ofs_.flush();
+    if (device_ofs_.is_open())  device_ofs_.flush();
+
     env_writer_.reset();
-    ir_writer_.reset();
+    log_writer_.reset();
+    device_writer_.reset();
+
     if (env_ofs_.is_open()) env_ofs_.close();
-    if (ir_ofs_.is_open())  ir_ofs_.close();
+    if (log_ofs_.is_open())  log_ofs_.close();
+    if (device_ofs_.is_open())  device_ofs_.close();
 }
 
 void CsvManager::post(const Metrics& m) { post(Event{m}); }
@@ -135,14 +144,19 @@ void CsvManager::flush_locked(std::vector<Event>& batch) {
             const auto& m = std::get<Metrics>(ev);
             ensure_open_files_for(m.ts);
             write_metrics_row(m);
-        } else {
+        } else if(std::holds_alternative<IrSignalLog>(ev)) {
             const auto& l = std::get<IrSignalLog>(ev);
             ensure_open_files_for(l.ts);
-            write_ir_row(l);
+            write_log_row(l);
+        } else if(std::holds_alternative<IrSendDevice>(ev)){
+            const auto& d = std::get<IrSendDevice>(ev);
+            ensure_open_files_for(d.ts);
+            write_device_row(d);
         }
     }
     if (env_ofs_.is_open()) env_ofs_.flush();
-    if (ir_ofs_.is_open())  ir_ofs_.flush();
+    if (log_ofs_.is_open())  log_ofs_.flush();
+    if (device_ofs_.is_open())  device_ofs_.flush();
 }
 
 // ====== 파일 오픈/롤링 ======
@@ -157,25 +171,36 @@ void CsvManager::ensure_open_files_for(const Clock::time_point& tp) {
             }
             env_writer_ = std::make_unique<Writer>(env_ofs_, Dialect{',','"','"', /*write_header*/ false});
         }
-        if (!ir_ofs_.is_open()) {
-            ir_path_  = opt_.base_dir + "/" + opt_.device_id + "_ir_log.csv";
-            ir_ofs_.open(ir_path_, std::ios::binary | std::ios::app);
-            if (ir_ofs_.tellp() == std::streampos(0)) {
-                write_row(ir_ofs_, ir_header_, Dialect{',','"','"'});
+        if (!log_ofs_.is_open()) {
+            log_path_  = opt_.base_dir + "/" + opt_.device_id + "_log.csv";
+            log_ofs_.open(log_path_, std::ios::binary | std::ios::app);
+            if (log_ofs_.tellp() == std::streampos(0)) {
+                write_row(log_ofs_, log_header_, Dialect{',','"','"'});
             }
-            ir_writer_  = std::make_unique<Writer>(ir_ofs_,  Dialect{',','"','"', /*write_header*/ false});
+            log_writer_  = std::make_unique<Writer>(log_ofs_,  Dialect{',','"','"', /*write_header*/ false});
+        }
+        if (!device_ofs_.is_open()) {
+            device_path_  = opt_.base_dir + "/" + opt_.device_id + "_device.csv";
+            device_ofs_.open(device_path_, std::ios::binary | std::ios::app);
+            if (device_ofs_.tellp() == std::streampos(0)) {
+                write_row(device_ofs_, device_header_, Dialect{',','"','"'});
+            }
+            device_writer_  = std::make_unique<Writer>(device_ofs_,  Dialect{',','"','"', /*write_header*/ false});
         }
         return;
     }
 
     auto tm = to_utc_tm(tp);
     int ymd = yyyymmdd_from_tm(tm);
-    if (ymd == current_yyyymmdd_ && env_ofs_.is_open() && ir_ofs_.is_open()) return;
+    if (ymd == current_yyyymmdd_ && env_ofs_.is_open() && log_ofs_.is_open() && device_ofs_.is_open()) return;
 
     if (env_ofs_.is_open()) env_ofs_.close();
-    if (ir_ofs_.is_open())  ir_ofs_.close();
+    if (log_ofs_.is_open())  log_ofs_.close();
+    if (device_ofs_.is_open())  device_ofs_.close();
+
     env_writer_.reset();
-    ir_writer_.reset();
+    log_writer_.reset();
+    device_writer_.reset();
 
     open_or_rotate_files(tm);
     current_yyyymmdd_ = ymd;
@@ -190,20 +215,26 @@ void CsvManager::open_or_rotate_files(const std::tm& tm_utc) {
 
     const std::string stem = opt_.base_dir + "/" + opt_.device_id + "_" + date.str();
     env_path_ = stem + "_metrics.csv";
-    ir_path_  = stem + "_ir_log.csv";
+    log_path_  = stem + "_log.csv";
+    device_path_  = stem + "_device.csv";
 
     env_ofs_.open(env_path_, std::ios::binary | std::ios::app);
-    ir_ofs_.open(ir_path_,  std::ios::binary | std::ios::app);
+    log_ofs_.open(log_path_,  std::ios::binary | std::ios::app);
+    device_ofs_.open(device_path_,  std::ios::binary | std::ios::app);
 
     if (env_ofs_.tellp() == std::streampos(0)) {
         write_row(env_ofs_, env_header_, Dialect{',','"','"'});
     }
-    if (ir_ofs_.tellp() == std::streampos(0)) {
-        write_row(ir_ofs_, ir_header_, Dialect{',','"','"'});
+    if (log_ofs_.tellp() == std::streampos(0)) {
+        write_row(log_ofs_, log_header_, Dialect{',','"','"'});
+    }
+    if (device_ofs_.tellp() == std::streampos(0)) {
+        write_row(device_ofs_, device_header_, Dialect{',','"','"'});
     }
 
     env_writer_ = std::make_unique<Writer>(env_ofs_, Dialect{',','"','"', /*write_header*/ false});
-    ir_writer_  = std::make_unique<Writer>(ir_ofs_,  Dialect{',','"','"', /*write_header*/ false});
+    log_writer_  = std::make_unique<Writer>(log_ofs_,  Dialect{',','"','"', /*write_header*/ false});
+    device_writer_  = std::make_unique<Writer>(device_ofs_,  Dialect{',','"','"', /*write_header*/ false});
 }
 
 // ====== 행 쓰기 ======
@@ -211,9 +242,13 @@ void CsvManager::write_metrics_row(const Metrics& m) {
     auto fields = metrics_mapper_.to_fields(m);
     env_writer_->write(fields);
 }
-void CsvManager::write_ir_row(const IrSignalLog& l) {
-    auto fields = ir_mapper_.to_fields(l);
-    ir_writer_->write(fields);
+void CsvManager::write_log_row(const IrSignalLog& l) {
+    auto fields = log_mapper_.to_fields(l);
+    log_writer_->write(fields);
+}
+void CsvManager::write_device_row(const IrSendDevice& d){
+    auto fields = device_mapper_.to_fields(d);
+    device_writer_->write(fields);
 }
 
 // ====== 읽기(ALL/범위/마지막 N) ======
@@ -221,12 +256,17 @@ std::string CsvManager::resolve_metrics_path_for_today() const {
     if (opt_.rotate_daily) return opt_.base_dir + "/" + opt_.device_id + "_" + yyyymmdd_utc_today() + "_metrics.csv";
     return opt_.base_dir + "/" + opt_.device_id + "_metrics.csv";
 }
-std::string CsvManager::resolve_ir_path_for_today() const {
+std::string CsvManager::resolve_log_path_for_today() const {
     if (opt_.rotate_daily) return opt_.base_dir + "/" + opt_.device_id + "_" + yyyymmdd_utc_today() + "_ir_log.csv";
-    return opt_.base_dir + "/" + opt_.device_id + "_ir_log.csv";
+    return opt_.base_dir + "/" + opt_.device_id + "_log.csv";
+}
+std::string CsvManager::resolve_device_path_for_today() const {
+    if (opt_.rotate_daily) return opt_.base_dir + "/" + opt_.device_id + "_" + yyyymmdd_utc_today() + "_ir_log.csv";
+    return opt_.base_dir + "/" + opt_.device_id + "_device.csv";
 }
 std::string CsvManager::current_metrics_path() const { return resolve_metrics_path_for_today(); }
-std::string CsvManager::current_ir_path() const      { return resolve_ir_path_for_today(); }
+std::string CsvManager::current_log_path() const      { return resolve_log_path_for_today(); }
+std::string CsvManager::current_device_path() const      { return resolve_device_path_for_today(); }
 
 std::vector<Metrics> CsvManager::read_metrics_all(std::optional<std::string> path) const {
     const std::string p = path.value_or(resolve_metrics_path_for_today());
@@ -241,8 +281,8 @@ std::vector<Metrics> CsvManager::read_metrics_all(std::optional<std::string> pat
     }
     return out;
 }
-std::vector<IrSignalLog> CsvManager::read_ir_all(std::optional<std::string> path) const {
-    const std::string p = path.value_or(resolve_ir_path_for_today());
+std::vector<IrSignalLog> CsvManager::read_log_all(std::optional<std::string> path) const {
+    const std::string p = path.value_or(resolve_log_path_for_today());
     std::ifstream ifs(p, std::ios::binary);
     if (!ifs.good()) return {};
     Reader r(ifs, Dialect{});
@@ -250,7 +290,20 @@ std::vector<IrSignalLog> CsvManager::read_ir_all(std::optional<std::string> path
     std::vector<IrSignalLog> out; std::vector<std::string> fields;
     while (r.next(fields)) {
         IrSignalLog obj{};
-        if (ir_mapper_.from_fields(fields, obj)) out.push_back(std::move(obj));
+        if (log_mapper_.from_fields(fields, obj)) out.push_back(std::move(obj));
+    }
+    return out;
+}
+std::vector<IrSendDevice> CsvManager::read_device_all(std::optional<std::string> path) const {
+    const std::string p = path.value_or(resolve_device_path_for_today());
+    std::ifstream ifs(p, std::ios::binary);
+    if (!ifs.good()) return {};
+    Reader r(ifs, Dialect{});
+    r.maybe_read_header();
+    std::vector<IrSendDevice> out; std::vector<std::string> fields;
+    while (r.next(fields)) {
+        IrSendDevice obj{};
+        if (device_mapper_.from_fields(fields, obj)) out.push_back(std::move(obj));
     }
     return out;
 }
@@ -265,13 +318,23 @@ std::vector<Metrics> CsvManager::read_metrics_range(
     for (auto& v : all) if (v.ts >= start && v.ts <= end) filtered.push_back(std::move(v));
     return filtered;
 }
-std::vector<IrSignalLog> CsvManager::read_ir_range(
+std::vector<IrSignalLog> CsvManager::read_log_range(
     std::chrono::system_clock::time_point start,
     std::chrono::system_clock::time_point end,
     std::optional<std::string> path) const
 {
-    auto all = read_ir_all(std::move(path));
+    auto all = read_log_all(std::move(path));
     std::vector<IrSignalLog> filtered; filtered.reserve(all.size());
+    for (auto& v : all) if (v.ts >= start && v.ts <= end) filtered.push_back(std::move(v));
+    return filtered;
+}
+std::vector<IrSendDevice> CsvManager::read_device_range(
+    std::chrono::system_clock::time_point start,
+    std::chrono::system_clock::time_point end,
+    std::optional<std::string> path) const
+{
+    auto all = read_device_all(std::move(path));
+    std::vector<IrSendDevice> filtered; filtered.reserve(all.size());
     for (auto& v : all) if (v.ts >= start && v.ts <= end) filtered.push_back(std::move(v));
     return filtered;
 }
@@ -281,10 +344,15 @@ std::vector<Metrics> CsvManager::read_metrics_last(size_t n, std::optional<std::
     if (n >= v.size()) return v;
     return std::vector<Metrics>(v.end() - static_cast<std::ptrdiff_t>(n), v.end());
 }
-std::vector<IrSignalLog> CsvManager::read_ir_last(size_t n, std::optional<std::string> path) const {
-    auto v = read_ir_all(std::move(path));
+std::vector<IrSignalLog> CsvManager::read_log_last(size_t n, std::optional<std::string> path) const {
+    auto v = read_log_all(std::move(path));
     if (n >= v.size()) return v;
     return std::vector<IrSignalLog>(v.end() - static_cast<std::ptrdiff_t>(n), v.end());
+}
+std::vector<IrSendDevice> CsvManager::read_device_last(size_t n, std::optional<std::string> path) const {
+    auto v = read_device_all(std::move(path));
+    if (n >= v.size()) return v;
+    return std::vector<IrSendDevice>(v.end() - static_cast<std::ptrdiff_t>(n), v.end());
 }
 
 }
