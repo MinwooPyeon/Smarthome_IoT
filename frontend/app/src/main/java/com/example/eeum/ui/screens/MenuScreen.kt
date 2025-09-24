@@ -87,7 +87,7 @@ fun MenuScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 60.dp)
+            .padding(start = 16.dp, top = 60.dp, end = 16.dp)
     ) {
         // Header
         Row(

@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -92,7 +94,7 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(start = 16.dp, end = 16.dp, top = 60.dp)
+            .padding(start = 16.dp, top = 60.dp, end = 16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -102,19 +104,14 @@ fun HomeScreen(
             val nickname = userInfo?.data?.nickname?.takeIf { it.isNotBlank() } ?: "제니"
             Greeting("${nickname}님!")
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy((-5).dp)
-            ) {
-                IconButton(onClick = { /* TODO: notifications */ }) {
-                    Icon(
-                        imageVector = Icons.Filled.Notifications,
-                        contentDescription = "알림",
-                        modifier = Modifier.size(24.dp),
-                        tint = Color(0xFF475569)
-                    )
-                }
-            }
+            Image(
+                painter = painterResource(id = R.drawable.ic_alarm),
+                contentDescription = "알림",
+                colorFilter = ColorFilter.tint(Color(0xFF64748B)),
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable { /* TODO: notifications */ }
+            )
         }
 
         Spacer(Modifier.height(12.dp))
@@ -228,8 +225,8 @@ private fun Greeting(name: String) {
     Text(
         text = name,
         fontSize = 30.sp,
-        fontWeight = FontWeight.ExtraBold,
-        color = Color(0xFF0F172A)
+        fontFamily = FontFamily(Font(R.font.goormsansbold)),
+        color = Color(0xFF1F2937)
     )
 }
 
