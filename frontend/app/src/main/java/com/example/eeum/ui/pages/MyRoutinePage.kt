@@ -33,8 +33,6 @@ import com.example.eeum.data.model.response.routine.RoutineData
 import com.example.eeum.ui.screens.RoutineViewModel
 import com.example.eeum.util.ResourceUtils
 
-// 기존 DUMMY 제거
-
 private val TitleColor = Color(0xFF0F172A)
 private val BodyColor  = Color(0xFF6B7280)
 private val PrimaryBlue = Color(0xFF3D6EF7)
@@ -318,7 +316,7 @@ private fun MyRoutineCard(
                     Spacer(Modifier.weight(1f))
 
                     Switch(
-                        checked = enabled,           // ← triggerType 반영
+                        checked = enabled,
                         onCheckedChange = {
                             enabled = it
                             onToggle(it)
@@ -338,7 +336,7 @@ private fun IconBox(iconUrl: String?) {
 
     Box(
         modifier = Modifier
-            .size(70.dp)
+            .size(50.dp)
             .clip(shape)
             .fillMaxSize(),
         contentAlignment = Alignment.Center
