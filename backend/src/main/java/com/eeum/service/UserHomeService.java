@@ -83,7 +83,7 @@ public class UserHomeService {
 
         
         return UserHomeItemResponse.builder()
-                .homeId(uh.getUserHomeId())
+                .homeId(uh.getHomeId())
                 .homeName(addr.getHomeName())
                 .build();
     }
