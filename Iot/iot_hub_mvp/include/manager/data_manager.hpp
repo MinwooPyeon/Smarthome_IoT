@@ -14,6 +14,7 @@ namespace manager{
 
         void add(const Metrics& m);
         void add(const IrSignalLog& i);
+        void add(const IrSendDevice& d);
 
         std::vector<Metrics> snapshot_metrics() const;
         std::vector<IrSignalLog> snapshot_ir() const;
@@ -40,7 +41,9 @@ namespace manager{
 
         mutable std::mutex mu_m_;
         mutable std::mutex mu_i_;
+        mutable std::mutex mu_d_;
         std::deque<Metrics>     q_m_;
         std::deque<IrSignalLog> q_i_;
+        std::deque<IrSendDevice> q_d_;
     };
 }

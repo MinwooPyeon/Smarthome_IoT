@@ -72,4 +72,7 @@ namespace csv
         return m;
     }
 
+    inline CsvMapper<IrSendDevice> make_ir_device_mapper(){
+        
+    }
 }

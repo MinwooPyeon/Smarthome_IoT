@@ -15,6 +15,11 @@ void DataManager::add(const IrSignalLog& l) {
     q_i_.push_back(l);
 }
 
+void DataManager::add(const IrSendDevice& d){
+    std::lock_guard<std::mutex> lk(mu_d_);
+    q_d_.push_back(d);
+}
+
 std::vector<Metrics> DataManager::snapshot_metrics() const {
     std::lock_guard<std::mutex> lk(mu_m_);
     return std::vector<Metrics>(q_m_.begin(), q_m_.end());

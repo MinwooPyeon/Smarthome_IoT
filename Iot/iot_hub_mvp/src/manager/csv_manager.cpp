@@ -79,7 +79,7 @@ void CsvManager::stop() {
 
 void CsvManager::post(const Metrics& m) { post(Event{m}); }
 void CsvManager::post(const IrSignalLog& l) { post(Event{l}); }
-
+void CsvManager::post(const IrSendDevice& d) {post(Event{d});}
 void CsvManager::post(Event&& ev) {
     std::unique_lock<std::mutex> lk(mu_);
     if (q_.size() >= opt_.max_queue) {
