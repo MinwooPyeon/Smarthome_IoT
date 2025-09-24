@@ -58,3 +58,13 @@ struct Dialect
     bool trim_whitespace = false;
     bool allow_bom = true;
 };
+
+struct CsvOptions {
+    std::string base_dir = "./logs";
+    std::string device_id = "unknown";
+    bool rotate_daily = true;
+    size_t flush_every_n = 100;
+    int flush_interval_ms = 1000;
+    size_t max_queue = 10'000;
+    bool drop_oldest_on_full = true;
+};
