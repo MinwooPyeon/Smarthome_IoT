@@ -8,8 +8,8 @@ namespace manager {
 struct IEnvSource {
     virtual ~IEnvSource() = default;
     virtual bool init() = 0;
-    virtual void start_env_loop(std::chrono::milliseconds interval,
-                                std::function<void(const EnvSample&)> cb) = 0;
+    virtual bool start_env_loop(std::chrono::milliseconds interval,
+                                std::function<void(const Dht11Data&)> cb) = 0;
     virtual void stop_env_loop() = 0;
 
     virtual bool set_ir_glitch_us(int) = 0;
@@ -24,14 +24,13 @@ struct IDataStore {
 
     virtual std::vector<Metrics>     last_metrics(size_t n) const = 0;
     virtual std::vector<IrSignalLog> last_log(size_t n) const = 0;
-    virtual std::vector<IrSendDevice> last_device(size_t n) const = 0;
 };
 
 struct IEventSink {
     virtual ~IEventSink() = default;
-    virtual void enqueue_metrics(const Metrics&) = 0;
-    virtual void enqueue_log(const IrSignalLog&) = 0;
-    virtual void enqueue_device(const IrSendDevice&) = 0;
+    virtual void post(const Metrics&) = 0;
+    virtual void post(const IrSignalLog&) = 0;
+    virtual void post(const IrSendDevice&) = 0;
 };
 
 struct IMqttBus {

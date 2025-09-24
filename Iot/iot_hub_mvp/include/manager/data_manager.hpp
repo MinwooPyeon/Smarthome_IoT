@@ -6,27 +6,29 @@
 #include <chrono>
 #include <optional>
 
+#include "manager/port.hpp"
 #include "types.hpp"
+
 namespace manager{
-    class DataManager{
+    class DataManager : public IDataStore{
     public:
         explicit DataManager(size_t max_metrics = 10000, size_t max_ir = 10000);
 
-        void add(const Metrics& m);
-        void add(const IrSignalLog& i);
-        void add(const IrSendDevice& d);
+        void add(const Metrics& m) override;
+        void add(const IrSignalLog& i) override;
+        void add(const IrSendDevice& d) override;
 
         std::vector<Metrics> snapshot_metrics() const;
-        std::vector<IrSignalLog> snapshot_ir() const;
+        std::vector<IrSignalLog> snapshot_log() const;
 
-        std::vector<Metrics>      last_metrics(size_t n) const;
-        std::vector<IrSignalLog>  last_ir(size_t n) const;
+        std::vector<Metrics>      last_metrics(size_t n) const override;
+        std::vector<IrSignalLog>  last_log(size_t n) const override;
 
         std::vector<Metrics>      metrics_between(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point end) const;
-        std::vector<IrSignalLog>  ir_between(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point end) const;
+        std::vector<IrSignalLog>  log_between(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point end) const;
 
         void clear_metrics();
-        void clear_ir();
+        void clear_log();
 
     private:
         template<class T>
@@ -37,7 +39,7 @@ namespace manager{
 
     private:
         size_t max_metrics_;
-        size_t max_ir_;
+        size_t max_log_;
 
         mutable std::mutex mu_m_;
         mutable std::mutex mu_i_;

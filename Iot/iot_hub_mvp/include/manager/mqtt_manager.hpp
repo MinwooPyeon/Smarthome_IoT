@@ -21,13 +21,13 @@
 
 namespace manager {
 
-class MqttManager {
+class MqttManager : public IMqttBus{
 public:
     explicit MqttManager(const AppConfig &cfg, const ActuatorConfig &actCfg);
     ~MqttManager();
 
-    bool start();
-    void stop();
+    bool start() override;
+    void stop() override;
 
 private:
     using json = nlohmann::json;
