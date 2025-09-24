@@ -7,7 +7,7 @@
 
 namespace manager
 {
-    class service
+    class Service
     {
     public:
         template <class T>
