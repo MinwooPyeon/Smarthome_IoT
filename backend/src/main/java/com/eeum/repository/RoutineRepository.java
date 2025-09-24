@@ -51,4 +51,9 @@ public interface RoutineRepository extends JpaRepository<Routine, Integer> {
     	    Integer getRoutineId();
     	    Integer getUserId();
     	}
+    	
+    	
+    	// 이미 등록된 루틴이름인지 확인
+        boolean existsByUserIdAndNameIgnoreCase(Integer userId, String name);
+
 }

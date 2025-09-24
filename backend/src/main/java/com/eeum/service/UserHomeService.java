@@ -28,11 +28,17 @@ public class UserHomeService {
 
     // 유저의 집 목록 조회
     public List<UserHomeItemResponse> listUserHomes(Integer userId) {
-        List<UserHomeRepository.HomeIdNameProjection> rows = userHomeRepository.findHomeIdAndNameByUserId(userId);
+        List<UserHomeRepository.HomeIdNameSquareProjection> rows = userHomeRepository.findHomeIdNameAndSquareByUserId(userId);
         
         return rows.stream()
-            .map(r -> new UserHomeItemResponse(r.getHomeId(), r.getHomeName()))
-            .toList();
+        	    .map(r -> new UserHomeItemResponse(
+        	        r.getHomeId(),
+        	        r.getHomeName() + (r.getSquare() == null ? "" : " " +
+        	            java.math.BigDecimal.valueOf(r.getSquare())
+        	                .stripTrailingZeros()
+        	                .toPlainString() + "평")
+        	    ))
+        	    .toList();
     }
     
     // 유저 대표 집 주소 변경

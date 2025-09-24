@@ -36,21 +36,26 @@ public interface UserHomeRepository extends JpaRepository<UserHome, Integer> {
     
     // 유저의 집 목록 조회
     @Query(value = """
-            SELECT h.home_id   AS homeId,
-                   a.home_name AS homeName
-              FROM eeum.user_home uh
-              JOIN eeum.home       h ON uh.home_id   = h.home_id
-              JOIN eeum.addresses  a ON h.address_id = a.address_id
-             WHERE uh.user_id = :userId
-             ORDER BY h.home_id
-            """, nativeQuery = true)
-        List<HomeIdNameProjection> findHomeIdAndNameByUserId(@Param("userId") Integer userId);
+    	    SELECT h.home_id   AS homeId,
+    	           a.home_name AS homeName,
+    	           (
+    	             SELECT f.square
+    	               FROM eeum.floorplans f
+    	              WHERE f.home_id = h.home_id
+    	           )           AS square
+    	      FROM eeum.user_home uh
+    	      JOIN eeum.home       h ON uh.home_id   = h.home_id
+    	      JOIN eeum.addresses  a ON h.address_id = a.address_id
+    	     WHERE uh.user_id = :userId
+    	     ORDER BY h.home_id
+    	    """, nativeQuery = true)
+    	List<HomeIdNameSquareProjection> findHomeIdNameAndSquareByUserId(@Param("userId") Integer userId);
 
-
-        interface HomeIdNameProjection {
-            Integer getHomeId();
-            String getHomeName();
-        }
+    	interface HomeIdNameSquareProjection {
+    	    Integer getHomeId();
+    	    String  getHomeName();
+    	    Double  getSquare();
+    	}
 
         // userId와 homeId로 user_home 엔티티 조회
         Optional<UserHome> findByUserIdAndHomeId(Integer userId, Integer homeId);

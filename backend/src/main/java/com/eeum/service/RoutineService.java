@@ -56,6 +56,10 @@ public class RoutineService {
             throw new IllegalArgumentException("name은 필수입니다.");
         }
         
+        if (routineRepository.existsByUserIdAndNameIgnoreCase(userId, req.getName().trim())) {
+            throw new IllegalArgumentException("이미 존재하는 루틴 이름입니다: " + req.getName());
+        }
+
         
         Integer iconId = req.getIconId();
         if (iconId != null) {
