@@ -1,4 +1,3 @@
-// mqtt_manager.hpp
 #pragma once
 #include <unordered_map>
 #include <functional>
@@ -8,10 +7,16 @@
 
 #include "config.hpp"
 #include "mqtt/mqtt_client.hpp"
+#include "mqtt/mqtt_handler.hpp"
+
 #include "actuator/dht11_reader.hpp"
 #include "actuator/ir_receiver.hpp"
+
 #include "analyzer.hpp"
 #include "types.hpp"
+
+#include "app/dispatcher.hpp"
+#include "manager/data_manager.hpp"
 #include "manager/csv_manager.hpp"
 
 namespace manager
@@ -22,35 +27,46 @@ namespace manager
     public:
         explicit MqttManager(const AppConfig &cfg);
         ~MqttManager();
+
         bool start();
         void stop();
 
     private:
+        using json = nlohmann::json;
+
+        // config & deps
         AppConfig cfg_;
         mqtt::MqttClient mqtt_;
         Analyzer az_;
         Dht11Reader dht_;
 
+        // event infra
+        app::Dispatcher bus_;
+        manager::DataManager dataMgr_;
+        manager::CsvManager csvMgr_;
+
+        // runtime
         std::atomic<bool> running_{false};
         std::thread loopThread_;
 
         // topic → handler(json)
-        std::unordered_map<std::string, std::function<void(const nlohmann::json &)>> handlers_;
+        std::unordered_map<std::string, std::function<void(const json &)>> handlers_;
 
-        void setup_handlers(); // 라우터 등록
+    private:
+        // router
+        void setup_handlers();
         void on_mqtt_message(const std::string &topic, const std::string &payload);
 
-        // 개별 핸들러(라우터가 호출)
-        void h_env_request(const nlohmann::json &j); // env start/stop
-        void h_ir_req(const nlohmann::json &j);      // ir 등록
-        void h_control(const nlohmann::json &j);     // 제어 로그
-        void h_regist_send(const nlohmann::json &j); // ir device 등록/제거
+        // handlers
+        void h_env_request(const json &j); // env start/stop toggle
+        void h_ir_req(const json &j);      // IR capture request
+        void h_regist_send(const json &j); // dynamic subscribe/unsubscribe
 
-        // 주기 작업
+        // loop
         void run_loop();
 
-        // 공용 유틸
-        void publish_env(double T, double RH, int64_t ts);
+        // utils
         void publish_error(int tx_id, const std::string &reason);
     };
+
 }

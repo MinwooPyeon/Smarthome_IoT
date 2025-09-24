@@ -24,7 +24,7 @@ namespace manager
     {
     public:
         using Clock = std::chrono::system_clock;
-        using Event = std::variant<Metrics, IrSignalLog>;
+        using Event = std::variant<Metrics, IrSignalLog, IrSendDevice>;
 
         explicit CsvManager(CsvOptions opt = {});
         ~CsvManager();
@@ -37,6 +37,7 @@ namespace manager
         void stop();
         void post(const Metrics &m);
         void post(const IrSignalLog &l);
+        void post(const IrSendDevice &d);
         void post(Event &&ev);
 
         // ---- 읽기 사이드 ----
@@ -87,17 +88,21 @@ namespace manager
 
         // 파일/라이터
         std::string env_path_;
-        std::string ir_path_;
+        std::string log_path_;
+        std::string device_path_;
         std::ofstream env_ofs_;
-        std::ofstream ir_ofs_;
+        std::ofstream log_ofs_;
+        std::ofstream device_ofs_;
         std::unique_ptr<csv::Writer> env_writer_;
         std::unique_ptr<csv::Writer> ir_writer_;
         int current_yyyymmdd_{-1}; // 롤링 기준(UTC)
 
         // 매퍼 & 헤더
         csv::CsvMapper<Metrics> metrics_mapper_;
-        csv::CsvMapper<IrSignalLog> ir_mapper_;
+        csv::CsvMapper<IrSignalLog> log_mapper_;
+        csv::CsvMapper<IrSendDevice> device_mapper_;
         std::vector<std::string> env_header_;
-        std::vector<std::string> ir_header_;
+        std::vector<std::string> log_header_;
+        std::vector<std::string> device_header_;
     };
 }

@@ -49,6 +49,14 @@ struct IrSignalLog
     std::vector<std::string> meta_data;
 };
 
+struct IrSignal
+{
+    std::string brand;
+    std::string device;
+    std::string function;
+    std::vector<int> raw_us;
+};
+
 struct Dialect
 {
     char delimiter = ',';
