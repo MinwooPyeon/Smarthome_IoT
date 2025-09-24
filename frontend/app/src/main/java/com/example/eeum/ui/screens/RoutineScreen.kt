@@ -168,7 +168,8 @@ private fun SegmentedTabRow(
         Surface(
             color = Color.White,
             shape = RoundedCornerShape(capsuleCorner),
-            shadowElevation = 2.dp,
+            shadowElevation = 0.dp,
+            tonalElevation = 0.dp,
             modifier = Modifier
                 .fillMaxHeight()
                 .padding(vertical = capsuleOuterPad)
@@ -204,7 +205,18 @@ private fun SegmentedTabRow(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxHeight(),
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            // 탭 터치로도 이동: 즉시 캡슐 위치 갱신 후 페이지 전환 호출
+                            if (tabWidthPx > 0f) {
+                                dragOffsetPx = index * tabWidthPx
+                            }
+                            isDragging = false
+                            onSelect(index)
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
