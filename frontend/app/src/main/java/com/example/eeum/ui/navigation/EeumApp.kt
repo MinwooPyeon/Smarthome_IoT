@@ -176,11 +176,16 @@ fun EeumApp() {
 
         composable("$DEVICE_REGISTRATION_BRAND_ROUTE/{kind}?serial={serial}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
-            DeviceRegistrationBrandScreen(navController) {
-                navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") {
-                    launchSingleTop = true
+            val serial = backStackEntry.arguments?.getString("serial")
+            DeviceRegistrationBrandScreen(
+                navController = navController,
+                serial = serial,
+                onNext = {
+                    navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") {
+                        launchSingleTop = true
+                    }
                 }
-            }
+            )
         }
 
         composable("$DEVICE_REGISTRATION_COMPLETE_ROUTE/{kind}") { backStackEntry ->
