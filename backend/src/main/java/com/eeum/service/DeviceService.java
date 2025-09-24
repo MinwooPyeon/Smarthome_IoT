@@ -21,6 +21,8 @@ import com.eeum.dto.response.DeviceItemResponse;
 import com.eeum.dto.response.DeviceLocationResponse;
 import com.eeum.dto.response.DeviceLogItemResponse;
 import com.eeum.dto.response.DeviceResponse;
+import com.eeum.dto.request.UpdateDeviceLocationItem;
+import com.eeum.dto.response.UpdateDeviceLocationsResponse;
 import com.eeum.entity.Device;
 import com.eeum.entity.IrButton;
 import com.eeum.entity.IrDevice;
@@ -686,4 +688,58 @@ public class DeviceService {
     private String safeJson(Object o) {
         try { return objectMapper.writeValueAsString(o); } catch (Exception e) { return String.valueOf(o); }
     }
+   
+
+    @Transactional
+    public UpdateDeviceLocationsResponse updateLocationsBatch(Integer userId, List<UpdateDeviceLocationItem> items) {
+        if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
+        if (items == null || items.isEmpty()) throw new IllegalArgumentException("수정할 항목이 비었습니다.");
+
+        int updated = 0;
+        List<UpdateDeviceLocationsResponse.ErrorItem> errors = new java.util.ArrayList<>();
+
+        for (UpdateDeviceLocationItem it : items) {
+            try {
+                if (it.getDeviceId() == null) throw new IllegalArgumentException("deviceId는 필수입니다.");
+                if (it.getHomeId() == null)   throw new IllegalArgumentException("homeId는 필수입니다.");
+                if (it.getRoomId() == null)   throw new IllegalArgumentException("roomId는 필수입니다.");
+                if (it.getX() == null || it.getY() == null) throw new IllegalArgumentException("x, y는 필수입니다.");
+
+                // 소유권 확인
+                if (!deviceRepository.userOwnsDevice(userId, it.getDeviceId())) {
+                    throw new NoSuchElementException("디바이스가 없거나 권한이 없습니다. deviceId=" + it.getDeviceId());
+                }
+
+                // 사용자가 해당 home에 소속인지 확인
+                deviceRepository.findUserHomeId(userId, it.getHomeId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                        "사용자가 home(" + it.getHomeId() + ")에 소속되어 있지 않습니다."));
+
+                // room이 home에 속하는지 확인
+                if (!deviceRepository.existsRoomInHome(it.getHomeId(), it.getRoomId())) {
+                    throw new IllegalArgumentException("room(" + it.getRoomId() + ")은 home(" + it.getHomeId() + ")에 속하지 않습니다.");
+                }
+
+                int cnt = deviceRepository.updateDevicePosition(
+                    it.getDeviceId(), it.getHomeId(), it.getRoomId(), it.getX(), it.getY()
+                );
+                if (cnt == 0) throw new NoSuchElementException("디바이스의 위치 변경 실패. deviceId=" + it.getDeviceId());
+                updated++;
+
+            } catch (Exception e) {
+                log.warn("[BATCH-LOC] update fail deviceId={} err={}", it != null ? it.getDeviceId() : null, e.toString());
+                errors.add(UpdateDeviceLocationsResponse.ErrorItem.builder()
+                        .deviceId(it != null ? it.getDeviceId() : null)
+                        .message(e.getMessage())
+                        .build());
+            }
+        }
+
+        return UpdateDeviceLocationsResponse.builder()
+                .total(items.size())
+                .updated(updated)
+                .errors(errors)
+                .build();
+    }
+
 }
