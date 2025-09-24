@@ -42,3 +42,13 @@ struct Log{
     std::string function;
     std::string metaData;
 };
+
+struct Dialect{
+    char delimiter = ',';
+    char quote = '"';
+    char escape = '"';
+    bool write_header = true;
+    bool trim_whitespace =false;
+    bool allow_bom = true;
+    
+};
