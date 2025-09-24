@@ -3,6 +3,8 @@ services:
     image: postgres:16-alpine
     container_name: eeum-db
     restart: always
+    env_file:
+      - /etc/eeum/eeum.env
     environment:
       POSTGRES_DB: eeum
       POSTGRES_USER: eeum
@@ -46,6 +48,8 @@ services:
         condition: service_healthy
     networks:
       - eeum-net
+    env_file:
+      - /etc/eeum/eeum.env
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: "8081"
