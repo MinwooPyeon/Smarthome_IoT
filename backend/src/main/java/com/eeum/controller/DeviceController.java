@@ -4,6 +4,8 @@ import com.eeum.dto.request.DeviceStatusRequest;
 import com.eeum.dto.request.RegisterDeviceRequest;
 import com.eeum.dto.request.UpdateDeviceLocationRequest;
 import com.eeum.dto.response.DeviceLocationResponse;
+import com.eeum.dto.request.UpdateDeviceLocationsRequest;
+import com.eeum.dto.response.UpdateDeviceLocationsResponse;
 import com.eeum.service.DeviceService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -171,4 +173,28 @@ public class DeviceController implements ControllerHelper {
     	  try { return new ObjectMapper().writeValueAsString(o); }
     	  catch (Exception e) { return String.valueOf(o); }
     	}
+    
+    
+    
+    @PutMapping("/locations")
+    @Operation(
+        summary = "디바이스 위치 배치 수정",
+        description = """
+        여러 디바이스의 평면도 위치(x, y), roomId를 한 번에 수정합니다.
+        - 요청 본문: { "items": [ { "deviceId": 1, "homeId": 10, "roomId": 100, "x": 12.3, "y": 45.6 }, ... ] }
+        - 응답은 총 개수, 성공 개수, 실패 목록을 포함합니다.
+        """
+    )
+    public ResponseEntity<?> updateLocationsBatch(@RequestBody UpdateDeviceLocationsRequest request) {
+        try {
+            Integer userId = 1;
+            UpdateDeviceLocationsResponse res =
+                    deviceService.updateLocationsBatch(userId, request.getItems());
+            return handleSuccess(res, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
