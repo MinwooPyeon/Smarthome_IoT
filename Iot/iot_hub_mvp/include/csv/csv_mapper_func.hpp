@@ -67,8 +67,8 @@ namespace csv
                                        { return e.function_label; }, [](IrSignalLog &e, const std::string &s)
                                        { e.function_label = s; }));
         m.add(make_column<IrSignalLog>("meta_data", [](const IrSignalLog &e)
-                                       { return json_encode(e.meta_data); }, [](IrSignalLog &e, const std::string &s)
-                                       { e.meta_data = json_parse_str_array(s); }));
+                                       { return e.meta_data; }, [](IrSignalLog &e, const std::string &s)
+                                       { e.meta_data = s; }));
         return m;
     }
 

@@ -6,21 +6,24 @@
 #include <thread>
 #include <nlohmann/json.hpp>
 
-#include "config.hpp"
 #include "mqtt/mqtt_client.hpp"
-#include "actuator/dht11_reader.hpp"
-#include "actuator/ir_receiver.hpp"
+#include "mqtt/mqtt_handler.hpp" 
+
 #include "analyzer.hpp"
-#include "types.hpp"              
+#include "types.hpp"
+#include "config.hpp"
+
 #include "manager/data_manager.hpp"
 #include "manager/csv_manager.hpp"
-#include "mqtt/mqtt_handler.hpp" 
+#include "manager/actuator_manager.hpp"
+
+
 
 namespace manager {
 
 class MqttManager {
 public:
-    explicit MqttManager(const AppConfig &cfg);
+    explicit MqttManager(const AppConfig &cfg, const ActuatorConfig &actCfg);
     ~MqttManager();
 
     bool start();
@@ -31,14 +34,15 @@ private:
 
     // --- deps ---
     AppConfig        cfg_;
+    ActuatorConfig actCfg_;
     
     mqtt::MqttClient mqtt_;
-    Analyzer         az_;
-    Dht11Reader      dht_;
+    Analyzer az_;
 
     // --- in-proc storage / csv ---
     manager::DataManager dataMgr_;
     manager::CsvManager  csvMgr_;
+    manager::ActuatorManager actMgr_;
 
     // --- 분리된 이벤트 핸들러(의존성 주입) ---
     mqtt::MqttHandler evh_;

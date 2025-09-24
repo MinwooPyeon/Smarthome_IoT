@@ -47,7 +47,7 @@ struct IrSignalLog
     std::string send_device_id;
     std::string device_type;
     std::string function_label;
-    std::vector<std::string> meta_data;
+    std::string meta_data;
 };
 
 struct IrSignal
