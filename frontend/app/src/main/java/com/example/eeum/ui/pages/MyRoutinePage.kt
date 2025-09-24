@@ -32,8 +32,9 @@ import com.example.eeum.base.ApplicationClass
 import com.example.eeum.data.model.response.routine.RoutineData
 import com.example.eeum.ui.screens.RoutineViewModel
 import com.example.eeum.util.ResourceUtils
+import java.time.LocalTime
 
-private val TitleColor = Color(0xFF0F172A)
+// 기존 DUMMY 제거
 private val BodyColor  = Color(0xFF6B7280)
 private val PrimaryBlue = Color(0xFF3D6EF7)
 
@@ -96,6 +97,7 @@ fun MyRoutinePage(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
@@ -150,6 +152,24 @@ fun MyRoutinePage(
     }
 }
 
+private fun formatKoreanTime(actTime: String?): String? {
+    if (actTime.isNullOrBlank()) return null
+    return try {
+        val t = LocalTime.parse(actTime) // expects HH:mm:ss
+        val h = t.hour
+        val m = t.minute
+        val period = if (h < 12) "오전" else "오후"
+        val h12 = when {
+            h == 0 -> 12
+            h <= 12 -> h
+            else -> h - 12
+        }
+        "%s %d:%02d".format(period, h12, m)
+    } catch (_: Exception) {
+        actTime
+    }
+}
+
 @Composable
 private fun DayFilterBar(
     days: List<String>,
@@ -180,7 +200,7 @@ private fun DayFilterBar(
                         text = day,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (isSelected) Color.White else TitleColor
+                        color = if (isSelected) Color.White else PrimaryBlue
                     )
                 }
             }
@@ -205,6 +225,8 @@ private fun MyRoutineCard(
             ?.split(",")
             ?.filter { it.isNotBlank() }
             ?: emptyList()
+
+    val formattedTime = remember(routine.actTime) { formatKoreanTime(routine.actTime) }
 
     val cardModifier = if (routine.isAi) {
         Modifier
@@ -271,13 +293,13 @@ private fun MyRoutineCard(
                 modifier = Modifier.padding(
                     start = 16.dp,
                     top = 16.dp,
-                    end = 12.dp,
+                    end = 16.dp,
                     bottom = 16.dp
                 )
             ) {
                 // 아이콘은 iconId 매핑이 정해지기 전이라 임시 박스만 유지
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconBox(iconUrl = routine.iconUrl)
+                    IconBox(iconUrl = routine.iconUrl, modifier = Modifier.offset(y = (-5).dp))
                     Spacer(Modifier.width(14.dp))
                     Column {
                         routine.name?.let {
@@ -285,7 +307,7 @@ private fun MyRoutineCard(
                                 it,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TitleColor
+                                color = Color.Black
                             )
                         }
                         Spacer(Modifier.height(6.dp))
@@ -300,6 +322,7 @@ private fun MyRoutineCard(
                     }
                 }
 
+                // 실행 요일
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -312,31 +335,48 @@ private fun MyRoutineCard(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         dayLabels.forEach { DayChip(label = it) }
                     }
+                }
 
-                    Spacer(Modifier.weight(1f))
+                Spacer(Modifier.height(6.dp))
 
-                    Switch(
-                        checked = enabled,
-                        onCheckedChange = {
-                            enabled = it
-                            onToggle(it)
-                        }
-                    )
+                // 실행 시간 표시
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = textIndent),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("실행 시간:", fontSize = 14.sp, color = BodyColor)
+                    Spacer(Modifier.width(8.dp))
+                    Text(formattedTime ?: "-", fontSize = 14.sp, color = BodyColor)
                 }
             }
+
+            // 스위치: 카드 우하단 고정
+            Switch(
+                checked = enabled,
+                onCheckedChange = {
+                    enabled = it
+                    onToggle(it)
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = (-5).dp)
+                    .padding(12.dp)
+            )
         }
     }
 }
 
 @Composable
-private fun IconBox(iconUrl: String?) {
+private fun IconBox(iconUrl: String?, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(12.dp)
     val ctx = LocalContext.current
     val absoluteUrl = remember(iconUrl) { toAbsoluteUrl(ApplicationClass.SERVER_URL, iconUrl) }
 
     Box(
-        modifier = Modifier
-            .size(50.dp)
+        modifier = modifier
+            .size(60.dp)
             .clip(shape)
             .fillMaxSize(),
         contentAlignment = Alignment.Center
