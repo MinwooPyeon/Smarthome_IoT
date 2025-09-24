@@ -31,6 +31,7 @@ private:
 
     // --- deps ---
     AppConfig        cfg_;
+    
     mqtt::MqttClient mqtt_;
     Analyzer         az_;
     Dht11Reader      dht_;

@@ -1,5 +1,5 @@
 #include "manager/mqtt_manager.hpp"
-#include "util.hpp" // now_ms()
+#include "util.hpp"
 #include <chrono>
 #include <iostream>
 #include <functional>
