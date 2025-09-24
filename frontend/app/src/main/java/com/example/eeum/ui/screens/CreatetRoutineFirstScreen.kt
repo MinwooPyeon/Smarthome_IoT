@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -211,13 +213,20 @@ fun CreateRoutineFirstScreen(
                     ) {
                         Text("요일 선택", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         val days = listOf("일", "월", "화", "수", "목", "금", "토")
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            days.forEachIndexed { idx, label ->
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 0.dp)
+                        ) {
+                            items(days.indices.toList()) { idx ->
+                                val label = days[idx]
                                 FilterChip(
                                     selected = selectedDays.contains(idx),
                                     onClick = {
-                                        selectedDays =
-                                            if (selectedDays.contains(idx)) selectedDays - idx else selectedDays + idx
+                                        selectedDays = if (selectedDays.contains(idx)) {
+                                            selectedDays - idx
+                                        } else {
+                                            selectedDays + idx
+                                        }
                                     },
                                     label = { Text(label) },
                                     shape = RoundedCornerShape(8.dp),
@@ -340,7 +349,7 @@ fun CreateRoutineFirstScreen(
                             actTime = actTimeIso,
                             detail = details,
                             iconId = iconId,
-                            isAi = false,              // ★ 항상 false로 전송
+                            isAi = false,
                             name = title,
                             routineDescription = desc,
                             routineWeekday = weekdayMask
