@@ -14,7 +14,6 @@ void DataManager::add(const IrSignalLog& l) {
     if (q_i_.size() >= max_ir_) q_i_.pop_front();
     q_i_.push_back(l);
 }
-
 void DataManager::add(const IrSendDevice& d){
     std::lock_guard<std::mutex> lk(mu_d_);
     q_d_.push_back(d);
