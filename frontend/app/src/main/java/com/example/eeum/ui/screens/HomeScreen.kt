@@ -14,6 +14,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -348,7 +349,7 @@ private fun FloorplanCard(
     } else Modifier
 
     val density = LocalDensity.current
-    val iconSizeDp = 24.dp
+    val iconSizeDp = 28.dp
     val iconSizePx = with(density) { iconSizeDp.toPx() }
 
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
@@ -416,13 +417,13 @@ private fun FloorplanCard(
                             val xPx = (item.x.toFloat() * drawnW)
                             val yPx = (item.y.toFloat() * drawnH)
 
-                            // 1사분면(y 위로 증가) → Compose(top-down)로 변환
+                            // Compose 좌표계 그대로 사용 (DeviceRegistrationCompleteScreen과 동일)
                             val leftFromLeftPx = (leftMargin + xPx - iconSizePx / 2f)
                                 .coerceIn(0f, containerSize.width - iconSizePx)
-                            val topFromTopPx = (topMargin + (drawnH - yPx) - iconSizePx / 2f)
+                            val topFromTopPx = (topMargin + yPx - iconSizePx / 2f)
                                 .coerceIn(0f, containerSize.height - iconSizePx)
 
-                            iconResForDevice2(item.deviceType)?.let { resId ->
+                            iconResForDevice(item.deviceType, item.deviceDetail.power)?.let { resId ->
                                 Image(
                                     painter = painterResource(id = resId),
                                     contentDescription = item.deviceName,
@@ -444,15 +445,15 @@ private fun FloorplanCard(
     }
 }
 
-private fun iconResForDevice2(deviceType: Any?): Int? {
+private fun iconResForDevice(deviceType: Any?, isPoweredOn: Boolean): Int? {
     val key = deviceType?.toString()?.trim()?.lowercase() ?: return null
     return when (key) {
-        "에어컨" -> R.drawable.ic_icon_air_conditioning
-        "선풍기" -> R.drawable.ic_icon_electric_fan
-        "텔레비전" -> R.drawable.ic_icon_television
-        "빔프로젝터" -> R.drawable.ic_icon_beam_projector
-        "공기청정기" -> R.drawable.ic_icon_air_purifier
-        "조명" -> R.drawable.ic_icon_light
+        "에어컨" -> if (isPoweredOn) R.drawable.ic_icon_air_conditioning_on else R.drawable.ic_icon_air_conditioning
+        "선풍기" -> if (isPoweredOn) R.drawable.ic_icon_electric_fan_on else R.drawable.ic_icon_electric_fan
+        "텔레비전" -> if (isPoweredOn) R.drawable.ic_icon_television_on else R.drawable.ic_icon_television
+        "빔프로젝터" -> if (isPoweredOn) R.drawable.ic_icon_beam_projector_on else R.drawable.ic_icon_beam_projector
+        "공기청정기" -> if (isPoweredOn) R.drawable.ic_icon_air_purifier_on else R.drawable.ic_icon_air_purifier
+        "조명" -> if (isPoweredOn) R.drawable.ic_icon_light_on else R.drawable.ic_icon_light
         else -> null
     }
 }

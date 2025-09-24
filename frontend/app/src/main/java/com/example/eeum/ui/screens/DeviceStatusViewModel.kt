@@ -87,9 +87,21 @@ class DeviceStatusViewModel : ViewModel() {
      * 디바이스 전원 토글 (간편 메서드)
      * @param deviceId 디바이스 ID
      * @param currentPower 현재 전원 상태
+     * @param currentTemperature 현재 온도 설정 (에어컨용, 기본값: 23)
+     * @param currentLevel 현재 레벨 설정 (선풍기용, 기본값: 1)
      */
-    fun toggleDevicePower(deviceId: Int, currentPower: Boolean) {
-        changeDeviceStatus(deviceId = deviceId, power = !currentPower)
+    fun toggleDevicePower(
+        deviceId: Int, 
+        currentPower: Boolean, 
+        currentTemperature: Int = 23, 
+        currentLevel: Int = 1
+    ) {
+        changeDeviceStatus(
+            deviceId = deviceId, 
+            power = !currentPower,
+            temperature = currentTemperature,
+            level = currentLevel
+        )
     }
 
     /**

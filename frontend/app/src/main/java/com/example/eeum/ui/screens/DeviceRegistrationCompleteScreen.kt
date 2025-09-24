@@ -199,14 +199,14 @@ fun DeviceRegistrationCompleteScreen(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(300.dp),
-            shape = RoundedCornerShape(8.dp),
+                .height(400.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             // 부모 박스 크기 측정 + 드래그 가능한 아이콘
             val density = LocalDensity.current
-            val iconOuterSize = 20.dp
+            val iconOuterSize = 28.dp
             val iconOuterPx = with(density) { iconOuterSize.toPx() }
             var parentSize = remember { mutableStateOf(IntSize.Zero) }
             var iconOffset = remember { mutableStateOf(Offset(Float.NaN, Float.NaN)) }
@@ -214,10 +214,11 @@ fun DeviceRegistrationCompleteScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(16.dp) // 카드 내부에 패딩 추가
                     .onSizeChanged { size ->
                         parentSize.value = size
                         if (iconOffset.value.x.isNaN()) {
-                            // 최초에는 중앙 배치
+                            // 최초에는 이미지 중앙에 배치 (이미지가 로드되면 다시 조정)
                             val cx = (size.width - iconOuterPx) / 2f
                             val cy = (size.height - iconOuterPx) / 2f
                             iconOffset.value = Offset(cx, cy)
@@ -237,6 +238,24 @@ fun DeviceRegistrationCompleteScreen(
                     onSuccess = { success ->
                         val bmp = (success.result.drawable as? BitmapDrawable)?.bitmap
                         bitmapState.value = bmp
+                        
+                        // 이미지 로드 완료 시 아이콘을 이미지 영역 중앙으로 이동
+                        if (bmp != null && parentSize.value.width > 0 && parentSize.value.height > 0) {
+                            val pw = parentSize.value.width.toFloat()
+                            val ph = parentSize.value.height.toFloat()
+                            val iw = bmp.width.toFloat()
+                            val ih = bmp.height.toFloat()
+                            val scale = min(pw / iw, ph / ih)
+                            val sw = iw * scale
+                            val sh = ih * scale
+                            val left = (pw - sw) / 2f
+                            val top = (ph - sh) / 2f
+                            
+                            // 이미지 중앙에 아이콘 배치
+                            val centerX = left + (sw - iconOuterPx) / 2f
+                            val centerY = top + (sh - iconOuterPx) / 2f
+                            iconOffset.value = Offset(centerX, centerY)
+                        }
                     }
                 )
                 if (iconRes != null && !iconOffset.value.x.isNaN()) {
@@ -328,12 +347,37 @@ fun DeviceRegistrationCompleteScreen(
                                         onPositionChange(cx, cy, color)
                                     }
                                 ) { _, drag ->
-                                    val maxX =
-                                        (parentSize.value.width - iconOuterPx).coerceAtLeast(0f)
-                                    val maxY =
-                                        (parentSize.value.height - iconOuterPx).coerceAtLeast(0f)
-                                    val nx = (iconOffset.value.x + drag.x).coerceIn(0f, maxX)
-                                    val ny = (iconOffset.value.y + drag.y).coerceIn(0f, maxY)
+                                    // 이미지 영역 계산 및 드래그 제약
+                                    val currentBmp = bitmapState.value
+                                    val (nx, ny) = if (currentBmp != null && parentSize.value.width > 0 && parentSize.value.height > 0) {
+                                        val pw = parentSize.value.width.toFloat()
+                                        val ph = parentSize.value.height.toFloat()
+                                        val iw = currentBmp.width.toFloat()
+                                        val ih = currentBmp.height.toFloat()
+                                        val scale = min(pw / iw, ph / ih)
+                                        val sw = iw * scale
+                                        val sh = ih * scale
+                                        val left = (pw - sw) / 2f
+                                        val top = (ph - sh) / 2f
+                                        
+                                        // 아이콘이 이미지 영역 내에만 위치하도록 제약
+                                        val minX = left
+                                        val maxX = (left + sw - iconOuterPx).coerceAtLeast(left)
+                                        val minY = top
+                                        val maxY = (top + sh - iconOuterPx).coerceAtLeast(top)
+                                        
+                                        val newX = (iconOffset.value.x + drag.x).coerceIn(minX, maxX)
+                                        val newY = (iconOffset.value.y + drag.y).coerceIn(minY, maxY)
+                                        Pair(newX, newY)
+                                    } else {
+                                        // 이미지가 로드되지 않은 경우 기존 방식 사용
+                                        val maxX = (parentSize.value.width - iconOuterPx).coerceAtLeast(0f)
+                                        val maxY = (parentSize.value.height - iconOuterPx).coerceAtLeast(0f)
+                                        val newX = (iconOffset.value.x + drag.x).coerceIn(0f, maxX)
+                                        val newY = (iconOffset.value.y + drag.y).coerceIn(0f, maxY)
+                                        Pair(newX, newY)
+                                    }
+                                    
                                     iconOffset.value = Offset(nx, ny)
 
                                     // 아이콘 중앙 좌표(px)
@@ -341,13 +385,13 @@ fun DeviceRegistrationCompleteScreen(
                                     val cy = ny + iconOuterPx / 2f
 
                                     // 이미지 위 좌표와 색상 샘플링
-                                    val bmp = bitmapState.value
+                                    val samplingBmp = bitmapState.value
                                     val color =
-                                        if (bmp != null && parentSize.value.width > 0 && parentSize.value.height > 0) {
+                                        if (samplingBmp != null && parentSize.value.width > 0 && parentSize.value.height > 0) {
                                             val pw = parentSize.value.width.toFloat()
                                             val ph = parentSize.value.height.toFloat()
-                                            val iw = bmp.width.toFloat()
-                                            val ih = bmp.height.toFloat()
+                                            val iw = samplingBmp.width.toFloat()
+                                            val ih = samplingBmp.height.toFloat()
                                             val scale = min(pw / iw, ph / ih)
                                             val sw = iw * scale
                                             val sh = ih * scale
@@ -355,11 +399,11 @@ fun DeviceRegistrationCompleteScreen(
                                             val top = (ph - sh) / 2f
                                             if (cx >= left && cx < left + sw && cy >= top && cy < top + sh) {
                                                 val bx = ((cx - left) / scale).roundToInt()
-                                                    .coerceIn(0, bmp.width - 1)
+                                                    .coerceIn(0, samplingBmp.width - 1)
                                                 val by = ((cy - top) / scale).roundToInt()
-                                                    .coerceIn(0, bmp.height - 1)
+                                                    .coerceIn(0, samplingBmp.height - 1)
                                                 val argb =
-                                                    runCatching { bmp.getPixel(bx, by) }.getOrNull()
+                                                    runCatching { samplingBmp.getPixel(bx, by) }.getOrNull()
                                                 if (argb != null) {
                                                     Color(
                                                         red = ((argb shr 16) and 0xFF) / 255f,
@@ -372,12 +416,12 @@ fun DeviceRegistrationCompleteScreen(
                                         } else null
                                     sampledColorState.value = color
                                     // 이미지 비트맵 좌표로 정규화하여 전송
-                                    val bitmap2 = bitmapState.value
-                                    if (bitmap2 != null && parentSize.value.width > 0 && parentSize.value.height > 0) {
+                                    val positionBitmap = bitmapState.value
+                                    if (positionBitmap != null && parentSize.value.width > 0 && parentSize.value.height > 0) {
                                         val pw = parentSize.value.width.toFloat()
                                         val ph = parentSize.value.height.toFloat()
-                                        val iw = bitmap2.width.toFloat()
-                                        val ih = bitmap2.height.toFloat()
+                                        val iw = positionBitmap.width.toFloat()
+                                        val ih = positionBitmap.height.toFloat()
                                         val scale = min(pw / iw, ph / ih)
                                         val sw = iw * scale
                                         val sh = ih * scale
@@ -389,8 +433,8 @@ fun DeviceRegistrationCompleteScreen(
                                             regVm.setNormalizedPositionAndColor(
                                                 imagePosX,
                                                 imagePosY,
-                                                bitmap2.width,
-                                                bitmap2.height,
+                                                positionBitmap.width,
+                                                positionBitmap.height,
                                                 color
                                             )
                                         } else {
@@ -408,7 +452,7 @@ fun DeviceRegistrationCompleteScreen(
                                 painter = painterResource(id = iconRes),
                                 contentDescription = null,
                                 tint = Color.Unspecified,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     }

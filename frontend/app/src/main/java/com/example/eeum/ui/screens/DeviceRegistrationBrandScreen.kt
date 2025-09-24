@@ -33,16 +33,32 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.eeum.R
 import com.example.eeum.ui.theme.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.LaunchedEffect
+import androidx.activity.ComponentActivity
 
 @Composable
 fun DeviceRegistrationBrandScreen(
     navController: NavController? = null,
-    onNext: (String) -> Unit = {}
+    onNext: (String) -> Unit = {},
+    serial: String? = null
 ) {
+    // Activity 범위 ViewModel 사용
+    val activity = LocalContext.current as ComponentActivity
+    val regVm: DeviceRegistrationViewModel = viewModel(activity)
+    
     var brand by rememberSaveable { mutableStateOf("") }
     var model by rememberSaveable { mutableStateOf("") }
     val brandTrim = brand.trim()
     val modelTrim = model.trim()
+    
+    // 시리얼 번호를 ViewModel에 저장
+    LaunchedEffect(serial) {
+        serial?.let { 
+            regVm.setSerial(it)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -151,7 +167,11 @@ fun DeviceRegistrationBrandScreen(
 
         // 다음 버튼 (파란 배경)
         Button(
-            onClick = { onNext("$brandTrim|$modelTrim") },
+            onClick = { 
+                // ViewModel에 브랜드와 모델 저장
+                regVm.setBrandModel(brandTrim, modelTrim)
+                onNext("$brandTrim|$modelTrim") 
+            },
             enabled = brandTrim.isNotEmpty() && modelTrim.isNotEmpty(),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
