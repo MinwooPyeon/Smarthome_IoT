@@ -735,6 +735,10 @@ public class DeviceService {
         return result;
     }
     
+    private String safeJson(Object o) {
+        try { return objectMapper.writeValueAsString(o); } catch (Exception e) { return String.valueOf(o); }
+    }
+   
 
     @Transactional
     public UpdateDeviceLocationsResponse updateLocationsBatch(Integer userId, List<UpdateDeviceLocationItem> items) {
