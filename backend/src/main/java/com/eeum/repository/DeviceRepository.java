@@ -25,22 +25,24 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
 		        d.device_name                 AS deviceName,
 		        d.registered_at               AS registeredAt,
 		        CAST(d.device_detail AS TEXT) AS deviceDetail,
-		        dp.x_coordinate               AS x, 
-			  	dp.y_coordinate               AS y 
+		        dp.x_coordinate               AS x,
+		        dp.y_coordinate               AS y
 		    FROM eeum.device d
 		    JOIN eeum.device_positions dp
 		      ON dp.device_id = d.device_id
 		    LEFT JOIN eeum.ir_remoteir irr
 		      ON irr.model = d.model
-		    WHERE EXISTS (
-		        SELECT 1
-		          FROM eeum.user_home uh
-		         WHERE uh.home_id = dp.home_id
-		           AND uh.user_id = :userId
-		    )
+		    WHERE dp.home_id = :homeId
+		      AND EXISTS (
+		            SELECT 1
+		              FROM eeum.user_home uh
+		             WHERE uh.home_id = :homeId
+		               AND uh.user_id = :userId
+		          )
 		      AND (:type IS NULL OR irr.device_type ILIKE '%' || :type || '%')
 		      AND (:roomName IS NULL OR EXISTS (
-		            SELECT 1 FROM eeum.room rm
+		            SELECT 1
+		              FROM eeum.room rm
 		             WHERE rm.room_id = dp.room_id
 		               AND rm.room_name ILIKE '%' || :roomName || '%'
 		          ))
@@ -53,14 +55,14 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
 		    """, nativeQuery = true)
 		List<DeviceRow> findDeviceList(
 		        @Param("userId") Integer userId,
+		        @Param("homeId") Integer homeId,
 		        @Param("power") Boolean power,
 		        @Param("type") String type,
 		        @Param("roomName") String roomName,
 		        @Param("deviceName") String deviceName
 		);
-	
 
-	
+
 
     // user_home + 같은 방(room) + 같은 기기 존재 여부
     @Query(value = """

@@ -234,7 +234,10 @@ public class DeviceService {
     public DeviceResponse findDevices(Integer userId, Boolean power, String type, String roomName, String deviceName) {
         if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
 
-        List<DeviceRow> list = deviceRepository.findDeviceList(userId, power, type, roomName, deviceName);
+        Integer homeId = userHomeRepository.findIsPrimaryHomeId(userId)
+                .orElseThrow(() -> new IllegalStateException("대표집이 설정되어 있지 않습니다."));
+
+        List<DeviceRow> list = deviceRepository.findDeviceList(userId, homeId, power, type, roomName, deviceName);
         List<DeviceItemResponse> items = list.stream().map(this::toItem).toList();
 
         return DeviceResponse.builder()
