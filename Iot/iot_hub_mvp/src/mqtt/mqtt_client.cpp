@@ -3,6 +3,8 @@
 #include <chrono>
 #include <thread>
 
+using namespace mqtt;
+
 bool MqttClient::init(const AppConfig& cfg, const std::string& clientId){
     cfg_ = cfg;
     const char* caf = cfg_.mqttCAFile.empty()
