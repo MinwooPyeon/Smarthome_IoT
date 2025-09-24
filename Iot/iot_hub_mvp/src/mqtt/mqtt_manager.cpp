@@ -6,6 +6,7 @@
 
 using json = nlohmann::json;
 using namespace std::chrono;
+using namespace mqtt;
 
 MqttManager::MqttManager(const AppConfig &cfg)
     : cfg_(cfg), dht_(cfg_.dhtPinBcm)
