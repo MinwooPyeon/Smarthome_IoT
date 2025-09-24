@@ -1,4 +1,4 @@
-#include "dht11_reader.hpp"
+#include "actuator/dht11_reader.hpp"
 #include <pigpio.h>
 #include <stdexcept>
 #include <thread>

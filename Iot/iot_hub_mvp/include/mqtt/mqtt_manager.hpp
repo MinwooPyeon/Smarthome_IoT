@@ -7,9 +7,9 @@
 #include <nlohmann/json.hpp>
 
 #include "config.hpp"
-#include "mqtt_client.hpp"
-#include "dht11_reader.hpp"
-#include "ir_receiver.hpp"
+#include "mqtt/mqtt_client.hpp"
+#include "actuator/dht11_reader.hpp"
+#include "actuator/ir_receiver.hpp"
 #include "analyzer.hpp"   
 #include "types.hpp"      
 

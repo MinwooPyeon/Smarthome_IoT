@@ -1,6 +1,6 @@
 // main.cpp
 #include "config.hpp"
-#include "mqtt_manager.hpp"
+#include "mqtt/mqtt_manager.hpp"
 #include <pigpio.h>
 #include <thread>
 #include <iostream>
