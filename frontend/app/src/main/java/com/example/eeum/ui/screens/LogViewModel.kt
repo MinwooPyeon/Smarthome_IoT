@@ -87,6 +87,10 @@ class LogViewModel : ViewModel() {
                     else -> "전원 ${kind.substringAfter("power_")}"
                 }
             }
+            kind.startsWith("level_", ignoreCase = true) -> {
+                val v = kind.substringAfter("level_")
+                "바람 세기 ${v}"
+            }
             else -> kind
         }
 
