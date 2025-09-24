@@ -287,4 +287,4 @@ std::vector<IrSignalLog> CsvManager::read_ir_last(size_t n, std::optional<std::s
     return std::vector<IrSignalLog>(v.end() - static_cast<std::ptrdiff_t>(n), v.end());
 }
 
-} // namespace logging
+}
