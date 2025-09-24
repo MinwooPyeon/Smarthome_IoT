@@ -11,7 +11,6 @@ struct LogRow {
     long ts{};
     std::string deviceId;
     std::string device_type;
-    std::string function;
     std::string meta_data;     // "k=v;k2=v2" 등
 };
 
