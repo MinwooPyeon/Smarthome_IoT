@@ -1,11 +1,12 @@
 // mqtt_manager.cpp
-#include "mqtt/mqtt_manager.hpp"
+#include "manager/mqtt_manager.hpp"
 #include "util.hpp"
 #include <chrono>
 #include <iostream>
 
 using json = nlohmann::json;
 using namespace std::chrono;
+using namespace manager;
 using namespace mqtt;
 
 MqttManager::MqttManager(const AppConfig &cfg)
