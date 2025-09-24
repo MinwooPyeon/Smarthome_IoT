@@ -93,7 +93,7 @@ private fun RecommendRoutineCard(
             // 좌측 아이콘
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(50.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(data.iconBg),
                 contentAlignment = Alignment.Center
