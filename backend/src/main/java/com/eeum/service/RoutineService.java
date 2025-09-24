@@ -106,11 +106,13 @@ public class RoutineService {
         Routine entity = routineRepository.findByRoutineIdAndUserId(routineId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("루틴이 존재하지 않거나 접근 권한이 없습니다."));
 
+        LocalTime actTimeLocal = instantToKstLocalTimeMinute(req.getActTime());
+        
         if (req.getName() != null) entity.setName(req.getName());
         if (req.getTriggerType() != null) entity.setTriggerType(req.getTriggerType());
         if (req.getRoutineWeekday() != null) entity.setRoutineWeekday(req.getRoutineWeekday());
         if (req.getRoutineDescription() != null) entity.setRoutineDescription(req.getRoutineDescription());
-        if (req.getActTime() != null) entity.setActTime(req.getActTime());
+        if (req.getActTime() != null) entity.setActTime(actTimeLocal);
 
         // details 전체 교체(요청 있을 때만)
         if (req.getDetail() != null) {
