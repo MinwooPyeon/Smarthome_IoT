@@ -59,7 +59,7 @@ fun RecommendRoutinePage() {
             .fillMaxSize()
             .padding(horizontal = 12.dp),
         contentPadding = PaddingValues(bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         items(DUMMY_RECOMMENDS) { item ->
             RecommendRoutineCard(
@@ -87,21 +87,23 @@ private fun RecommendRoutineCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp),
+            modifier = Modifier.padding(horizontal = 21.dp, vertical = 21.dp),
             verticalAlignment = Alignment.Top
         ) {
-            // 좌측 아이콘
+            // 좌측 아이콘 (MyRoutinePage와 동일한 체감 크기로 조정)
             Box(
                 modifier = Modifier
-                    .size(50.dp)
+                    .size(45.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(data.iconBg),
+                    .background(data.iconBg)
+                    .padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = data.icon,
                     contentDescription = null,
-                    tint = Color.White
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
                 )
             }
 
@@ -162,7 +164,7 @@ private fun RecommendRoutineCard(
                             .alignByBaseline()
                     ) {
                         Text(
-                            text = "추가하기",
+                            text = "추가",
                             fontSize = 14.sp,
                             color = Color.White,
                             fontWeight = FontWeight.Medium

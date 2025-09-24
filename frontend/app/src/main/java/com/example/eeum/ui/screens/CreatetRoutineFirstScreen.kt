@@ -1,6 +1,5 @@
 package com.example.eeum.ui.screens
 
-import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -47,6 +46,10 @@ import com.example.eeum.data.model.dto.routine.Detail
 import com.example.eeum.data.model.dto.routine.RoutineRequestDto
 import com.example.eeum.ui.theme.EeumTheme
 import com.example.eeum.util.ResourceUtils
+import com.google.gson.JsonParser
+import com.google.gson.JsonSyntaxException
+import android.util.Log
+import com.example.eeum.util.SharedPreferencesUtil
 
 private val TextBlue = Color(0xFF3B82F6)
 private val CardBg = Color(0x80FFFFFF)
@@ -57,8 +60,13 @@ private val BorderGray = Color(0xFFE0E0E0)
 fun CreateRoutineFirstScreen(
     navController: NavController,
     vm: RoutineViewModel = viewModel(),
+    routineId: Int = 0,
     isEditMode: Boolean = false
 ) {
+    val ctx = LocalContext.current
+    val prefs = remember { SharedPreferencesUtil(ctx) }
+    val homeId = prefs.getSelectedHomeId() ?: -1
+    
     // --- 입력값들을 모두 rememberSaveable 로 보존 ---
     var title by rememberSaveable { mutableStateOf("") }
     var desc by rememberSaveable { mutableStateOf("") }
@@ -68,7 +76,7 @@ fun CreateRoutineFirstScreen(
         save = { it.toList() },
         restore = { it.toSet() }
     )
-    var selectedDays by rememberSaveable(stateSaver = setSaver) { mutableStateOf(setOf(0)) } // 0=일 ~ 6=토
+    var selectedDays by rememberSaveable(stateSaver = setSaver) { mutableStateOf(setOf(0)) } // ResourceUtils와 동일: 0=월 ~ 6=일
 
     var hour24 by rememberSaveable { mutableIntStateOf(8) }
     var minute by rememberSaveable { mutableIntStateOf(0) }
@@ -86,6 +94,187 @@ fun CreateRoutineFirstScreen(
             restore = { it.toMutableStateList() }
         )
     ) { mutableStateListOf<ActionAddedPayload>() }
+    
+    // 편집 모드에서 초기 로드 완료 상태 추적
+    var editModeActionsLoaded by rememberSaveable { mutableStateOf(false) }
+
+    // 편집 모드에서 기존 루틴 데이터 로드 (상세 정보 포함)
+    val routineDetailV2 by vm.routineDetailV2.observeAsState()
+    val rooms by vm.rooms.observeAsState(emptyList())
+    val devices by vm.devices.observeAsState(emptyList())
+    
+    // 편집 모드일 때 루틴 데이터 로드 및 방 목록 로드
+    LaunchedEffect(isEditMode, routineId, homeId) {
+        if (isEditMode && routineId > 0) {
+            Log.d("CreateRoutineFirst", "📝 Edit mode started for routineId: $routineId")
+            editModeActionsLoaded = false // 편집 모드 시작 시 초기화
+            vm.fetchRoutineDetail(routineId)
+            if (homeId != -1) {
+                vm.fetchRooms(homeId)
+            }
+        } else {
+            editModeActionsLoaded = false // 생성 모드에서는 항상 false
+        }
+    }
+    
+    // 루틴 데이터가 로드되면 모든 필드들 초기화
+    LaunchedEffect(routineDetailV2) {
+        routineDetailV2?.let { routine ->
+            title = routine.name
+            desc = routine.routineDescription
+            
+            // 시간 파싱 (HH:mm:ss -> hour/minute)
+            routine.actTime.let { timeStr ->
+                val timeParts = timeStr.split(":")
+                if (timeParts.size >= 2) {
+                    hour24 = timeParts[0].toIntOrNull() ?: 8
+                    minute = timeParts[1].toIntOrNull() ?: 0
+                }
+            }
+            
+            // 요일 파싱 - ResourceUtils와 동일한 비트마스크 순서 사용
+            // ResourceUtils: 월=0, 화=1, 수=2, 목=3, 금=4, 토=5, 일=6
+            val weekdayMask = routine.routineWeekday
+            val newSelectedDays = mutableSetOf<Int>()
+            for (i in 0..6) {
+                if ((weekdayMask and (1 shl i)) != 0) {
+                    newSelectedDays.add(i)
+                }
+            }
+            selectedDays = newSelectedDays
+            
+            // 아이콘 설정
+            selectedIconId = routine.iconId
+            selectedIconUrl = toAbsoluteUrl(ApplicationClass.SERVER_URL, routine.iconUrl)
+            
+            // 동작 데이터 초기화
+            actions.clear()
+            
+            // CreateRoutineSecondScreen 방식으로 actions 생성
+            // 각 detail의 deviceId로 해당 디바이스가 있는 방을 찾아서 디바이스 목록을 로드해야 함
+            Log.d("CreateRoutineFirst", "Loading routine details for ${routine.details.size} actions")
+        }
+    }
+    
+    // 편집 모드에서 방 목록이 로드되면 모든 방의 디바이스들을 로드
+    LaunchedEffect(rooms, routineDetailV2, isEditMode) {
+        if (isEditMode && rooms.isNotEmpty() && routineDetailV2 != null) {
+            val routine = routineDetailV2!!
+            Log.d("CreateRoutineFirst", "Edit mode: Loading devices from ${rooms.size} rooms for ${routine.details.size} details")
+            
+            // 모든 방에서 디바이스 로드 (순차적으로)
+            rooms.forEachIndexed { index, room ->
+                Log.d("CreateRoutineFirst", "Loading devices from room: ${room.roomName} (${index + 1}/${rooms.size})")
+                vm.fetchDevicesSimple(room.roomName)
+            }
+        }
+    }
+    
+    // 디바이스 목록이 로드되면 해당 디바이스들로 ActionAddedPayload 생성
+    LaunchedEffect(devices, routineDetailV2, rooms, isEditMode, editModeActionsLoaded) {
+        if (isEditMode && devices.isNotEmpty() && routineDetailV2 != null && rooms.isNotEmpty() && !editModeActionsLoaded) {
+            val routine = routineDetailV2!!
+            Log.d("CreateRoutineFirst", "=== Creating Actions ===")
+            Log.d("CreateRoutineFirst", "Available devices: ${devices.size}")
+            Log.d("CreateRoutineFirst", "Available rooms: ${rooms.size}")
+            Log.d("CreateRoutineFirst", "Routine details: ${routine.details.size}")
+            
+            devices.forEach { device ->
+                Log.d("CreateRoutineFirst", "Available device: ${device.deviceName} (ID: ${device.deviceId})")
+            }
+            
+            routine.details.forEach { detail ->
+                Log.d("CreateRoutineFirst", "Looking for device ID: ${detail.deviceId}")
+            }
+            
+            actions.clear()
+            Log.d("CreateRoutineFirst", "Cleared existing actions, starting to create new ones...")
+            
+            routine.details.forEachIndexed { index, detail ->
+                Log.d("CreateRoutineFirst", "Processing detail ${index + 1}/${routine.details.size}: deviceId=${detail.deviceId}")
+                
+                // devices 목록에서 해당 deviceId를 찾기
+                val matchingDevice = devices.find { it.deviceId == detail.deviceId }
+                if (matchingDevice != null) {
+                    Log.d("CreateRoutineFirst", "Found matching device: ${matchingDevice.deviceName} (ID: ${matchingDevice.deviceId})")
+                    
+                    // 해당 디바이스의 방 정보 찾기
+                    val matchingRoom = rooms.find { it.roomId == matchingDevice.roomId }
+                    if (matchingRoom != null) {
+                        Log.d("CreateRoutineFirst", "Found matching room: ${matchingRoom.roomName} (ID: ${matchingRoom.roomId})")
+                        try {
+                            // deviceDetail JSON 파싱
+                            val deviceDetailJson = JsonParser.parseString(detail.deviceDetail).asJsonObject
+                            val power = deviceDetailJson.get("power")?.asBoolean ?: true
+                            val temperature = deviceDetailJson.get("temperature")?.asInt
+                            val level = deviceDetailJson.get("level")?.asInt
+                            
+                            // CreateRoutineSecondScreen과 동일한 방식으로 ActionAddedPayload 생성
+                            val stateTitle = if (power) "켜기" else "끄기"
+                            val roomP = RoomDataP(matchingRoom.roomColor, matchingRoom.roomId, matchingRoom.roomName)
+                            val deviceP = DeviceItemP(
+                                brand = matchingDevice.brand,
+                                deviceId = matchingDevice.deviceId,
+                                deviceName = matchingDevice.deviceName,
+                                deviceType = matchingDevice.deviceType.toString(),
+                                irDeviceId = matchingDevice.irDeviceId,
+                                model = matchingDevice.model,
+                                registeredAt = matchingDevice.registeredAt,
+                                roomId = matchingDevice.roomId,
+                                x = matchingDevice.x,
+                                y = matchingDevice.y
+                            )
+                            // 디바이스 타입별 특징 확인
+                            val deviceTypeStr = matchingDevice.deviceType.toString()
+                            val features = when (deviceTypeStr.trim().lowercase()) {
+                                "조명" -> Triple(true, false, false) // showState, showWind, showAcTemp
+                                "에어컨" -> Triple(true, true, true)
+                                "공기청정기" -> Triple(true, true, false)
+                                "선풍기" -> Triple(true, true, false)
+                                "tv", "텔레비전" -> Triple(true, false, false)
+                                "빔프로젝터" -> Triple(true, false, false)
+                                else -> Triple(true, false, false)
+                            }
+                            val payload = ActionAddedPayload(
+                                room = roomP,
+                                device = deviceP,
+                                stateTitle = stateTitle,
+                                power = power,
+                                windLevel = if (features.second) level else null,
+                                acTemp = if (features.third) temperature else null
+                            )
+                            
+                            actions.add(payload)
+                            Log.d("CreateRoutineFirst", "✅ Successfully added action ${actions.size}: ${matchingDevice.deviceName} (${matchingDevice.deviceType}) in ${matchingRoom.roomName}")
+                            Log.d("CreateRoutineFirst", "   Power: $power, WindLevel: ${payload.windLevel}, AcTemp: ${payload.acTemp}")
+                            
+                        } catch (e: JsonSyntaxException) {
+                            Log.e("CreateRoutineFirst", "Failed to parse deviceDetail JSON: ${detail.deviceDetail}", e)
+                        } catch (e: Exception) {
+                            Log.e("CreateRoutineFirst", "Failed to create action for deviceId: ${detail.deviceId}", e)
+                        }
+                    } else {
+                        Log.w("CreateRoutineFirst", "❌ Room not found for deviceId: ${detail.deviceId}, roomId: ${matchingDevice.roomId}")
+                        Log.w("CreateRoutineFirst", "   Available rooms: ${rooms.map { "${it.roomName}(${it.roomId})" }}")
+                    }
+                } else {
+                    Log.w("CreateRoutineFirst", "❌ Device not found for deviceId: ${detail.deviceId}")
+                    Log.w("CreateRoutineFirst", "   Available devices: ${devices.map { "${it.deviceName}(${it.deviceId})" }}")
+                }
+            }
+            
+            Log.d("CreateRoutineFirst", "=== Final Result ===")
+            Log.d("CreateRoutineFirst", "🏁 Successfully created ${actions.size} actions from ${routine.details.size} details")
+            actions.forEachIndexed { index, action ->
+                Log.d("CreateRoutineFirst", "   Action ${index + 1}: ${action.device.deviceName} - ${action.stateTitle}")
+            }
+            
+            // 편집 모드 초기 로드 완료 표시
+            editModeActionsLoaded = true
+            Log.d("CreateRoutineFirst", "🔒 Edit mode initial load completed, future loads will preserve existing actions")
+        }
+    }
+    
 
     // 두번째 화면에서 돌아온 payload 수신 및 누적 (BackStack의 LiveData를 관찰)
     val newActionLive = navController.currentBackStackEntry
@@ -107,14 +296,20 @@ fun CreateRoutineFirstScreen(
             selectedDays.isNotEmpty() &&
             actions.isNotEmpty()
 
-    // ★ 생성 성공 응답을 관찰하고 그때 RoutineScreen 으로 이동
+    // ★ 생성/수정 성공 응답을 관찰하고 그때 적절한 화면으로 이동
     val createResult = vm.createResult.observeAsState().value
     LaunchedEffect(createResult) {
         createResult?.let {
-            // 성공 응답을 받은 시점에 라우팅 (목록 화면에서 재조회 권장)
-            navController.navigate("routine") {
-                launchSingleTop = true
-                popUpTo("createRoutineFirst") { inclusive = true }
+            // 성공 응답을 받은 시점에 라우팅
+            if (isEditMode) {
+                // 편집 모드에서는 이전 화면으로 돌아가기
+                navController.popBackStack()
+            } else {
+                // 생성 모드에서는 루틴 목록으로 이동
+                navController.navigate("routine") {
+                    launchSingleTop = true
+                    popUpTo("createRoutineFirst") { inclusive = true }
+                }
             }
         }
     }
@@ -212,7 +407,7 @@ fun CreateRoutineFirstScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text("요일 선택", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        val days = listOf("일", "월", "화", "수", "목", "금", "토")
+                        val days = listOf("월", "화", "수", "목", "금", "토", "일") // ResourceUtils 순서와 동일
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(horizontal = 0.dp)
@@ -296,13 +491,26 @@ fun CreateRoutineFirstScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text("동작 설정", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            actions.forEach { payload ->
-                                ActionCard(
-                                    payload = payload,
-                                    onDelete = { toRemove -> actions.remove(toRemove) }
-                                )
+                        
+                        // 디버깅: actions 리스트 상태 확인
+                        Log.d("CreateRoutineFirst", "UI: Rendering ${actions.size} actions")
+                        
+                        if (actions.isEmpty()) {
+                            Text(
+                                text = "동작이 없습니다. 동작을 추가해주세요.",
+                                fontSize = 14.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(vertical = 16.dp)
+                            )
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                actions.forEachIndexed { index, payload ->
+                                    Log.d("CreateRoutineFirst", "UI: Rendering action $index: ${payload.device.deviceName}")
+                                    ActionCard(
+                                        payload = payload,
+                                        onDelete = { toRemove -> actions.remove(toRemove) }
+                                    )
+                                }
                             }
                         }
 
@@ -329,7 +537,8 @@ fun CreateRoutineFirstScreen(
                         val actTimeIso: String = ResourceUtils.toIsoActTime(timeText)
 
                         // 선택 요일을 문자열로 만들고 parseWeekdays 사용
-                        val idxToName = mapOf(0 to "일", 1 to "월", 2 to "화", 3 to "수", 4 to "목", 5 to "금", 6 to "토")
+                        // ResourceUtils 순서와 동일: 0=월, 1=화, 2=수, 3=목, 4=금, 5=토, 6=일
+                        val idxToName = mapOf(0 to "월", 1 to "화", 2 to "수", 3 to "목", 4 to "금", 5 to "토", 6 to "일")
                         val daysRaw = selectedDays.sorted().mapNotNull { idxToName[it] }.joinToString(",")
                         val weekdayMask: Int = ResourceUtils.parseWeekdays(daysRaw) ?: 0
 
@@ -359,7 +568,11 @@ fun CreateRoutineFirstScreen(
                         Log.d("CreateRoutineFirst", "Sending routine with isAi = ${body.isAi}")
                         
                         // 전송 (성공 응답을 observe해서 그때 화면 이동)
-                        vm.generateRoutine(body)
+                        if (isEditMode && routineId > 0) {
+                            vm.updateRoutine(routineId, body)
+                        } else {
+                            vm.generateRoutine(body)
+                        }
                     },
                     enabled = canSubmit,
                     modifier = Modifier.fillMaxWidth(),
@@ -370,7 +583,13 @@ fun CreateRoutineFirstScreen(
                         disabledContainerColor = Color(0xFFBFD8FF),
                         disabledContentColor = Color.White.copy(alpha = 0.8f)
                     )
-                ) { Text("완료", fontSize = 16.sp, fontWeight = FontWeight.Medium) }
+                ) { 
+                    Text(
+                        text = if (isEditMode) "수정 완료" else "완료", 
+                        fontSize = 16.sp, 
+                        fontWeight = FontWeight.Medium
+                    ) 
+                }
             }
         }
     }
