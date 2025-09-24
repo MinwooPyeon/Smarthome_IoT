@@ -89,7 +89,10 @@ public class DeviceService {
         if (req.getHomeId() == null) throw new IllegalArgumentException("homeId는 필수입니다.");
         if (req.getRoomColor() == null) throw new IllegalArgumentException("roomColor는 필수입니다.");
         if (req.getIrDeviceId() == null) throw new IllegalArgumentException("IrDeviceId는 필수입니다.");
-
+        if (req.getDeviceType() == null || req.getDeviceType().isBlank()) {
+            throw new IllegalArgumentException("deviceType은 필수입니다.");
+        }
+        
         Integer userHomeId = deviceRepository.findUserHomeId(userId, req.getHomeId())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "user(" + userId + ")가 home(" + req.getHomeId() + ")에 소속되어 있지 않습니다."));
@@ -103,16 +106,18 @@ public class DeviceService {
         
         // home_id + room_color 로 방 조회
         Room room = roomRepository
-                .findNearestByHomeIdAndRoomColorWithinTol(req.getHomeId(), colorInt, 10)
-                .orElseThrow(() -> new IllegalArgumentException("해당 색상(±" + 10 + ")의 방을 찾을 수 없습니다."));
+                .findNearestByHomeIdAndRoomColorWithinTol(req.getHomeId(), colorInt, 10000000)
+                .orElseThrow(() -> new IllegalArgumentException("해당 색상(±" + 10000000 + ")의 방을 찾을 수 없습니다."));
 
         
         Integer roomId = room.getRoomId();
         
         // 사용자가 방에 이미 기기를 등록했는지 검증
-        boolean duplicated = deviceRepository.existsDeviceInRoomByModel(userHomeId, roomId, req.getModel());
-        if (duplicated) {
-            throw new IllegalArgumentException("이미 해당 방에 동일 모델(" + req.getModel() + ") 기기가 등록되어 있습니다.");
+        boolean duplicatedType = deviceRepository.existsDeviceInRoomByDeviceType(
+                userHomeId, roomId, req.getDeviceType());
+        if (duplicatedType) {
+            throw new IllegalArgumentException(
+                "이미 해당 방에 동일 타입(" + req.getDeviceType() + ") 기기가 등록되어 있습니다.");
         }
         
         // IR 디바이스 존재 확인
@@ -131,6 +136,15 @@ public class DeviceService {
 
         // ir_remoteir 정보 등록
         IrRemoteir model = irRemoteirRepository.findById(req.getModel())
+        	    .map(existing -> {
+        	        if (!existing.getDeviceType().equalsIgnoreCase(req.getDeviceType())) {
+        	            throw new IllegalArgumentException(
+        	                "모델(" + existing.getModel() + ")의 타입(" + existing.getDeviceType() + ")과 요청 타입("
+        	                + req.getDeviceType() + ")이 일치하지 않습니다.");
+        	        }
+        	        return existing;
+        	    })
+        	    
         	    .orElseGet(() -> {
         	        IrRemoteir toSave = IrRemoteir.builder()
         	            .model(req.getModel())
@@ -308,6 +322,8 @@ public class DeviceService {
         );
         device.setDeviceDetail(mergedMap);
         deviceRepository.save(device);
+        
+        log.info("[DEVICE] saved id={} detail={}", deviceId, safeJson(mergedMap));
 
         String model = device.getModel();
         String irDeviceId = device.getIrDeviceId();
@@ -662,5 +678,9 @@ public class DeviceService {
             .collect(Collectors.toList());
 
         return result;
+    }
+    
+    private String safeJson(Object o) {
+        try { return objectMapper.writeValueAsString(o); } catch (Exception e) { return String.valueOf(o); }
     }
 }

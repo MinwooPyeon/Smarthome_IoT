@@ -13,11 +13,13 @@
 #include "EeumMFCDoc.h"
 #include "EeumMFCView.h"
 
-#include <wrl.h>
+#include <wrl.h>          // Microsoft::WRL::ComPtr
 #include <WebView2.h>
-#include <filesystem>
-#include <Shlwapi.h>
+#include <string>
 #include <sstream>
+#include <algorithm>      // std::replace
+#include <cmath>          // std::isfinite
+#include <iomanip>
 
 using Microsoft::WRL::ComPtr;
 using Microsoft::WRL::Callback;
@@ -39,13 +41,14 @@ BEGIN_MESSAGE_MAP(CEeumMFCView, CView)
 
 
 	ON_WM_CREATE()
-	ON_WM_SHOWWINDOW()
 	ON_WM_SIZE()
-	ON_WM_TIMER()
-	ON_WM_ERASEBKGND()
+	ON_MESSAGE(WM_APP_INIT_WEBVIEW, &CEeumMFCView::OnInitWebViewMsg)
+	ON_MESSAGE(WM_APP_METRICS, &CEeumMFCView::OnMetricsMsg)
 END_MESSAGE_MAP()
 
-
+static void TraceW(const wchar_t* s) { ::OutputDebugStringW(s); ::OutputDebugStringW(L"\r\n"); }
+static std::wstring ToW(const std::string& s) { return std::wstring(s.begin(), s.end()); }
+static double jnum(double v) { return std::isfinite(v) ? v : 0.0; } // NaN/Inf 방어
 static CString PathToFileUri(const std::wstring& path) {
 	wchar_t uri[2048]{}; DWORD len = _countof(uri);
 	if (SUCCEEDED(UrlCreateFromPathW(path.c_str(), uri, &len, 0))) {
@@ -55,6 +58,30 @@ static CString PathToFileUri(const std::wstring& path) {
 	// fallback: 대충 만든다 (권장X)
 	CString s; s.Format(L"file:///%s", path.c_str()); s.Replace(L"\\", L"/");
 	return s;
+}
+static std::wstring BuildDashboardFileUri(std::wstring* outPath = nullptr)
+{
+	wchar_t buf[MAX_PATH] = { 0 };
+	GetModuleFileNameW(nullptr, buf, MAX_PATH);
+	std::wstring exePath(buf);
+
+	// 디렉터리 추출
+	size_t pos = exePath.find_last_of(L"\\/");
+	std::wstring dir = (pos == std::wstring::npos) ? L"." : exePath.substr(0, pos);
+
+	// dashboard.html 붙이기
+	std::wstring full = dir + L"\\dashboard.html";
+	std::wstring html = dir + L"\\dashboard.html";
+	if (!PathFileExistsW(html.c_str())) {
+		// ② exe\..\dashboard.html
+		std::wstring html2 = dir + L"\\..\\dashboard.html";
+		if (PathFileExistsW(html2.c_str())) html = html2;
+	}
+	if (outPath) *outPath = html;
+
+	std::wstring uri = L"file:///" + html;
+	std::replace(uri.begin(), uri.end(), L'\\', L'/');
+	return uri;
 }
 // CEeumMFCView 생성/소멸
 CEeumMFCView::CEeumMFCView() noexcept
@@ -89,62 +116,97 @@ void CEeumMFCView::CreateWebHostWindow()
 }
 
 // ====== WebView2 초기화 ======
-void CEeumMFCView::InitWebView() {
-	if (m_webview) return;
+void CEeumMFCView::InitWebView()
+{
+	RECT rc{}; GetClientRect(&rc);
 
-	CreateCoreWebView2EnvironmentWithOptions(
+	HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(
 		nullptr, nullptr, nullptr,
-		Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-			[this](HRESULT result, ICoreWebView2Environment* env)->HRESULT {
-				if (FAILED(result) || !env) { AfxMessageBox(L"WebView2 env 실패"); return result; }
-				m_env = env;
+		Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
+			[this, rc](HRESULT hrEnv, ICoreWebView2Environment* envRaw) -> HRESULT {
+				if (FAILED(hrEnv) || !envRaw) return hrEnv;
 
-				env->CreateCoreWebView2Controller(
-					m_hWebHost,
-					Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-						[this](HRESULT result2, ICoreWebView2Controller* controller)->HRESULT {
-							if (FAILED(result2) || !controller) { AfxMessageBox(L"WebView2 controller 실패"); return result2; }
-							m_controller = controller;
-							m_controller->get_CoreWebView2(&m_webview);
-							m_controller->put_IsVisible(TRUE);
-							ResizeWebView();
+				m_env = envRaw;
+				return m_env->CreateCoreWebView2Controller(
+					m_hWnd,
+					Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+						[this, rc](HRESULT hrCtrl, ICoreWebView2Controller* ctrlRaw) -> HRESULT {
+							if (FAILED(hrCtrl) || !ctrlRaw) return hrCtrl;
 
+							m_ctrl = ctrlRaw;
+							m_ctrl->put_Bounds(rc);
+							m_ctrl->put_IsVisible(true);
 
-							Microsoft::WRL::ComPtr<ICoreWebView2Settings> settings;
-							m_webview->get_Settings(&settings);
-							if (settings) {
+							HRESULT hrWV = m_ctrl->get_CoreWebView2(m_webview.GetAddressOf());
+							if (FAILED(hrWV) || !m_webview) return hrWV;
+
+							ComPtr<ICoreWebView2Settings> settings;
+							if (SUCCEEDED(m_webview->get_Settings(settings.GetAddressOf())) && settings) {
+								settings->put_AreDefaultScriptDialogsEnabled(TRUE);
+								settings->put_IsScriptEnabled(TRUE);
 								settings->put_IsWebMessageEnabled(TRUE);
+								settings->put_AreDevToolsEnabled(TRUE);
 							}
-//							m_webview->NavigateToString(L"<!doctype html><html><body><h1 style='font-family:sans-serif'>hello</h1></body></html>");
-							// 네비 완료 로깅
-							m_webview->add_NavigationCompleted(
-								Callback<ICoreWebView2NavigationCompletedEventHandler>(
-									[this](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs* args)->HRESULT {
-										BOOL ok = FALSE; args->get_IsSuccess(&ok);
-										COREWEBVIEW2_WEB_ERROR_STATUS st; args->get_WebErrorStatus(&st);
-										if (!ok) {
-											CString msg; msg.Format(L"Navigation 실패 (status=%d)", (int)st);
-											AfxMessageBox(msg);
-											// 개발 편의: DevTools 열기
-											if (m_webview) m_webview->OpenDevToolsWindow();
+
+							// ready 수신 → 마지막 값 1회 재전송
+							m_webview->add_WebMessageReceived(
+								Microsoft::WRL::Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+									[this](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args)->HRESULT {
+										LPWSTR json = nullptr;
+										if (SUCCEEDED(args->get_WebMessageAsJson(&json)) && json) {
+											if (wcsstr(json, L"\"type\":\"ready\"")) {
+												m_pageReady_ = true;
+												PushMetrics(m_last_);
+											}
+											CoTaskMemFree(json);
 										}
 										return S_OK;
-									}).Get(), nullptr);
+									}
+								).Get(), nullptr);
 
-							LoadChartHtml(); // ← 여기서 호출
+							m_webview->add_WebMessageReceived(
+								Microsoft::WRL::Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+									[this](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args)->HRESULT {
+										LPWSTR json = nullptr;
+										if (SUCCEEDED(args->get_WebMessageAsJson(&json)) && json) {
+											if (wcsstr(json, L"\"type\":\"ready\"")) {
+												m_pageReady_ = true;
+												PushMetrics(m_last_); // 준비되면 마지막 값 1회 재전송
+											}
+											CoTaskMemFree(json);
+										}
+										return S_OK;
+									}
+								).Get(), nullptr);
+
+							// ★ filesystem 없이 URI 생성
+							std::wstring diskPath;
+							std::wstring uri = BuildDashboardFileUri(&diskPath);
+							if (PathFileExistsW(diskPath.c_str())) {
+								std::wstring dbg = L"[WebView] Navigate to " + uri + L"\r\n";
+								::OutputDebugStringW(dbg.c_str());
+								m_webview->Navigate(uri.c_str());
+							}
+							
 							return S_OK;
-						}).Get());
-				return S_OK;
-			}).Get());
-}
+						}
+					).Get()
+				);
+			}
+		).Get()
+	);
 
+	if (FAILED(hr)) {
+		AfxMessageBox(L"Failed to create WebView2 environment");
+	}
+}
 // ====== 크기 조정 ======
 void CEeumMFCView::ResizeWebView()
 {
-	if (!m_controller) return;
+	if (!m_ctrl) return;
 	CRect rc; GetClientRect(&rc);
 	RECT bounds{ 0,0, rc.Width(), rc.Height() };
-	m_controller->put_Bounds(bounds);
+	m_ctrl->put_Bounds(bounds);
 }
 
 // ====== HTML 로드 ======
@@ -173,32 +235,116 @@ void CEeumMFCView::LoadChartHtml()
 // ====== C++ → JS 데이터 푸시 ======
 void CEeumMFCView::PushMetrics(const Metrics& m)
 {
-	if (!m_webview) return;
+	static unsigned long long seq = 0;
+	m_last_ = m;
+	if (!m_webview || !m_pageReady_) return;
 
-	// std::ostringstream는 항상 '.'을 소수점으로 씁니다 (로케일 영향 없음)
 	std::ostringstream oss;
+	oss.setf(std::ios::fixed);
+	oss << std::setprecision(3);
 	oss << "{"
-		<< "\"tAvg\":" << m.tAvg << ","
-		<< "\"hAvg\":" << m.hAvg << ","
-		<< "\"tEwma\":" << m.tEwma << ","
-		<< "\"hEwma\":" << m.hEwma << ","
-		<< "\"dewPoint\":" << m.dewPoint << ","
-		<< "\"heatIndex\":" << m.heatIndex << ","
+		<< "\"type\":\"metrics\","
+		<< "\"seq\":" << (++seq) << ","            // ★ 추가
+		<< "\"tAvg\":" << jnum(m.tAvg) << ","
+		<< "\"hAvg\":" << jnum(m.hAvg) << ","
+		<< "\"tEwma\":" << jnum(m.tEwma) << ","
+		<< "\"hEwma\":" << jnum(m.hEwma) << ","
+		<< "\"dewPoint\":" << jnum(m.dewPoint) << ","
+		<< "\"heatIndex\":" << jnum(m.heatIndex) << ","
 		<< "\"spike\":" << (m.spike ? "true" : "false") << ","
-		<< "\"absHumidity\":" << m.absHumidity << ","
-		<< "\"wbgt\":" << m.wbgt << ","
-		<< "\"pmv\":" << m.pmv << ","
-		<< "\"ppd\":" << m.ppd << ","
+		<< "\"absHumidity\":" << jnum(m.absHumidity) << ","
+		<< "\"wbgt\":" << jnum(m.wbgt) << ","
+		<< "\"pmv\":" << jnum(m.pmv) << ","
+		<< "\"ppd\":" << jnum(m.ppd) << ","
 		<< "\"ts\":" << static_cast<long long>(::GetTickCount64())
 		<< "}";
 
-	std::string json = oss.str();
-	std::wstring wjson(json.begin(), json.end());
+	// utf8 JSON -> UTF-16 (예외 없는 안전 변환)
+	auto Utf8ToUtf16 = [](const std::string& utf8) -> std::wstring {
+		if (utf8.empty()) return {};
+		int need = ::MultiByteToWideChar(CP_UTF8, 0, utf8.data(), (int)utf8.size(), nullptr, 0);
+		if (need <= 0) return {};
 
-	m_webview->PostWebMessageAsJson(wjson.c_str());
+		std::wstring out; out.resize(need);
+		int got = ::MultiByteToWideChar(CP_UTF8, 0, utf8.data(), (int)utf8.size(), &out[0], need);
+		if (got <= 0) return {};
+		return out;
+		};
+
+	const std::string json8 = oss.str();
+
+	// ★ 길이 가드(UTF-8 기준). 너무 길면 로그만 남기고 drop 하거나, 나눠서 보내도록.
+	constexpr size_t kMaxUtf8Len = 64 * 1024; // 경험상 64KB 넘기지 않는게 안전
+	if (json8.size() > kMaxUtf8Len) {
+		CStringW m; m.Format(L"[WebView] JSON too long: %u bytes (drop)", (unsigned)json8.size());
+		::OutputDebugStringW(m);
+		return; // 또는 여기서 '요약 메시지'만 보내도 됨
+	}
+
+	std::wstring json16 = Utf8ToUtf16(json8);
+	if (json16.empty()) {
+		::OutputDebugStringW(L"[WebView] UTF8->UTF16 conversion failed\n");
+		return;
+	}
+
+	HRESULT hr = m_webview->PostWebMessageAsJson(json16.c_str());
+	wchar_t buf[128];
+	swprintf(buf, 128, L"[PIPE] PushMetrics posted seq=%llu hr=0x%08X\n", seq, (unsigned)hr);
+	OutputDebugStringW(buf);
+	if (FAILED(hr)) {
+		CStringW m; m.Format(L"[WebView] PostWebMessageAsJson failed: 0x%08X\n", hr);
+		::OutputDebugStringW(m);
+	}
 }
 
+int CEeumMFCView::OnCreate(LPCREATESTRUCT cs)
+{
+	if (CView::OnCreate(cs) == -1) return -1;
+	// HWND가 생겼을 때 “지연” 초기화 예약
+	if (!m_webviewInitPosted_) {
+		m_webviewInitPosted_ = true;
+		PostMessage(WM_APP_INIT_WEBVIEW, 0, 0);
+		TraceW(L"[View] Post INIT_WEBVIEW from OnCreate");
+	}
+	return 0;
+}
+void CEeumMFCView::OnInitialUpdate()
+{
+	CView::OnInitialUpdate();
+	// 일부 템플릿에선 OnCreate보다 여기 타이밍이 확실한 경우가 있어, 한 번 더 보강
+	if (!m_webviewInitPosted_) {
+		m_webviewInitPosted_ = true;
+		PostMessage(WM_APP_INIT_WEBVIEW, 0, 0);
+		TraceW(L"[View] Post INIT_WEBVIEW from OnInitialUpdate");
+	}
+	if (auto* doc = dynamic_cast<CEeumMFCDoc*>(GetDocument())) {
+		doc->SetDashboardView(this->GetSafeHwnd());
+	}
+}
+LRESULT CEeumMFCView::OnInitWebViewMsg(WPARAM, LPARAM)
+{
+	if (m_webviewInitRunning_) {
+		TraceW(L"[View] InitWebView already running; skip");
+		return 0;
+	}
+	m_webviewInitRunning_ = true;
 
+	TraceW(L"[View] InitWebView() start");
+	InitWebView();                     // ← 여기서 실제 WebView 생성/네비
+	TraceW(L"[View] InitWebView() done");
+
+	m_webviewInitRunning_ = false;
+	return 0;
+}
+LRESULT CEeumMFCView::OnMetricsMsg(WPARAM, LPARAM lp)
+{
+	// lParam에 Metrics* 전달받아 복사 후 해제
+	std::unique_ptr<Metrics> pm(reinterpret_cast<Metrics*>(lp));
+	if (pm) {
+		PushMetrics(*pm);
+	}
+	return 0;
+}
 // CEeumMFCView 그리기
 void CEeumMFCView::OnDraw(CDC* /*pDC*/)
 {
@@ -224,39 +370,28 @@ void CEeumMFCView::OnEndPrinting(CDC* /*pDC*/, CPrintInfo* /*pInfo*/)
 	// TODO: 인쇄 후 정리 작업을 추가합니다.
 }
 
-// ====== 메시지 핸들러 ======
-int CEeumMFCView::OnCreate(LPCREATESTRUCT lpCreateStruct)
-{
-	if (CView::OnCreate(lpCreateStruct) == -1) return -1;
-
-	//CreateWebHostWindow();
-
-	m_hWebHost = this->GetSafeHwnd();
-	InitWebView(); // 비동기 초기화, 완료되면 HTML 로드됨
-
-	//TODO : DUMMY TEST용 코드
-	//SetTimer(1, 1000, NULL); // 1초마다 더미 Metrics 발생
-
-	return 0;
-}
-
 void CEeumMFCView::OnSize(UINT nType, int cx, int cy)
 {
 	CView::OnSize(nType, cx, cy);
-	ResizeWebView();
+	if (m_ctrl) {
+		RECT r{ 0,0,cx,cy };
+		m_ctrl->put_Bounds(r);
+		m_ctrl->put_IsVisible(TRUE);
+	}
+
+	// 만약 아직 초기화 예약을 못 했고, 이제 HWND가 생겼다면 여기서도 예약
+	if (!m_webviewInitPosted_ && ::IsWindow(m_hWnd)) {
+		m_webviewInitPosted_ = true;
+		PostMessage(WM_APP_INIT_WEBVIEW, 0, 0);
+		TraceW(L"[View] Post INIT_WEBVIEW from OnSize");
+	}
 }
 
-void CEeumMFCView::OnShowWindow(BOOL bShow, UINT nStatus)
-{
-	CView::OnShowWindow(bShow, nStatus);
-	// 창이 보인 뒤 한 번 더 리사이즈 (초기 0 크기 대비)
-	ResizeWebView();
-}
 
 void CEeumMFCView::OnUpdate(CView*, LPARAM, CObject*) {
 	auto* doc = GetDocument();
 	if (!doc || !m_webview) return;
-
+	OutputDebugStringW(L"[PIPE] View: OnUpdate\n");
 	Metrics m{};
 	{
 		std::lock_guard<std::mutex> lk(doc->mtx_);
@@ -266,36 +401,6 @@ void CEeumMFCView::OnUpdate(CView*, LPARAM, CObject*) {
 	PushMetrics(m);
 }
 
-void CEeumMFCView::OnTimer(UINT_PTR nIDEvent)
-{
-	if (nIDEvent == 1) {
-		// 데모용 더미 데이터
-		static double t = 23.0, h = 55.0;
-		t += (rand() % 100 - 50) * 0.01;
-		h += (rand() % 100 - 50) * 0.02;
-
-		Metrics m{};
-		m.tAvg = t;
-		m.hAvg = h;
-		m.tEwma = t;   // 예시: 그대로 사용
-		m.hEwma = h;
-		m.dewPoint = t - ((100 - h) / 5.0);  // 단순 근사
-		m.heatIndex = t + 0.5;                // 단순 근사
-		m.spike = (fabs(t - 23.0) > 2.0);   // 단순 조건
-		m.absHumidity = h * 0.25;               // 단순 근사
-		m.wbgt = t - 0.7;                // 단순 근사
-		m.pmv = (t - 23.0) / 10.0;          // 단순 근사
-		m.ppd = (std::min)(100.0, fabs(m.pmv) * 20); // 단순 근사
-		PushMetrics(m);
-	}
-	CView::OnTimer(nIDEvent);
-}
-
-BOOL CEeumMFCView::OnEraseBkgnd(CDC* pDC)
-{
-	// WebView2가 덮어쓰므로 깜빡임 방지용으로 기본 배경 지우기 생략
-	return TRUE;
-}
 
 // CEeumMFCView 진단
 #ifdef _DEBUG

@@ -75,4 +75,19 @@ public class UserHomeController implements ControllerHelper {
     }
     
     
+    @Operation(summary = "대표 집 조회", description = "현재 유저의 대표 집(Primary Home)을 반환합니다.")
+    @GetMapping("/address/primary")
+    public ResponseEntity<?> getMyPrimaryHome() {
+        try {
+            Integer userId = 1;
+            UserHomeItemResponse res = userHomeService.getPrimaryHome(userId);
+            return handleSuccess(res, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return handleFail(e, HttpStatus.NOT_FOUND);
+        } catch (Exception e) {
+            return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    
 }

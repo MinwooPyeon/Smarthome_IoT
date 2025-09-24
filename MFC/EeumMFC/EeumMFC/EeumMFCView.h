@@ -44,18 +44,22 @@ protected:
 // 생성된 메시지 맵 함수
 protected:
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
+	afx_msg void OnInitialUpdate();
+	afx_msg LRESULT OnInitWebViewMsg(WPARAM, LPARAM);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
-	afx_msg void OnTimer(UINT_PTR nIDEvent);
-	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
-	afx_msg void OnShowWindow(BOOL bShow, UINT nStatus);
+	afx_msg LRESULT OnMetricsMsg(WPARAM, LPARAM);
 	DECLARE_MESSAGE_MAP()
 
 private:
 	HWND m_hWebHost = nullptr;
 	Microsoft::WRL::ComPtr<ICoreWebView2Environment> m_env;
-	Microsoft::WRL::ComPtr<ICoreWebView2Controller> m_controller;
+	Microsoft::WRL::ComPtr<ICoreWebView2Controller> m_ctrl;
 	Microsoft::WRL::ComPtr<ICoreWebView2> m_webview;
 
+	bool m_webviewInitPosted_ = false; // Init 메시지 한 번만
+	bool m_webviewInitRunning_ = false; // 재진입 방지
+	bool m_pageReady_ = false;
+	Metrics m_last_{};
 private:
 	
 	void CreateWebHostWindow();
@@ -72,4 +76,3 @@ public:
 inline CEeumMFCDoc* CEeumMFCView::GetDocument() const
    { return reinterpret_cast<CEeumMFCDoc*>(m_pDocument); }
 #endif
-

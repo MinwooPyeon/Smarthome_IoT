@@ -35,8 +35,10 @@ public class RoutineScheduler {
         int hour = now.getHour();
         int minute = now.getMinute();
         int weekdayMask = weekdayToMask(now.getDayOfWeek());
-
-        List<DueRoutineRow> due = routineRepository.findDueRoutinesKst(hour, minute, weekdayMask);
+        
+        List<DueRoutineRow> due = routineRepository.findDueRoutinesDailyKst(weekdayMask);
+        
+        log.info("[SCHED] due-count={}", (due == null ? 0 : due.size()));
 
         for (DueRoutineRow row : due) {
             try {
@@ -49,15 +51,15 @@ public class RoutineScheduler {
     }
 
     private int weekdayToMask(DayOfWeek day) {
-        // 비트마스크: 일=1, 월=2, 화=4 ... 토=64
+        // 비트마스크
         return switch (day) {
-            case SUNDAY    -> 1;
-            case MONDAY    -> 2;
-            case TUESDAY   -> 4;
-            case WEDNESDAY -> 8;
-            case THURSDAY  -> 16;
-            case FRIDAY    -> 32;
-            case SATURDAY  -> 64;
+            case MONDAY    -> 1;
+            case TUESDAY    -> 2;
+            case WEDNESDAY   -> 4;
+            case THURSDAY -> 8;
+            case FRIDAY  -> 16;
+            case SATURDAY    -> 32;
+            case SUNDAY  -> 64;
         };
     }
 }

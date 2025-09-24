@@ -1,49 +1,157 @@
 <!doctype html>
 <html>
+
 <head>
-<meta charset="utf-8"/>
-<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>EEUM · Live Env Dashboard</title>
-<style>
-  :root {
-    --bg:#0b0f14; --card:#111722; --text:#c9d4e3; --sub:#9ab;
-    --gap:10px;
-  }
-  html,body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family:Segoe UI,Roboto,Apple SD Gothic Neo,Malgun Gothic,sans-serif;}
-  #root { height:100%; display:grid; gap:var(--gap); padding:var(--gap);
-          grid-template-columns: 2fr 2fr 1.6fr; grid-template-rows: auto 1fr 1fr 1fr; }
-  .title { grid-column: 1 / -1; font-weight:600; letter-spacing:.3px; color:var(--sub); }
-  .panel { background:var(--card); border-radius:14px; padding:10px; display:flex; flex-direction:column; min-height:0; }
-  .chart { flex:1; min-height:0; }
-  .metricbar { display:grid; grid-template-columns: repeat(6, 1fr); gap:8px; }
-  .metric { background:rgba(255,255,255,0.04); border-radius:10px; padding:8px 10px; text-align:center; }
-  .metric .k { font-size:11px; color:#8aa; }
-  .metric .v { font-size:18px; font-weight:600; }
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EEUM · Live Env Dashboard</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --card: #111722;
+      --text: #c9d4e3;
+      --sub: #9ab;
+      --gap: 10px;
+    }
 
-  /* 배치 */
-  #p-temp { grid-column: 1 / 3; grid-row: 2; }   /* 가로 2칸 */
-  #p-hum  { grid-column: 1 / 3; grid-row: 3; }
-  #p-dp   { grid-column: 1 / 3; grid-row: 4; }   /* NEW: Dew Point */
-  #p-wbgt { grid-column: 3;     grid-row: 2; }
-  #p-hi   { grid-column: 3;     grid-row: 3; }   /* NEW: Heat Index */
-  #p-g1   { grid-column: 3;     grid-row: 4; display:grid; grid-template-columns: 1fr 1fr; gap:var(--gap); }
-  #g-pmv, #g-ppd { background:var(--card); border-radius:14px; padding:10px; display:flex; flex-direction:column; }
-  #g-pmv .chart, #g-ppd .chart { flex:1; }
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Segoe UI, Roboto, Apple SD Gothic Neo, Malgun Gothic, sans-serif;
+    }
 
-  /* 반응형 */
-  @media (max-width: 1100px) {
-    #root { grid-template-columns: 1fr; grid-template-rows: auto repeat(6, 320px); }
-    #p-temp, #p-hum, #p-dp, #p-wbgt, #p-hi, #p-g1 { grid-column: 1; grid-row: auto; }
-    #p-g1 { grid-template-columns: 1fr; grid-template-rows: 320px 320px; }
-  }
-</style>
+    #root {
+      height: 100%;
+      display: grid;
+      gap: var(--gap);
+      padding: var(--gap);
+      grid-template-columns: 2fr 2fr 1.6fr;
+      grid-template-rows: auto 1fr 1fr 1fr;
+    }
+
+    .title {
+      grid-column: 1 / -1;
+      font-weight: 600;
+      letter-spacing: .3px;
+      color: var(--sub);
+    }
+
+    .panel {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .chart {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .metricbar {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+    }
+
+    .metric {
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 10px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+
+    .metric .k {
+      font-size: 11px;
+      color: #8aa;
+    }
+
+    .metric .v {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    #p-temp {
+      grid-column: 1 / 3;
+      grid-row: 2;
+    }
+
+    #p-hum {
+      grid-column: 1 / 3;
+      grid-row: 3;
+    }
+
+    #p-dp {
+      grid-column: 1 / 3;
+      grid-row: 4;
+    }
+
+    #p-wbgt {
+      grid-column: 3;
+      grid-row: 2;
+    }
+
+    #p-hi {
+      grid-column: 3;
+      grid-row: 3;
+    }
+
+    #p-g1 {
+      grid-column: 3;
+      grid-row: 4;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+    }
+
+    #g-pmv,
+    #g-ppd {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #g-pmv .chart,
+    #g-ppd .chart {
+      flex: 1;
+    }
+
+    @media (max-width: 1100px) {
+      #root {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto repeat(6, 320px);
+      }
+
+      #p-temp,
+      #p-hum,
+      #p-dp,
+      #p-wbgt,
+      #p-hi,
+      #p-g1 {
+        grid-column: 1;
+        grid-row: auto;
+      }
+
+      #p-g1 {
+        grid-template-columns: 1fr;
+        grid-template-rows: 320px 320px;
+      }
+    }
+  </style>
 </head>
+
 <body>
   <div id="root">
     <div class="title">EEUM · Live Environment Dashboard</div>
 
-    <!-- 좌측 2열: Temp/Hum/DewPoint -->
     <div class="panel" id="p-temp">
       <div style="margin-bottom:6px; color:#9ab;">Temperature (°C)</div>
       <div id="c-temp" class="chart"></div>
@@ -57,20 +165,36 @@
       <div id="c-dp" class="chart"></div>
     </div>
 
-    <!-- 우측 1열: WBGT / HeatIndex / Gauges -->
     <div class="panel" id="p-wbgt">
       <div style="margin-bottom:6px; color:#9ab;">WBGT (°C)</div>
       <div id="c-wbgt" class="chart"></div>
       <div class="metricbar" id="mb">
-        <div class="metric"><div class="k">T Avg</div><div class="v" id="m-tavg">-</div></div>
-        <div class="metric"><div class="k">H Avg</div><div class="v" id="m-havg">-</div></div>
-        <div class="metric"><div class="k">Dew Point</div><div class="v" id="m-dp">-</div></div>
-        <div class="metric"><div class="k">Heat Index</div><div class="v" id="m-hi">-</div></div>
-        <div class="metric"><div class="k">Abs Humidity</div><div class="v" id="m-ah">-</div></div>
-        <div class="metric"><div class="k">Spike</div><div class="v" id="m-sp">-</div></div>
+        <div class="metric">
+          <div class="k">T Avg</div>
+          <div class="v" id="m-tavg">-</div>
+        </div>
+        <div class="metric">
+          <div class="k">H Avg</div>
+          <div class="v" id="m-havg">-</div>
+        </div>
+        <div class="metric">
+          <div class="k">Dew Point</div>
+          <div class="v" id="m-dp">-</div>
+        </div>
+        <div class="metric">
+          <div class="k">Heat Index</div>
+          <div class="v" id="m-hi">-</div>
+        </div>
+        <div class="metric">
+          <div class="k">Abs Humidity</div>
+          <div class="v" id="m-ah">-</div>
+        </div>
+        <div class="metric">
+          <div class="k">Spike</div>
+          <div class="v" id="m-sp">-</div>
+        </div>
       </div>
     </div>
-
     <div class="panel" id="p-hi">
       <div style="margin-bottom:6px; color:#9ab;">Heat Index (°C)</div>
       <div id="c-hi" class="chart"></div>
@@ -88,149 +212,150 @@
     </div>
   </div>
 
-  <!-- ECharts -->
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <script>
-    // DOM
-    const domTemp  = document.getElementById('c-temp');
-    const domHum   = document.getElementById('c-hum');
-    const domDP    = document.getElementById('c-dp');   // NEW
-    const domWBGT  = document.getElementById('c-wbgt');
-    const domHI    = document.getElementById('c-hi');   // NEW
-    const domPMV   = document.getElementById('c-pmv');
-    const domPPD   = document.getElementById('c-ppd');
 
-    // 인스턴스
+    const domTemp = document.getElementById('c-temp');
+    const domHum = document.getElementById('c-hum');
+    const domDP = document.getElementById('c-dp');
+    const domWBGT = document.getElementById('c-wbgt');
+    const domHI = document.getElementById('c-hi');
+    const domPMV = document.getElementById('c-pmv');
+    const domPPD = document.getElementById('c-ppd');
+
     const chartTemp = echarts.init(domTemp);
-    const chartHum  = echarts.init(domHum);
-    const chartDP   = echarts.init(domDP);   // NEW
+    const chartHum = echarts.init(domHum);
+    const chartDP = echarts.init(domDP);
     const chartWBGT = echarts.init(domWBGT);
-    const chartHI   = echarts.init(domHI);   // NEW
-    const gaugePMV  = echarts.init(domPMV);
-    const gaugePPD  = echarts.init(domPPD);
+    const chartHI = echarts.init(domHI);
+    const gaugePMV = echarts.init(domPMV);
+    const gaugePPD = echarts.init(domPPD);
 
-    // 시계열 버퍼
-    const winSize = 300;
-    const xs   = [];
-    const vT   = [];
-    const vH   = [];
-    const vDP  = []; // NEW
-    const vW   = [];
-    const vHI  = []; // NEW
+    const winSize = 300, xs = [], vT = [], vH = [], vDP = [], vW = [], vHI = [];
 
-    // 공통 라인 옵션 생성기
-    const makeLineOpt = (unit, seriesName, dataRef, xsRef) => ({
+    const makeLineOpt = (unit, name, dataRef, xsRef) => ({
       backgroundColor: 'transparent',
-      grid:{left:50,right:16,top:10,bottom:26},
-      xAxis:{type:'category', data: xsRef, boundaryGap:false, axisLabel:{show:false}},
-      yAxis:{type:'value', name: unit, nameTextStyle:{color:'#9ab'},
-            axisLine:{lineStyle:{color:'#789'}}, splitLine:{lineStyle:{type:'dashed'}}},
-      tooltip:{trigger:'axis'},
-      series:[{name:seriesName, type:'line', data: dataRef, smooth:true, showSymbol:false, areaStyle:{}}]
+      grid: { left: 50, right: 16, top: 10, bottom: 26 },
+      xAxis: { type: 'category', data: xsRef, boundaryGap: false, axisLabel: { show: false } },
+      yAxis: {
+        type: 'value', name: unit, nameTextStyle: { color: '#9ab' },
+        axisLine: { lineStyle: { color: '#789' } }, splitLine: { lineStyle: { type: 'dashed' } }
+      },
+      tooltip: { trigger: 'axis' },
+      series: [{ name, type: 'line', data: dataRef, smooth: true, showSymbol: false, areaStyle: {} }]
     });
 
-    // 초기 옵션
-    chartTemp.setOption(makeLineOpt('°C','Temp',      vT,  xs));
-    chartHum.setOption( makeLineOpt('%','Humidity',   vH,  xs));
-    chartDP.setOption(  makeLineOpt('°C','Dew Point', vDP, xs));   // NEW
-    chartWBGT.setOption(makeLineOpt('°C','WBGT',      vW,  xs));
-    chartHI.setOption(  makeLineOpt('°C','Heat Index',vHI, xs));   // NEW
+    chartTemp.setOption(makeLineOpt('°C', 'Temp', vT, xs));
+    chartHum.setOption(makeLineOpt('%', 'Humidity', vH, xs));
+    chartDP.setOption(makeLineOpt('°C', 'Dew Point', vDP, xs));
+    chartWBGT.setOption(makeLineOpt('°C', 'WBGT', vW, xs));
+    chartHI.setOption(makeLineOpt('°C', 'Heat Index', vHI, xs));
 
-    // PMV 게이지
     gaugePMV.setOption({
       series: [{
-        type: 'gauge',
-        min: -3, max: 3, splitNumber: 6,
-        axisLine: { lineStyle: { width: 10 } },
-        pointer: { show: true, length: '75%' },
-        detail: { formatter: '{value}', fontSize: 22 },
-        title:  { show: false },
-        data: [{ value: 0 }]
+        type: 'gauge', min: -3, max: 3, splitNumber: 6, axisLine: { lineStyle: { width: 10 } },
+        pointer: { show: true, length: '75%' }, detail: { formatter: '{value}', fontSize: 22 }, title: { show: false }, data: [{ value: 0 }]
       }]
     });
-
-    // PPD 게이지
     gaugePPD.setOption({
       series: [{
-        type: 'gauge',
-        min: 0, max: 100, splitNumber: 10,
-        axisLine: { lineStyle: { width: 10 } },
-        pointer: { show: true, length: '75%' },
-        detail: { formatter: '{value}%', fontSize: 22 },
-        title:  { show: false },
-        data: [{ value: 0 }]
+        type: 'gauge', min: 0, max: 100, splitNumber: 10, axisLine: { lineStyle: { width: 10 } },
+        pointer: { show: true, length: '75%' }, detail: { formatter: '{value}%', fontSize: 22 }, title: { show: false }, data: [{ value: 0 }]
       }]
     });
 
-    // 리사이즈
     new ResizeObserver(() => {
       chartTemp.resize(); chartHum.resize(); chartDP.resize();
       chartWBGT.resize(); chartHI.resize(); gaugePMV.resize(); gaugePPD.resize();
     }).observe(document.body);
 
-    // 메트릭 표시 헬퍼
+    const toNum = v => (typeof v === 'string' ? parseFloat(v) : v);
     const $ = id => document.getElementById(id);
-    const fmt = (n, d=1) => (Number.isFinite(n) ? n.toFixed(d) : '-');
+    const fmt = (n, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : '-');
+
     function setMetric(id, text) { $(id).textContent = text; }
 
-    // 샘플 반영
+    function showSeq(seq, label) {
+      let el = document.getElementById('rx-seq');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'rx-seq';
+        el.style.cssText = 'position:fixed;right:8px;bottom:8px;background:rgba(0,0,0,.4);padding:6px 10px;border-radius:8px;font:12px/1.4 monospace;z-index:9999';
+        document.body.appendChild(el);
+      }
+      el.textContent = `seq=${seq ?? '-'}  ${label}`;
+    }
+
     function pushSample(sample) {
-      // sample: { tAvg,hAvg,tEwma,hEwma,dewPoint,heatIndex,spike,absHumidity,wbgt,pmv,ppd,ts }
       const ts = sample.ts ? new Date(sample.ts) : new Date();
       const label = ts.toLocaleTimeString();
 
-      xs.push(label);
-      vT.push(sample.tAvg);
-      vH.push(sample.hAvg);
-      vDP.push(sample.dewPoint);  // NEW
-      vW.push(sample.wbgt);
-      vHI.push(sample.heatIndex); // NEW
+      // ★ 수신 seq 표시(디버그)
+      showSeq(sample.seq, label);
 
+      // ★ 숫자 보정 사용
+      xs.push(label);
+      vT.push(toNum(sample.tAvg));
+      vH.push(toNum(sample.hAvg));
+      vDP.push(toNum(sample.dewPoint));
+      vW.push(toNum(sample.wbgt));
+      vHI.push(toNum(sample.heatIndex));
       if (xs.length > winSize) { xs.shift(); vT.shift(); vH.shift(); vDP.shift(); vW.shift(); vHI.shift(); }
 
-      chartTemp.setOption({ xAxis:{data:xs}, series:[{data:vT}] });
-      chartHum.setOption( { xAxis:{data:xs}, series:[{data:vH}] });
-      chartDP.setOption(  { xAxis:{data:xs}, series:[{data:vDP}] });
-      chartWBGT.setOption({ xAxis:{data:xs}, series:[{data:vW}] });
-      chartHI.setOption(  { xAxis:{data:xs}, series:[{data:vHI}] });
+      // ★ 강제 갱신: notMerge + lazyUpdate 로 내부 캐시 무시
+      const optX = { xAxis: { data: xs } };
+      chartTemp.setOption({ ...optX, series: [{ data: vT }] });
+      chartHum.setOption({ ...optX, series: [{ data: vH }] });
+      chartDP.setOption({ ...optX, series: [{ data: vDP }] });
+      chartWBGT.setOption({ ...optX, series: [{ data: vW }] });
+      chartHI.setOption({ ...optX, series: [{ data: vHI }] });
 
-      gaugePMV.setOption({ series: [{ data: [{ value: isFinite(sample.pmv) ? sample.pmv : 0 }] }] });
-      gaugePPD.setOption({ series: [{ data: [{ value: isFinite(sample.ppd) ? sample.ppd : 0 }] }] });
+      gaugePMV.setOption({ series: [{ data: [{ value: Number.isFinite(toNum(sample.pmv)) ? toNum(sample.pmv) : 0 }] }] });
+      gaugePPD.setOption({ series: [{ data: [{ value: Number.isFinite(toNum(sample.ppd)) ? toNum(sample.ppd) : 0 }] }] });
 
-      setMetric('m-tavg', fmt(sample.tAvg,1));
-      setMetric('m-havg', fmt(sample.hAvg,1));
-      setMetric('m-dp',   fmt(sample.dewPoint,1));
-      setMetric('m-hi',   fmt(sample.heatIndex,1));
-      setMetric('m-ah',   fmt(sample.absHumidity,1));
-      setMetric('m-sp',   sample.spike ? 'YES' : 'NO');
+      setMetric('m-tavg', fmt(toNum(sample.tAvg), 1));
+      setMetric('m-havg', fmt(toNum(sample.hAvg), 1));
+      setMetric('m-dp', fmt(toNum(sample.dewPoint), 1));
+      setMetric('m-hi', fmt(toNum(sample.heatIndex), 1));
+      setMetric('m-ah', fmt(toNum(sample.absHumidity), 1));
+      setMetric('m-sp', sample.spike ? 'YES' : 'NO');
     }
 
-    // WebView2 메시지 수신 (C++ → JS)
+
+    // C++ → JS
     if (window.chrome && chrome.webview) {
       chrome.webview.addEventListener('message', (ev) => {
-        pushSample(ev.data || {});
+        const msg = ev?.data || {};
+        console.log('[dash] metrics rx', msg.seq, msg);
+        // 타입 사용 시
+        if (msg && msg.type === 'metrics') return pushSample(msg);
+        // 구버전 호환
+        pushSample(msg);
       });
     } else {
-      // (테스트용) 스탠드얼론 더미 데이터
-      setInterval(()=>{
-        const now = Date.now();
-        const baseT = 24 + Math.sin(now/60000)*1.5;
-        const baseH = 55 + Math.cos(now/70000)*3;
+      // 스탠드얼론 데모
+      setInterval(() => {
+        const now = Date.now(), baseT = 24 + Math.sin(now / 60000) * 1.5, baseH = 55 + Math.cos(now / 70000) * 3;
         pushSample({
-          tAvg: baseT + (Math.random()-0.5)*0.3,
-          hAvg: baseH + (Math.random()-0.5)*0.8,
-          tEwma: baseT, hEwma: baseH,
-          dewPoint: 16.5 + (Math.random()-0.5)*0.5,
-          heatIndex: baseT + 1.2 + (Math.random()-0.5)*0.3,
-          spike: Math.random() < 0.02,
-          absHumidity: 13.2 + (Math.random()-0.5),
-          wbgt: baseT - 0.8 + (Math.random()-0.5)*0.2,
-          pmv: Math.max(-3, Math.min(3, (Math.random()-0.5)*0.6)),
-          ppd: Math.max(0, Math.min(100, 5 + Math.abs((Math.random()-0.5))*20)),
-          ts: now
+          tAvg: baseT + (Math.random() - 0.5) * 0.3, hAvg: baseH + (Math.random() - 0.5) * 0.8,
+          tEwma: baseT, hEwma: baseH, dewPoint: 16.5 + (Math.random() - 0.5) * 0.5,
+          heatIndex: baseT + 1.2 + (Math.random() - 0.5) * 0.3, spike: Math.random() < 0.02,
+          absHumidity: 13.2 + (Math.random() - 0.5), wbgt: baseT - 0.8 + (Math.random() - 0.5) * 0.2,
+          pmv: Math.max(-3, Math.min(3, (Math.random() - 0.5) * 0.6)),
+          ppd: Math.max(0, Math.min(100, 5 + Math.abs((Math.random() - 0.5)) * 20)), ts: now
         });
       }, 1000);
     }
+
+    // 페이지 준비 알림 (JS → C++)
+    function notifyReady() {
+      if (window.chrome && chrome.webview) {
+        chrome.webview.postMessage({ type: 'ready' });
+        console.log('[dash] sent ready');
+      }
+    }
+    window.addEventListener('DOMContentLoaded', notifyReady);
   </script>
 </body>
+
 </html>

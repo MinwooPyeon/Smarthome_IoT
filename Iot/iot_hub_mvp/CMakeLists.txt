@@ -21,6 +21,10 @@ add_executable(hub_agent
   src/ir_receiver.cpp
   src/mqtt_manager.cpp
   src/analyzer.cpp
+  src/env_manager.cpp
+  src/log_manager.cpp
+  src/ir_device_manager.cpp
+
 )
 target_include_directories(hub_agent PRIVATE include ${MOSQUITTO_INCLUDE_DIRS})
 target_link_libraries(hub_agent

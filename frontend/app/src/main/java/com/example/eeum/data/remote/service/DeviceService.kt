@@ -5,6 +5,7 @@ import com.example.eeum.data.model.dto.device.DeviceStatusChangeRequest
 import com.example.eeum.data.model.response.common.ApiResponse
 import com.example.eeum.data.model.response.common.BaseResponse
 import com.example.eeum.data.model.response.common.Page
+import com.example.eeum.data.model.response.device.DeviceDeleteResponse
 import com.example.eeum.data.model.response.device.DeviceIcon
 import com.example.eeum.data.model.response.device.DeviceLocation
 import com.example.eeum.data.model.response.device.DeviceResponse
@@ -69,7 +70,7 @@ interface DeviceService {
     @DELETE("/api/devices/{deviceId}")
     suspend fun deleteDevice(
         @Path("deviceId") id: Int,
-    ): Response<ApiResponse<BaseResponse>>
+    ): Response<DeviceDeleteResponse>
 
     // 디바이스 위치 조회
     @GET("api/devices/locations")

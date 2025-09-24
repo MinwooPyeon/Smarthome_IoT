@@ -14,10 +14,12 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +36,7 @@ import com.example.eeum.base.ApplicationClass
 import com.example.eeum.data.model.response.device.DeviceItem
 import com.example.eeum.data.model.response.home.Home
 import com.example.eeum.ui.theme.EeumTheme
+import com.example.eeum.util.SharedPreferencesUtil
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,25 +50,37 @@ fun HomeScreen(
     val homes by vm.homes.observeAsState(emptyList())
     val floorplans by vm.floorplans.observeAsState(emptyList())
     val devices by vm.devices.observeAsState(emptyList())
+    val primaryHomeId by vm.primaryHomeId.observeAsState()
+    val primaryHomeName by vm.primaryHomeName.observeAsState()
+
+    // 사용자 정보 (MenuViewModel 재사용)
+    val menuVm: MenuViewModel = viewModel(LocalContext.current as androidx.activity.ComponentActivity)
+    val userInfo by menuVm.userInfo.observeAsState()
 
     // SharedPreferences 유틸
     val ctx = LocalContext.current
     val prefs = remember { com.example.eeum.util.SharedPreferencesUtil(ctx) }
 
-    // 최초 진입 시 집 목록 조회
-    LaunchedEffect(Unit) { vm.fetchUserHomes() }
+    // 최초 진입 시 대표 집 및 집 목록 조회 + 사용자 정보 조회
+    LaunchedEffect(Unit) {
+        vm.fetchUserHomes()
+        vm.fetchPrimaryHome() // 이제 fetchPrimaryHome에서 자동으로 평면도와 디바이스를 조회함
+        menuVm.getUserInfo()
+    }
 
     // 선택된 집 이름 (UI 표시용)
     var selectedHomeName by remember { mutableStateOf<String?>(null) }
 
-    // homes 갱신 시 초기 선택 & 평면도 자동 조회
+    // 대표집 정보가 업데이트될 때 selectedHomeName도 업데이트
+    LaunchedEffect(primaryHomeName) {
+        primaryHomeName?.let { name ->
+            selectedHomeName = name
+        }
+    }
+
+    // 집 목록이 비어있으면 평면도 초기화
     LaunchedEffect(homes) {
-        if (homes.isNotEmpty()) {
-            val initial = selectedHomeName?.let { n -> homes.find { it.homeName == n } } ?: homes.first()
-            selectedHomeName = initial.homeName
-            vm.selectHome(initial.homeId)
-            vm.fetchDevicesIcon()
-        } else {
+        if (homes.isEmpty()) {
             selectedHomeName = null
             vm.clearFloorplans()
         }
@@ -84,7 +99,8 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Greeting("제니님!")
+            val nickname = userInfo?.data?.nickname?.takeIf { it.isNotBlank() } ?: "제니"
+            Greeting("${nickname}님!")
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -121,7 +137,7 @@ fun HomeScreen(
                 vm.selectHome(home.homeId)
                 vm.setPrimaryHome(home.homeId)
                 vm.fetchDevicesIcon()
-                // ✅ SharedPreferences에 즉시 저장
+                //  SharedPreferences에 즉시 저장
                 prefs.setSelectedHomeId(home.homeId)
             },
             onAddNew = onOpenMap
@@ -211,7 +227,7 @@ private fun HomeDropdown(
 private fun Greeting(name: String) {
     Text(
         text = name,
-        fontSize = 20.sp,
+        fontSize = 30.sp,
         fontWeight = FontWeight.ExtraBold,
         color = Color(0xFF0F172A)
     )
@@ -251,7 +267,7 @@ private fun StatsRow() {
 private fun StatCard(
     title: String,
     subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    icon: ImageVector? = null,
     iconResource: Int? = null,
     tint: Color,
     modifier: Modifier = Modifier
@@ -333,7 +349,7 @@ private fun FloorplanCard(
     } else Modifier
 
     val density = LocalDensity.current
-    val iconSizeDp = 24.dp
+    val iconSizeDp = 28.dp
     val iconSizePx = with(density) { iconSizeDp.toPx() }
 
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
@@ -401,13 +417,13 @@ private fun FloorplanCard(
                             val xPx = (item.x.toFloat() * drawnW)
                             val yPx = (item.y.toFloat() * drawnH)
 
-                            // 1사분면(y 위로 증가) → Compose(top-down)로 변환
+                            // Compose 좌표계 그대로 사용 (DeviceRegistrationCompleteScreen과 동일)
                             val leftFromLeftPx = (leftMargin + xPx - iconSizePx / 2f)
                                 .coerceIn(0f, containerSize.width - iconSizePx)
-                            val topFromTopPx = (topMargin + (drawnH - yPx) - iconSizePx / 2f)
+                            val topFromTopPx = (topMargin + yPx - iconSizePx / 2f)
                                 .coerceIn(0f, containerSize.height - iconSizePx)
 
-                            iconResForDevice2(item.deviceType)?.let { resId ->
+                            iconResForDevice(item.deviceType, item.deviceDetail.power)?.let { resId ->
                                 Image(
                                     painter = painterResource(id = resId),
                                     contentDescription = item.deviceName,
@@ -429,15 +445,15 @@ private fun FloorplanCard(
     }
 }
 
-private fun iconResForDevice2(deviceType: Any?): Int? {
+private fun iconResForDevice(deviceType: Any?, isPoweredOn: Boolean): Int? {
     val key = deviceType?.toString()?.trim()?.lowercase() ?: return null
     return when (key) {
-        "에어컨" -> R.drawable.ic_icon_air_conditioning
-        "선풍기" -> R.drawable.ic_icon_electric_fan
-        "텔레비전" -> R.drawable.ic_icon_television
-        "빔프로젝터" -> R.drawable.ic_icon_beam_projector
-        "공기청정기" -> R.drawable.ic_icon_air_purifier
-        "조명" -> R.drawable.ic_icon_light
+        "에어컨" -> if (isPoweredOn) R.drawable.ic_icon_air_conditioning_on else R.drawable.ic_icon_air_conditioning
+        "선풍기" -> if (isPoweredOn) R.drawable.ic_icon_electric_fan_on else R.drawable.ic_icon_electric_fan
+        "텔레비전" -> if (isPoweredOn) R.drawable.ic_icon_television_on else R.drawable.ic_icon_television
+        "빔프로젝터" -> if (isPoweredOn) R.drawable.ic_icon_beam_projector_on else R.drawable.ic_icon_beam_projector
+        "공기청정기" -> if (isPoweredOn) R.drawable.ic_icon_air_purifier_on else R.drawable.ic_icon_air_purifier
+        "조명" -> if (isPoweredOn) R.drawable.ic_icon_light_on else R.drawable.ic_icon_light
         else -> null
     }
 }

@@ -55,6 +55,10 @@ public class FloorplanService {
 	      if (userId == null || homeId == null) {
 	          throw new IllegalArgumentException("userId, homeId는 필수입니다.");
 	      }
+	      
+	      if (userHomeRepository.existsByUserIdAndHomeId(userId, homeId)) {
+	          throw new IllegalStateException("이미 해당 평면도가 등록되어 있습니다.");
+	      }
 	
 	      UserHome userHome = UserHome.builder()
 	    		  .userId(userId)

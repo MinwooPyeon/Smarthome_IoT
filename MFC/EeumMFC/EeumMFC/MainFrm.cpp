@@ -22,7 +22,7 @@ IMPLEMENT_DYNCREATE(CMainFrame, CFrameWndEx)
 BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_WM_CREATE()
 	ON_MESSAGE(WM_APP_DATAREADY, &CMainFrame::OnDataReady)
-	ON_MESSAGE(WM_APP_SELECT_HUB, &CMainFrame::OnAppLog)
+	ON_MESSAGE(WM_APP_SELECT_HUB, &CMainFrame::OnSelectHub)
 	ON_MESSAGE(WM_APP_LOG, &CMainFrame::OnAppLog)
 END_MESSAGE_MAP()
 
@@ -81,7 +81,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 LRESULT CMainFrame::OnDataReady(WPARAM, LPARAM)
 {
 	CEeumMFCDoc* doc = dynamic_cast<CEeumMFCDoc*>(GetActiveDocument());
-
+	OutputDebugStringW(L"[PIPE] MainFrame: OnDataReady\n");
 	if (doc) {
 		doc->UpdateAllViews(nullptr);
 	}

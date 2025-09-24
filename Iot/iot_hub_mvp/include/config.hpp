@@ -30,7 +30,7 @@ struct AppConfig {
     // --- subscribe topic ---
     std::string topicOrderIrReq = "hub/" + deviceId + "/order/ir_req"; //ir signal require
     std::string topicOrderEnv = "hub/" + deviceId + "/order/env"; //environment request
-    std::string topicRegisDebice = "hub/" + deviceId + "/sendDevice"; // Regist/Unregist IR Send Device
+    std::string topicRegisDevice = "hub/" + deviceId + "/sendDevice"; // Regist/Unregist IR Send Device
     
 
     // --- ENV Streaming ---

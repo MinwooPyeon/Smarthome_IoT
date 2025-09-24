@@ -6,22 +6,29 @@
 #include <vector>
 #include "Types.h"
 
-class MqttClient : private MosqInitGuard, public mosqpp::mosquittopp {
+class MqttClient : public mosqpp::mosquittopp {
 public:
 	explicit MqttClient(const Config& cfg);
+	~MqttClient();
 	std::function<void(const std::string&, const std::string&)> onMessage;
 
 	void setTopics(const std::vector<std::string>& topics);
 
 	bool publishJson(const std::string& topic, const std::string& json, int qos = 1, bool retain = false);
 	bool orderEnv(const std::string& hubId, bool streaming);
-protected:
+
 	void on_connect(int rc) override;
 	void on_disconnect(int rc) override;
 	void on_message(const mosquitto_message* m) override;
+	void on_log(int level, const char* s) override;
+protected:
 private:
 	std::mutex mtx_;
 	bool connected_ = false;
 	std::vector<std::string> topics_;
 	Config cfg_;
+
+	enum class LoopMode { None, Start, Forever };
+	LoopMode loopMode_{ LoopMode::None };
+	std::thread loopThread_;
 };

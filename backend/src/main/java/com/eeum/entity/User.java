@@ -1,17 +1,21 @@
 package com.eeum.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 
+@Builder
 @Entity
 @Table(name = "\"user\"", schema = "eeum")
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
 public class User {
 
     @Id
@@ -35,12 +39,12 @@ public class User {
     private String email;
 
     @Column(name = "join_date")
-    private OffsetDateTime joinDate;
+    private Instant joinDate;
 
     @Column(name = "out")
-    private OffsetDateTime out;
+    private Instant out;
 
     @Column(name = "last_active")
-    private OffsetDateTime lastActive;
+    private Instant lastActive;
 
 }

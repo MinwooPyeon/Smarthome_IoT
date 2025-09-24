@@ -5,10 +5,12 @@ import com.eeum.dto.request.RegisterDeviceRequest;
 import com.eeum.dto.request.UpdateDeviceLocationRequest;
 import com.eeum.dto.response.DeviceLocationResponse;
 import com.eeum.service.DeviceService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Map;
@@ -17,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/devices")
 @RequiredArgsConstructor
@@ -103,6 +106,7 @@ public class DeviceController implements ControllerHelper {
             @RequestBody DeviceStatusRequest request
     ) {
         try {
+            log.debug("[API] PUT /devices/{}/status body={}", deviceId, safeJson(request.getDeviceDetail()));
         	Integer result = deviceService.updateStatus(deviceId, request);
     	
 	        return handleSuccess(Map.of("deviceId", result), HttpStatus.OK);
@@ -163,4 +167,8 @@ public class DeviceController implements ControllerHelper {
                 return handleFail(e, HttpStatus.INTERNAL_SERVER_ERROR);
             }
         }
+    private String safeJson(Object o) {
+    	  try { return new ObjectMapper().writeValueAsString(o); }
+    	  catch (Exception e) { return String.valueOf(o); }
+    	}
 }

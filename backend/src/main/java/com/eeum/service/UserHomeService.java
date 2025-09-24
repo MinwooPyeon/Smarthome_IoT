@@ -1,12 +1,18 @@
 package com.eeum.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.eeum.dto.response.RoomItemResponse;
 import com.eeum.dto.response.UserHomeItemResponse;
+import com.eeum.entity.Address;
+import com.eeum.entity.Home;
+import com.eeum.entity.UserHome;
+import com.eeum.repository.AddressRepository;
+import com.eeum.repository.HomeRepository;
 import com.eeum.repository.UserHomeRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -16,6 +22,9 @@ import lombok.RequiredArgsConstructor;
 public class UserHomeService {
     
     private final UserHomeRepository userHomeRepository;
+    private final HomeRepository homeRepository;
+    private final AddressRepository addressRepository;
+
 
     // 유저의 집 목록 조회
     public List<UserHomeItemResponse> listUserHomes(Integer userId) {
@@ -58,6 +67,29 @@ public class UserHomeService {
                     toHex(r.getRoomColor())
             ))
             .toList();
+    }
+    
+    // 유저 대표집 조회
+    @Transactional(readOnly = true)
+    public UserHomeItemResponse getPrimaryHome(Integer userId) {
+        UserHome uh = userHomeRepository.findByUserIdAndIsPrimaryTrue(userId)
+                .orElseThrow(() -> new IllegalArgumentException("대표 집이 설정되어 있지 않습니다."));
+
+        Home home = homeRepository.findById(uh.getHomeId())
+            .orElseThrow(() -> new IllegalArgumentException("homeId=" + uh.getHomeId() + " 집 정보를 찾을 수 없습니다."));
+
+        Address addr = addressRepository.findById(home.getAddressId())
+            .orElseThrow(() -> new IllegalArgumentException("addressId=" + home.getAddressId() + " 주소를 찾을 수 없습니다."));
+
+        
+        return UserHomeItemResponse.builder()
+                .homeId(uh.getUserHomeId())
+                .homeName(addr.getHomeName())
+                .build();
+    }
+    
+    public Optional<Integer> getIsPrimaryHomeId(Integer userId) {
+        return userHomeRepository.findIsPrimaryHomeId(userId);
     }
 
     private static String toHex(Integer rgb) {

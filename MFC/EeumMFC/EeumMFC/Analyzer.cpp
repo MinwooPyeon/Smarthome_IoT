@@ -4,7 +4,10 @@
 #include <algorithm>
 
 static inline bool finite(double x) { return std::isfinite(x); }
-
+template<typename T>
+static inline T clamp(T x, T lo, T hi) {
+    return (x < lo) ? lo : (x > hi) ? hi : x;
+}
 // ---- 기본 지표 ----
 double Analyzer::dewPointC(double T, double RH) {
     // Magnus-Tetens
@@ -44,97 +47,125 @@ double Analyzer::wbgtIndoorApprox(double T, double RH) {
 // ISO 7730 / Fanger 모델 간략 구현 (입력 단위 주의)
 // tdb, tr: °C / rh: % / vel: m/s / met: met / clo: clo
 void Analyzer::pmvPpd(double tdb, double tr, double rh, double vel,
-    double met, double clo, double& outPMV, double& outPPD) {
-    // 수증기압 Pa (rh는 %)
-    double pa = rh * 10.0 * std::exp(16.6536 - 4030.183 / (tdb + 235.0));
-    double icl = 0.155 * clo;       // m^2*K/W
-    double m = met * 58.15;       // W/m^2
-    double w = 0.0;               // 외부 일 (없음)
-    double mw = m - w;
+    double met, double clo, double& outPMV, double& outPPD)
+{
+    // --- 수증기압 [Pa] : Tetens + RH% ---
+    const double p_ws = 610.5 * std::exp(17.2694 * tdb / (237.29 + tdb));
+    const double pa = (rh / 100.0) * p_ws;
 
-    // 착의 표면적계수 fcl
-    double fcl = (icl > 0.078) ? (1.05 + 0.645 * icl) : (1.0 + 1.29 * icl);
+    const double icl = 0.155 * clo;      // m^2*K/W
+    const double m = met * 58.15;      // W/m^2
+    const double w = 0.0;
+    const double mw = m - w;
 
-    // 의복 표면온도 수치해 (ISO 공식 기반)
-    double tcla = tdb + (35.5 - tdb) / (3.5 * icl + 0.1);
-    double p1 = icl * fcl;
-    double p2 = p1 * 3.96;
-    double p3 = p1 * 100.0;
-    double p4 = p1 * tdb;
-    double p5 = 308.7 - 0.028 * mw + p2 * std::pow((tr + 273.0) / 100.0, 4);
+    const double fcl = (icl > 0.078) ? (1.05 + 0.645 * icl) : (1.0 + 1.29 * icl);
+
+    const double tcla = tdb + (35.5 - tdb) / (3.5 * icl + 0.1);
+    const double p1 = icl * fcl, p2 = p1 * 3.96, p3 = p1 * 100.0, p4 = p3 * ((tdb + 273.0) / 100.0);
+    const double p5 = 308.7 - 0.028 * mw + p2 * std::pow((tr + 273.0) / 100.0, 4);
 
     double xn = (tcla + 273.0) / 100.0;
     double xf = xn;
-    double eps = 0.00015;
+    const double eps = 1.5e-4;
     double hc = 0.0;
 
-    for (int i = 0; i < 200; ++i) {
-        xf = xn;
-        // 대류 열전달 계수 (자연/강제 중 큰 값)
-        double hc_nat = 2.38 * std::pow(std::fabs(100.0 * xf - tdb), 0.25);
-        double hc_for = 12.1 * std::sqrt((std::max)(0.0, vel));
-        hc = (std::max)(hc_nat, hc_for);
 
-        xn = (p5 + p4 * hc - p2 * std::pow(xn, 4)) / (100.0 + p3 * hc);
+    for (int i = 0; i < 200; ++i) {
+
+        xf = xn;
+        const double tcl_prev = 100.0 * xf - 273.0; // °C
+        const double hc_nat = 2.38 * std::pow(std::fabs(tcl_prev - tdb), 0.25);
+        const double hc_for = 12.1 * std::sqrt((std::max)(0.0, vel));
+        hc = (std::max)(hc_nat, hc_for);
+        xn = (p5 + p4 * hc - p2 * std::pow(xf, 4)) / (100.0 + p3 * hc);
+        
         if (std::fabs(xn - xf) <= eps) break;
     }
 
-    double tcl = 100.0 * xn - 273.0;
+    const double tcl = 100.0 * xn - 273.0;
 
-    // 각 열손실 항
-    double hl1 = 3.05 * 0.001 * (5733.0 - (6.99 * mw) - pa);
-    double hl2 = (mw > 58.15) ? 0.42 * (mw - 58.15) : 0.0;
-    double hl3 = 1.7e-5 * m * (5867.0 - pa);
-    double hl4 = 0.0014 * m * (34.0 - tdb);
-    double hl5 = 3.96 * fcl * (std::pow(xn, 4) - std::pow((tr + 273.0) / 100.0, 4));
-    double hl6 = fcl * hc * (tcl - tdb);
+    const double hl1 = 3.05e-3 * (5733.0 - 6.99 * mw - pa);
+    const double hl2 = (mw > 58.15) ? 0.42 * (mw - 58.15) : 0.0;
+    const double hl3 = 1.7e-5 * m * (5867.0 - pa);
+    const double hl4 = 1.4e-3 * m * (34.0 - tdb);
+    const double hl5 = 3.96 * fcl * (std::pow((tcl + 273.0) / 100.0, 4) - std::pow((tr + 273.0) / 100.0, 4));
+    const double hl6 = fcl * hc * (tcl - tdb);
 
-    double pmv = (0.303 * std::exp(-0.036 * m) + 0.028) * (mw - hl1 - hl2 - hl3 - hl4 - hl5 - hl6);
-    double ppd = 100.0 - 95.0 * std::exp(-0.03353 * std::pow(pmv, 4) - 0.2179 * pmv * pmv);
+    const double pmv = (0.303 * std::exp(-0.036 * m) + 0.028) * (mw - hl1 - hl2 - hl3 - hl4 - hl5 - hl6);
+    const double ppd = 100.0 - 95.0 * std::exp(-0.03353 * std::pow(pmv, 4) - 0.2179 * pmv * pmv);
 
     outPMV = pmv;
-    outPPD = ppd;
+    outPPD = clamp(ppd, 0.0, 100.0);
+
 }
+
 
 // ---- 메인 계산 ----
 Metrics Analyzer::compute(const std::vector<EnvSample>& v)
 {
+    using std::isfinite;
+    using std::numeric_limits;
+
     Metrics m{};
-    if (v.empty()) return m;
+    if (v.empty()) return m; // 그대로 반환(필요하면 NaN으로 초기화해도 됨)
 
     double sumT = 0.0, sumH = 0.0;
-    int n = 0;
+    int nT = 0, nH = 0;
 
     for (const auto& s : v) {
-        if (finite(s.t)) sumT += s.t;
-        if (finite(s.h)) sumH += s.h;
-        n++;
+        if (isfinite(s.t)) { sumT += s.t; ++nT; }
+        if (isfinite(s.h)) { sumH += s.h; ++nH; }
     }
 
-    m.tAvg = sumT / (std::max)(1, n);
-    m.hAvg = sumH / (std::max)(1, n);
+    m.tAvg = (nT > 0) ? (sumT / nT) : numeric_limits<double>::quiet_NaN();
+    m.hAvg = (nH > 0) ? (sumH / nH) : numeric_limits<double>::quiet_NaN();
 
     const auto& last = v.back();
+    const double lastT = isfinite(last.t) ? last.t : (isfinite(m.tAvg) ? m.tAvg : ewT);
+    const double lastH = isfinite(last.h) ? last.h : (isfinite(m.hAvg) ? m.hAvg : ewH);
 
-    // EWMA 업데이트
-    ewT = finite(ewT) ? (aT * last.t + (1.0 - aT) * ewT) : last.t;
-    ewH = finite(ewH) ? (aH * last.h + (1.0 - aH) * ewH) : last.h;
+    // alpha 안전범위
+    const double alphaT = clamp(aT, 0.0, 1.0);
+    const double alphaH = clamp(aH, 0.0, 1.0);
+
+    // EWMA 업데이트: 최신값이 유효할 때만 갱신
+    if (isfinite(lastT)) ewT = isfinite(ewT) ? (alphaT * lastT + (1.0 - alphaT) * ewT) : lastT;
+    if (isfinite(lastH)) ewH = isfinite(ewH) ? (alphaH * lastH + (1.0 - alphaH) * ewH) : lastH;
 
     m.tEwma = ewT;
     m.hEwma = ewH;
 
-    // 기존 지표
-    m.dewPoint = dewPointC(ewT, ewH);
-    m.heatIndex = heatIndexC(ewT, ewH);
-    m.spike = std::fabs(last.t - m.tAvg) > 5.0;
+    // RH 범위 보정(필요시)
+    const double rh = isfinite(ewH) ? clamp(ewH, 0.0, 100.0) : ewH;
 
-    // 추가 지표
-    m.absHumidity = absoluteHumidity(ewT, ewH);
-    m.wbgt = wbgtIndoorApprox(ewT, ewH);
+    // 파생지표는 입력값 유효할 때만 계산
+    if (isfinite(ewT) && isfinite(rh)) {
+        m.dewPoint = dewPointC(ewT, rh);
+        m.heatIndex = heatIndexC(ewT, rh);       // 구현이 °C+% 입력인지 확인
+        m.absHumidity = absoluteHumidity(ewT, rh);
+        m.wbgt = wbgtIndoorApprox(ewT, rh);
+    }
+    else {
+        m.dewPoint = m.heatIndex = m.absHumidity = m.wbgt =
+            numeric_limits<double>::quiet_NaN();
+    }
 
-    // PMV/PPD (tr이 설정되지 않았다면 공기온도 사용)
-    double trUse = std::isfinite(m_tr) ? m_tr : ewT;
-    pmvPpd(ewT, trUse, ewH, m_vel, m_met, m_clo, m.pmv, m.ppd);
+    // 스파이크: 평균보다 EWMA 기준이 일반적으로 더 안정적
+    const double baseline = isfinite(m.tEwma) ? m.tEwma : m.tAvg;
+    m.spike = (isfinite(last.t) && isfinite(baseline)) ? (std::fabs(last.t - baseline) > 5.0) : false;
+
+    // PMV/PPD
+    const double trUse = std::isfinite(m_tr) ? m_tr : ewT;
+    if (isfinite(ewT) && isfinite(trUse) && isfinite(rh)) {
+        
+        // NOTE: pmvPpd의 rh 인자 단위를 확인하세요(%, 혹은 0~1).
+        pmvPpd(ewT, trUse, rh, m_vel, m_met, m_clo, m.pmv, m.ppd);
+
+    }
+    else {
+        m.pmv = m.ppd = numeric_limits<double>::quiet_NaN();
+    }
 
     return m;
 }
+

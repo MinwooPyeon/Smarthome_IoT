@@ -147,7 +147,7 @@ fun CreateRoutineSecondScreen(
                     devices.forEachIndexed { idx, item: DeviceItem ->
                         val iconRes = iconResForDevice(item.deviceType)
                         RadioListRow(
-                            title = item.deviceType.toString(),
+                            title = item.deviceType?.toString() ?: "알 수 없는 디바이스",
                             iconVector = null,
                             iconResId = iconRes,
                             selected = selectedDeviceIdx == idx,

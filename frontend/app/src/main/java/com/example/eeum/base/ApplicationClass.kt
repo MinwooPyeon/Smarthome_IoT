@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import com.example.eeum.data.remote.service.AuthService
+import com.example.eeum.util.NotificationUtil
 import com.example.eeum.util.SharedPreferencesUtil
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -16,6 +17,11 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import coil.ImageLoader
+import coil.Coil
+import android.os.Build
+import java.security.MessageDigest
+import com.example.eeum.BuildConfig
 
 private const val TAG = "EEUM_ApplicationClass"
 
@@ -27,6 +33,7 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
         lateinit var sharedPreferencesUtil: SharedPreferencesUtil
             private set
         lateinit var retrofit: Retrofit
+        lateinit var imageLoader: ImageLoader
 
         // 로딩 관련
         private var currentActivity: Activity? = null
@@ -70,12 +77,14 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
         super.onCreate()
         registerActivityLifecycleCallbacks(this)
         com.jakewharton.threetenabp.AndroidThreeTen.init(this)
+        NotificationUtil.ensureChannels(this)
 
-        // ✅ 네이버 맵 SDK Client ID를 Manifest 메타데이터에서 읽어 주입
+        // 네이버 맵 SDK Client ID를 Manifest 메타데이터에서 읽어 주입
         initNaverMapClient()
         val ai = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
-        android.util.Log.d("NaverMapCheck", "pkg=" + packageName)
-        android.util.Log.d("NaverMapCheck", "clientId(from Manifest)=" + ai.metaData?.getString("com.naver.maps.map.CLIENT_ID"))
+        Log.d("NaverMapCheck", "pkg=" + packageName)
+        Log.d("NaverMapCheck", "NCP_KEY_ID(manifest)=" + ai.metaData?.getString("com.naver.maps.map.NCP_KEY_ID"))
+        logAppSigningSha1()
 
 
         // SharedPreferences 초기화
@@ -116,24 +125,30 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .client(okHttpClient)
             .build()
-    }
 
-    /** Manifest의 <meta-data android:name="com.naver.maps.map.CLIENT_ID"> 값을 읽어 SDK에 주입 */
+        // --- Coil ImageLoader (AsyncImage에서 인증 헤더 포함하여 사용) ---
+        imageLoader = ImageLoader.Builder(this)
+            .okHttpClient(okHttpClient)
+            .crossfade(true)
+            .build()
+        Coil.setImageLoader(imageLoader)
+    }
     private fun initNaverMapClient() {
-        val clientId = runCatching {
+        // 1) Manifest에서 키 조회
+        val manifestClientId = runCatching {
             val ai = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
-            ai.metaData?.getString("com.naver.maps.map.CLIENT_ID")
+            ai.metaData?.getString("com.naver.maps.map.NCP_KEY_ID")
         }.getOrNull()
 
+        // 2) 실패 시 BuildConfig에서 가져오기
+        val clientId = manifestClientId ?: runCatching { BuildConfig.NAVER_CLIENT_ID }.getOrNull()
+
         if (clientId.isNullOrBlank()) {
-            Log.e(TAG, "NaverMap CLIENT_ID not found in Manifest meta-data.")
+            Log.e(TAG, "NaverMap CLIENT_ID not configured. Check Manifest placeholders or BuildConfig.")
             return
         }
 
-        NaverMapSdk.getInstance(this).client =
-            NaverMapSdk.NaverCloudPlatformClient(clientId)
-
-        Log.d(TAG, "NaverMap CLIENT_ID set: $clientId")
+        Log.d(TAG, "NaverMap CLIENT_ID (from manifest): $clientId - SDK will use meta-data automatically")
     }
 
     // Activity 생명주기 콜백들
@@ -148,5 +163,39 @@ class ApplicationClass : Application(), Application.ActivityLifecycleCallbacks {
             hideLoading()
             currentActivity = null
         }
+    }
+
+    private fun logAppSigningSha1() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val pkgInfo = packageManager.getPackageInfo(
+                    packageName,
+                    PackageManager.GET_SIGNING_CERTIFICATES
+                )
+                val certs = pkgInfo.signingInfo?.apkContentsSigners
+                if (!certs.isNullOrEmpty()) {
+                    val sha1 = sha1Of(certs[0].toByteArray())
+                    Log.d(TAG, "App SHA-1 (first signer): $sha1")
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                val pkgInfo = packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+                @Suppress("DEPRECATION")
+                val sigs = pkgInfo.signatures
+                if (!sigs.isNullOrEmpty()) {
+                    @Suppress("DEPRECATION")
+                    val sha1 = sha1Of(sigs[0].toByteArray())
+                    Log.d(TAG, "App SHA-1 (first signer): $sha1")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to log app signing SHA-1", e)
+        }
+    }
+
+    private fun sha1Of(bytes: ByteArray): String {
+        val md = MessageDigest.getInstance("SHA-1")
+        val digest = md.digest(bytes)
+        return digest.joinToString(":") { b -> "%02X".format(b) }
     }
 }
