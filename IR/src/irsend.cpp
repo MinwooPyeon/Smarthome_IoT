@@ -67,13 +67,13 @@ bool IRSend::initialize() {
     }
 
 #ifdef PLATFORM_ESP32
-    int tx_pin = 22;
+    int tx_pin = 25;
 
     rmt_config_t config = {};
     config.rmt_mode = RMT_MODE_TX;
     config.channel = RMT_CHANNEL_1;
     config.gpio_num = (gpio_num_t)tx_pin;
-    config.mem_block_num = 1;
+    config.mem_block_num = 4;
     config.tx_config.loop_en = false;
     config.tx_config.carrier_en = true;
     config.tx_config.carrier_freq_hz = 38000;

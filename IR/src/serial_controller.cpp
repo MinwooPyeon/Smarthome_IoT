@@ -310,7 +310,14 @@ bool SerialController::validateCommand(const std::string& command) const {
     static const std::vector<std::string> allowed_commands = {
         "ping", "status", "ir_send", "raw_send", "ir_receive", "config_get", "config_set",
         "device_list", "device_control", "system_info", "restart",
-        "mqtt_status", "ir_status"
+        "mqtt_status", "ir_status",
+        // Samsung TV 명령어
+        "samsung_test", "samsung_power", "samsung_volume_up", "samsung_volume_down",
+        // 에어컨 명령어
+        "ac_power", "ac_temp_up", "ac_temp_down", "ac_fan_faster", "ac_fan_slower",
+        "ac_cool", "ac_energy", "ac_fan_only", "ac_sleep", "ac_auto", "ac_timer", "ac_test",
+        // IRremoteESP8266 라이브러리 테스트
+        "irremote_test", "led_test", "simple_test", "ir_status", "hardware_test", "mqtt_debug", "mqtt_test_send", "device_info", "mqtt_resubscribe", "raw_limits", "ir_test"
     };
 
     for (const auto& allowed : allowed_commands) {
