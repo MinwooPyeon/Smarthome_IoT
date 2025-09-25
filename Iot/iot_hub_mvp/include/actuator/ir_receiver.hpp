@@ -1,14 +1,32 @@
 #pragma once
+#include <optional>
 #include <vector>
-#include <optional>  // 추가!
-#include "types.hpp"
+#include <functional>
+#include <atomic>
+#include <cstdint>
+
+struct IrSample {
+    std::vector<int> rawUs;
+    int              gapUs{};
+};
 
 class IrReceiver {
 public:
-    IrReceiver(int bcmPin, int gapUs): pin_(bcmPin), gapUs_(gapUs) {}
-    bool init(int glitchFilterUs=50);
-    std::optional<IrSample> capture_once(int timeout_ms=1500);
+    IrReceiver(int pinBcm, int gapUs) : pin_(pinBcm), gapUs_(gapUs) {}
+    bool init(int glitchUs);
+    std::optional<IrSample> capture_once(int timeout_ms);
+    void stop();
+
 private:
-    int pin_;
-    int gapUs_;
+    static void alertThunk(int gpio, int level, uint32_t tick, void* userdata);
+
+    const int pin_;
+    const int gapUs_;
+    int       alertSet_{0};
+    std::atomic<bool> running_{false};
+
+    // 캡처 상태
+    std::vector<int> seq_;
+    uint32_t lastTick_{0};
+    int lastLevel_{-1};
 };
