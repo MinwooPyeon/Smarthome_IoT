@@ -195,7 +195,6 @@ onCommit = { metrics, offsets, bitmap ->
                         val b = (argb) and 0xFF
                         return String.format("#%02X%02X%02X", r, g, b)
                     }
-
                     fun sampleRoomIdFor(offset: IntOffset): Int? {
                         val bmp = bitmap ?: return null
                         // 스케일과 여백 계산
