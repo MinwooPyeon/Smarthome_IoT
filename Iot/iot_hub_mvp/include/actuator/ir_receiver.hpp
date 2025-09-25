@@ -5,11 +5,6 @@
 #include <atomic>
 #include <cstdint>
 
-struct IrSample {
-    std::vector<int> rawUs;
-    int              gapUs{};
-};
-
 class IrReceiver {
 public:
     IrReceiver(int pinBcm, int gapUs) : pin_(pinBcm), gapUs_(gapUs) {}
