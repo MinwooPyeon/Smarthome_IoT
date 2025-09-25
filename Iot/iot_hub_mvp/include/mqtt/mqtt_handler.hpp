@@ -8,8 +8,8 @@
 
 namespace mqtt{
     struct Deps {
-        manager::DataManager* dataMgr;  
-        manager::CsvManager*  csvMgr;   
+        manager::IDataStore* dataMgr;  
+        manager::IEventSink*  csvMgr;   
         mqtt::MqttClient*     mqtt;     
         AppConfig*      cfg;   
     };

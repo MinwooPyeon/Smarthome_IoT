@@ -8,6 +8,8 @@ namespace manager {
 struct IEnvSource {
     virtual ~IEnvSource() = default;
     virtual bool init() = 0;
+    virtual void shutdown() = 0;
+
     virtual bool start_env_loop(std::chrono::milliseconds interval,
                                 std::function<void(const EnvSample&)> cb) = 0;
     virtual void stop_env_loop() = 0;
@@ -31,6 +33,9 @@ struct IEventSink {
     virtual void post(const Metrics&) = 0;
     virtual void post(const IrSignalLog&) = 0;
     virtual void post(const IrSendDevice&) = 0;
+
+    virtual void start() = 0;
+    virtual void stop() = 0;
 };
 
 struct IMqttBus {

@@ -14,7 +14,7 @@ using json = nlohmann::json;
 namespace manager {
 
 MqttManager::MqttManager(const AppConfig &cfg, const ActuatorConfig &actCfg,
-                         ActuatorManager& act, DataManager& data, CsvManager& csv)
+                         IEnvSource& act, IDataStore& data, IEventSink& csv)
 : cfg_(cfg), actCfg_(actCfg_),actMgr_(act), dataMgr_(data), csvMgr_(csv), evh_(mqtt::Deps{&dataMgr_, &csvMgr_, &mqtt_, &cfg_ })
 {
     az_.setAlpha(cfg_.ewmaAlphaT, cfg_.ewmaAlphaH);

@@ -36,8 +36,8 @@ namespace manager
         CsvManager &operator=(const CsvManager &) = delete;
 
         // ---- 쓰기 사이드 ----
-        void start();
-        void stop();
+        void start() override;
+        void stop() override;
         void post(const Metrics &m) override;
         void post(const IrSignalLog &l) override;
         void post(const IrSendDevice &d) override;

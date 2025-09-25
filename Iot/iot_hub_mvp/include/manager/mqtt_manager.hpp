@@ -25,7 +25,7 @@ namespace manager {
 class MqttManager : public IMqttBus{
 public:
     explicit MqttManager(const AppConfig &cfg, const ActuatorConfig &actCfg,
-                        ActuatorManager& act, DataManager& data, CsvManager& csv);
+                        IEnvSource& act, IDataStore& data, IEventSink& csv);
     ~MqttManager();
 
     bool start() override;
@@ -42,9 +42,9 @@ private:
     Analyzer az_;
 
     // --- in-proc storage / csv ---
-    manager::DataManager& dataMgr_;
-    manager::CsvManager& csvMgr_;
-    manager::ActuatorManager& actMgr_;
+    manager::IDataStore& dataMgr_;
+    manager::IEventSink& csvMgr_;
+    manager::IEnvSource& actMgr_;
 
     // --- 분리된 이벤트 핸들러(의존성 주입) ---
     mqtt::MqttHandler evh_;
