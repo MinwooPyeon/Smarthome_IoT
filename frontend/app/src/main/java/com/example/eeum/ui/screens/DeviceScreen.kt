@@ -36,7 +36,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.platform.LocalContext
+import android.util.Log
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import androidx.compose.ui.Alignment
@@ -67,7 +70,7 @@ fun DeviceScreen(navController: NavController? = null) {
     val regVm: DeviceRegistrationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
     val hubVm: HubViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
     val statusVm: DeviceStatusViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
-    
+
     // 새로고침 상태
     var isRefreshing by remember { mutableStateOf(false) }
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
@@ -118,7 +121,7 @@ private fun RefreshableContent(
     // 다이얼로그 상태 관리
     var showDialog by remember { mutableStateOf(false) }
     var selectedDeviceForControl by remember { mutableStateOf<Pair<Int, String>?>(null) } // deviceId, deviceType
-    
+
     // 삭제 다이얼로그 상태 관리
     var showDeleteDialog by remember { mutableStateOf(false) }
     var selectedDeviceForDelete by remember { mutableStateOf<Int?>(null) }
@@ -128,347 +131,401 @@ private fun RefreshableContent(
     val powerOverrides = remember { mutableStateMapOf<Int, Boolean>() }
     val tempOverrides = remember { mutableStateMapOf<Int, Int>() }
     val levelOverrides = remember { mutableStateMapOf<Int, Int>() }
-    
+
     // 서버 목록(ViewModel)
     val listVm: DeviceListViewModel = viewModel()
-        val serverItems by listVm.items.observeAsState(emptyList())
-        val loading by listVm.loading.observeAsState(false)
-        val loadError by listVm.error.observeAsState()
-        
-        // 디바이스 삭제 ViewModel
-        val deleteVm: DeviceDeleteViewModel = viewModel()
-        val deleteResult by deleteVm.isDeleted.observeAsState(false)
-        val deleteError by deleteVm.error.observeAsState()
-        val deleteLoading by deleteVm.loading.observeAsState(false)
-        
-        // 허브 목록 상태 관찰
-        val hubList by hubVm.hubList.observeAsState(emptyList())
-        val hubError by hubVm.error.observeAsState()
-        
-        // 디바이스 상태 변경 관련 상태 관찰
-        val statusChangeResult by statusVm.result.observeAsState()
-        val statusChangeError by statusVm.error.observeAsState()
+    val serverItems by listVm.items.observeAsState(emptyList())
+    val loading by listVm.loading.observeAsState(false)
+    val loadError by listVm.error.observeAsState()
 
-        // 최초 진입 시 1회 로드
-        LaunchedEffect(Unit) { 
-            listVm.load() 
-            // 허브 목록도 로드 (기본 homeId 1 사용)
-            hubVm.getHubs(1)
-        }
-        
-        // 수동 새로고침 처리 (필요 시 사용)
-        LaunchedEffect(isRefreshing) {
-            if (isRefreshing) {
-                try {
-                    listVm.load()
-                    hubVm.getHubs(1)
-                } finally {
-                    onRefreshComplete()
-                }
-            }
-        }
-        
-        // 허브 등록 성공 시 허브 목록 재조회
-        val userHomeId by hubVm.userHomeId.observeAsState()
-        val registrationStatus by hubVm.registrationStatus.observeAsState()
-        LaunchedEffect(userHomeId, registrationStatus) {
-            if (userHomeId != null && registrationStatus == "success") {
-                hubVm.getHubs(1) // 허브 등록 성공 후 목록 새로고침
-            }
-        }
-        // 자동 새로고침 신호 수신 시 서버 목록 재조회
-        LaunchedEffect(refreshKey) {
-            if (refreshKey != 0L) {
-                android.widget.Toast.makeText(activity, "디바이스 목록을 새로고침했습니다.", android.widget.Toast.LENGTH_SHORT).show()
-                listVm.load()
-                hubVm.getHubs(1) // 허브 목록도 새로고침
-            }
-        }
-        
-        // 디바이스 상태 변경 성공 시 개별 상태만 업데이트 (전체 목록 새로고침 제거)
-        LaunchedEffect(statusChangeResult) {
-            statusChangeResult?.let {
-                // 전체 목록 새로고침 제거 - 상태는 자동으로 반영됨
-                statusVm.clearResult() // 결과 초기화
-            }
-        }
-        
-        // 디바이스 상태 변경 에러 처리
-        LaunchedEffect(statusChangeError) {
-            statusChangeError?.let { error ->
-                android.widget.Toast.makeText(activity, "상태 변경 실패: $error", android.widget.Toast.LENGTH_LONG).show()
-                statusVm.clearError()
-            }
-        }
-        
-        // 디바이스 삭제 성공 처리
-        LaunchedEffect(deleteResult) {
-            if (deleteResult) {
-                android.widget.Toast.makeText(activity, "디바이스가 삭제되었습니다.", android.widget.Toast.LENGTH_SHORT).show()
-                showDeleteDialog = false
-                selectedDeviceForDelete = null
-                listVm.load() // 목록 새로고침
-                deleteVm.resetDeleteState()
-            }
-        }
-        
-        // 디바이스 삭제 에러 처리
-        LaunchedEffect(deleteError) {
-            deleteError?.let { error ->
-                android.widget.Toast.makeText(activity, "디바이스 삭제 실패: $error", android.widget.Toast.LENGTH_LONG).show()
-                deleteVm.clearError()
-            }
-        }
-
-        Column(modifier = modifier.fillMaxSize()) {
-            // 헤더 추가
-            if (showHeader) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, top = 60.dp, end = 16.dp)
-                ) {
-                    // 상단 타이틀 (다른 화면과 일관)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "우리 집",
-                            style = TextStyle(
-                                fontSize = 30.sp,
-                                fontFamily = FontFamily(Font(R.font.goormsansbold)),
-                                color = Gray800
-                            )
-                        )
-                    }
-                    Spacer(Modifier.height(40.dp))
-                }
-            }
-            
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = if (showHeader) 0.dp else 16.dp)
-                    .padding(top = if (showHeader) 0.dp else 60.dp)
-            ) {
-        // 허브 데이터 + 서버 데이터 합치기 (오버라이드 카운터를 의존성으로 사용)
-        val allDevices = remember(serverItems, hubList, overrideCounter) {
-            // 등록된 허브들을 DeviceUi로 변환
-            val hubDevices = if (hubList.isNotEmpty()) {
-                hubList.mapIndexed { index, hubId ->
-                    DeviceUi(
-                        id = "hub_$hubId",
-                        title = "허브", // 디바이스 ID 표기 제거
-                        room = "", // 위치 표시 제거
-                        statusText = "연결됨",
-                        iconRes = R.drawable.ic_hub,
-                        statusIconRes = R.drawable.ic_device_on,
-                        iconTint = Gray500,
-                        isLarge = true
-                    )
-                }
-            } else {
+    // 기존 순서를 유지하고 새로운 디바이스를 뒤에 추가하기 위한 순서 리스트
+    // SharedPreferences를 사용해서 순서를 영구 저장 (Activity 범위로 이동)
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("device_order_prefs", android.content.Context.MODE_PRIVATE) }
+    // Activity 범위에서 remember로 상태 유지 및 초기화 시 SharedPreferences로 복원
+    val deviceOrder = remember(activity) {
+        val savedOrder = prefs.getString("device_order", null)
+        val initialOrder = if (!savedOrder.isNullOrEmpty()) {
+            try {
+                savedOrder.split(",").mapNotNull { it.toIntOrNull() }
+            } catch (e: Exception) {
                 emptyList()
             }
+        } else {
+            emptyList()
+        }
+        Log.d("DeviceOrder", "Initialize deviceOrder with: $initialOrder")
+        mutableStateListOf<Int>().apply { addAll(initialOrder) }
+    }
+    
+    // 서버 데이터와 순서 동기화
+    LaunchedEffect(serverItems) {
+        val ids = serverItems.map { it.deviceId }
+        Log.d("DeviceOrder", "LaunchedEffect(serverItems) - ids: $ids, current deviceOrder: ${deviceOrder.toList()}")
+        if (ids.isEmpty()) return@LaunchedEffect
+        
+        // 순서리스트가 비어있다면 서버 순서로 초기화
+        if (deviceOrder.isEmpty()) {
+            deviceOrder.addAll(ids)
+            Log.d("DeviceOrder", "Initialized deviceOrder with server order: $ids")
+        } else {
+            // 기존 순서에서 삭제된 항목 제거
+            val beforeRetain = deviceOrder.toList()
+            deviceOrder.retainAll(ids.toSet())
             
-            val serverDevices = serverItems.map { deviceResponse ->
-                val deviceIdInt = deviceResponse.deviceId
-                // 방 이름 추출: deviceName의 첫 공백 이전 부분을 방 이름으로 간주
-                val roomName = deviceResponse.deviceName.substringBefore(' ').ifBlank { "방" }
-                
-                // 디바이스 타입을 한국어로 변환
-                val deviceTypeKorean = convertDeviceTypeToKorean(deviceResponse.deviceType)
-                
-                // power 상태 체크 (server 값)
-                val serverPower = runCatching {
-                    val powerEl = deviceResponse.deviceDetail.get("power")
-                    powerEl?.asJsonPrimitive?.asBoolean ?: false
-                }.getOrDefault(false)
-                // 로컬 오버라이드 우선
-                val isOn = powerOverrides[deviceIdInt] ?: serverPower
-                
-                // 온도 정보 (server 값)
-                val serverTemp = runCatching {
-                    val tempEl = deviceResponse.deviceDetail.get("temperature")
-                    tempEl?.asJsonPrimitive?.asInt
-                }.getOrNull()
-                val temperature = tempOverrides[deviceIdInt] ?: serverTemp
-                
-                // 상태 텍스트 결정
-                val statusText = when {
-                    !isOn -> "꺼짐"
-                    temperature != null -> "${temperature}°C"
-                    else -> "켜짐"
-                }
-                
-                DeviceUi(
-                    id = deviceResponse.deviceId.toString(),
-                    title = deviceTypeKorean,  // 디바이스 타입(한국어)으로 변경
-                    room = roomName,
-                    statusText = statusText,
-                    iconRes = iconResForType(deviceResponse.deviceType),
-                    statusIconRes = if (isOn) R.drawable.ic_device_on else R.drawable.ic_device_off,
-                    iconTint = Gray500, // 기본값 (사용하지 않지만 유지)
-                    isLarge = false,
-                    supportsTemperature = temperature != null
-                )
+            // 새로 추가된 항목을 뒤에 추가
+            val newIds = ids.filter { it !in deviceOrder }
+            deviceOrder.addAll(newIds)
+            
+            Log.d("DeviceOrder", "Updated deviceOrder - before: $beforeRetain, after retain: ${deviceOrder.toList()}, newIds: $newIds")
+        }
+        
+        // 변경된 순서를 SharedPreferences에 저장
+        val orderString = deviceOrder.joinToString(",")
+        prefs.edit().putString("device_order", orderString).apply()
+        Log.d("DeviceOrder", "Final deviceOrder: ${deviceOrder.toList()}, saved: $orderString")
+    }
+
+    // 디바이스 삭제 ViewModel
+    val deleteVm: DeviceDeleteViewModel = viewModel()
+    val deleteResult by deleteVm.isDeleted.observeAsState(false)
+    val deleteError by deleteVm.error.observeAsState()
+    val deleteLoading by deleteVm.loading.observeAsState(false)
+
+    // 허브 목록 상태 관찰
+    val hubList by hubVm.hubList.observeAsState(emptyList())
+    val hubError by hubVm.error.observeAsState()
+
+    // 디바이스 상태 변경 관련 상태 관찰
+    val statusChangeResult by statusVm.result.observeAsState()
+    val statusChangeError by statusVm.error.observeAsState()
+
+    // 최초 진입 시 1회 로드
+    LaunchedEffect(Unit) {
+        listVm.load()
+        // 허브 목록도 로드 (기본 homeId 1 사용)
+        hubVm.getHubs(1)
+    }
+
+    // 수동 새로고침 처리 (필요 시 사용)
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) {
+            try {
+                listVm.load()
+                hubVm.getHubs(1)
+            } finally {
+                onRefreshComplete()
             }
-            
-            // 허브들을 최상단에 배치, 그 다음에 서버 디바이스들
-            hubDevices + serverDevices
+        }
+    }
+
+    // 허브 등록 성공 시 허브 목록 재조회
+    val userHomeId by hubVm.userHomeId.observeAsState()
+    val registrationStatus by hubVm.registrationStatus.observeAsState()
+    LaunchedEffect(userHomeId, registrationStatus) {
+        if (userHomeId != null && registrationStatus == "success") {
+            hubVm.getHubs(1) // 허브 등록 성공 후 목록 새로고침
+        }
+    }
+    // 자동 새로고침 신호 수신 시 서버 목록 재조회
+    LaunchedEffect(refreshKey) {
+        if (refreshKey != 0L) {
+            android.widget.Toast.makeText(activity, "디바이스 목록을 새로고침했습니다.", android.widget.Toast.LENGTH_SHORT).show()
+            listVm.load()
+            hubVm.getHubs(1) // 허브 목록도 새로고침
+        }
+    }
+
+    // 디바이스 상태 변경 성공 시 개별 상태만 업데이트 (전체 목록 새로고침 제거)
+    LaunchedEffect(statusChangeResult) {
+        statusChangeResult?.let {
+            // 전체 목록 새로고침 제거 - 상태는 자동으로 반영됨
+            statusVm.clearResult() // 결과 초기화
+        }
+    }
+
+    // 디바이스 상태 변경 에러 처리
+    LaunchedEffect(statusChangeError) {
+        statusChangeError?.let { error ->
+            android.widget.Toast.makeText(activity, "상태 변경 실패: $error", android.widget.Toast.LENGTH_LONG).show()
+            statusVm.clearError()
+        }
+    }
+
+    // 디바이스 삭제 성공 처리
+    LaunchedEffect(deleteResult) {
+        if (deleteResult) {
+            android.widget.Toast.makeText(activity, "디바이스가 삭제되었습니다.", android.widget.Toast.LENGTH_SHORT).show()
+            showDeleteDialog = false
+            selectedDeviceForDelete = null
+            listVm.load() // 목록 새로고침
+            deleteVm.resetDeleteState()
+        }
+    }
+
+    // 디바이스 삭제 에러 처리
+    LaunchedEffect(deleteError) {
+        deleteError?.let { error ->
+            android.widget.Toast.makeText(activity, "디바이스 삭제 실패: $error", android.widget.Toast.LENGTH_LONG).show()
+            deleteVm.clearError()
+        }
+    }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        // 헤더 추가
+        if (showHeader) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 60.dp, end = 16.dp)
+            ) {
+                // 상단 타이틀 (다른 화면과 일관)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "우리 집",
+                        style = TextStyle(
+                            fontSize = 30.sp,
+                            fontFamily = FontFamily(Font(R.font.goormsansbold)),
+                            color = Gray800
+                        )
+                    )
+                }
+                Spacer(Modifier.height(40.dp))
+            }
         }
 
-        if (loading) {
-            Text("디바이스 목록 불러오는 중...", color = Gray600)
-        } else {
-            // 디바이스 로드 에러 처리
-            loadError?.let { err ->
-                if (err.isNotBlank()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("디바이스 오류: $err", color = Red500)
-                        Button(
-                            onClick = { listVm.load() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF), contentColor = Color.White),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text("다시 시도")
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
-            }
-            
-            // 허브 로드 에러 처리
-            hubError?.let { err ->
-                if (err.isNotBlank()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("허브 오류: $err", color = Red500)
-                        Button(
-                            onClick = { hubVm.getHubs(1) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF), contentColor = Color.White),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text("다시 시도")
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
-            }
-            
-            // 통합된 그리드 렌더링 (허브 + 서버 디바이스 + 추가 버튼)
-            DeviceGrid(
-                items = allDevices, 
-                showAddTile = true, 
-                onToggle = { deviceId ->
-                    // 허브는 토글 불가
-                    if (deviceId.startsWith("hub_")) {
-                        return@DeviceGrid
-                    }
-                    
-                    // 실제 디바이스 토글
-                    val deviceIdInt = deviceId.toIntOrNull()
-                    if (deviceIdInt != null) {
-                        // 현재 디바이스의 전원 상태 찾기 (로컬 오버라이드 우선)
-                        val serverDevice = serverItems.find { it.deviceId == deviceIdInt }
-                        val serverPower = serverDevice?.let {
-                            runCatching {
-                                it.deviceDetail.get("power")?.asJsonPrimitive?.asBoolean ?: false
-                            }.getOrDefault(false)
-                        } ?: false
-                        val currentPower = powerOverrides[deviceIdInt] ?: serverPower
-                        
-                        // 현재 온도 및 레벨 설정 찾기 (오버라이드 우선)
-                        val serverTemp = serverDevice?.let {
-                            runCatching {
-                                it.deviceDetail.get("temperature")?.asJsonPrimitive?.asInt
-                            }.getOrNull()
-                        }
-                        val currentTemp = tempOverrides[deviceIdInt] ?: serverTemp ?: 23
-                        
-                        val serverLevel = serverDevice?.let {
-                            runCatching {
-                                it.deviceDetail.get("level")?.asJsonPrimitive?.asInt
-                            }.getOrNull()
-                        }
-                        val currentLevel = levelOverrides[deviceIdInt] ?: serverLevel ?: 1
-                        
-                        // 즉시 UI 반영
-                        powerOverrides[deviceIdInt] = !currentPower
-                        overrideCounter++ // 재구성 트리거
-                        
-                        // API 호출 - 현재 설정값들을 유지하면서 토글
-                        statusVm.toggleDevicePower(
-                            deviceId = deviceIdInt, 
-                            currentPower = currentPower,
-                            currentTemperature = currentTemp,
-                            currentLevel = currentLevel
+        Box(
+            modifier = Modifier
+                .weight(1f)
+.padding(start = 16.dp, end = 16.dp)
+                .padding(top = if (showHeader) 0.dp else 60.dp)
+        ) {
+            // 허브 데이터 + 서버 데이터 합치기 (오버라이드 카운터를 의존성으로 사용)
+            val allDevices = remember(serverItems, hubList, overrideCounter, deviceOrder.toList()) {
+                // 등록된 허브들을 DeviceUi로 변환
+                val hubDevices = if (hubList.isNotEmpty()) {
+                    hubList.mapIndexed { index, hubId ->
+                        DeviceUi(
+                            id = "hub_$hubId",
+                            title = "허브", // 디바이스 ID 표기 제거
+                            room = "", // 위치 표시 제거
+                            statusText = "연결됨",
+                            iconRes = R.drawable.ic_hub,
+                            statusIconRes = R.drawable.ic_device_on,
+                            iconTint = Gray500,
+                            isLarge = true
                         )
                     }
-                },
-                onLongPress = { deviceId ->
-                    // 허브는 제외
-                    if (deviceId.startsWith("hub_")) {
-                        return@DeviceGrid
+                } else {
+                    emptyList()
+                }
+
+                // 기존 순서를 보존하고 새 디바이스는 뒤에 붙이기 위해 정렬
+                val orderedServerItems = if (deviceOrder.isEmpty()) serverItems else serverItems.sortedBy {
+                    val idx = deviceOrder.indexOf(it.deviceId)
+                    if (idx == -1) Int.MAX_VALUE else idx
+                }
+
+                val serverDevices = orderedServerItems.map { deviceResponse ->
+                    val deviceIdInt = deviceResponse.deviceId
+                    // 방 이름 추출: deviceName의 첫 공백 이전 부분을 방 이름으로 간주
+                    val roomName = deviceResponse.deviceName.substringBefore(' ').ifBlank { "방" }
+
+                    // 디바이스 타입을 한국어로 변환
+                    val deviceTypeKorean = convertDeviceTypeToKorean(deviceResponse.deviceType)
+
+                    // power 상태 체크 (server 값)
+                    val serverPower = runCatching {
+                        val powerEl = deviceResponse.deviceDetail.get("power")
+                        powerEl?.asJsonPrimitive?.asBoolean ?: false
+                    }.getOrDefault(false)
+                    // 로컬 오버라이드 우선
+                    val isOn = powerOverrides[deviceIdInt] ?: serverPower
+
+                    // 온도 정보 (server 값)
+                    val serverTemp = runCatching {
+                        val tempEl = deviceResponse.deviceDetail.get("temperature")
+                        tempEl?.asJsonPrimitive?.asInt
+                    }.getOrNull()
+                    val temperature = tempOverrides[deviceIdInt] ?: serverTemp
+
+                    // 상태 텍스트 결정
+                    val statusText = when {
+                        !isOn -> "꺼짐"
+                        temperature != null -> "${temperature}°C"
+                        else -> "켜짐"
                     }
-                    
-                    // 디바이스 타입 찾기
-                    val deviceIdInt = deviceId.toIntOrNull()
-                    if (deviceIdInt != null) {
-                        val device = serverItems.find { it.deviceId == deviceIdInt }
-                        val deviceType = device?.deviceType?.uppercase()
-                        
-                        // 디바이스 전원 상태 확인
-                        val serverDevice = serverItems.find { it.deviceId == deviceIdInt }
-                        val serverPower = serverDevice?.let {
-                            runCatching {
-                                it.deviceDetail.get("power")?.asJsonPrimitive?.asBoolean ?: false
-                            }.getOrDefault(false)
-                        } ?: false
-                        val currentPower = powerOverrides[deviceIdInt] ?: serverPower
-                        
-                        if (!currentPower) {
-                            // 디바이스가 꺼져있으면 삭제 다이얼로그 표시
-                            selectedDeviceForDelete = deviceIdInt
-                            showDeleteDialog = true
-                        } else {
-                            // 디바이스가 켜져있는 경우 기존 로직 (에어컨/선풍기만 제어 다이얼로그)
-                            val originalType = device?.deviceType?.uppercase()
-                            val isAirConditioner = deviceType?.contains("AIR") == true || 
-                                                  deviceType?.contains("CONDITIONER") == true ||
-                                                  deviceType == "AC" ||
-                                                  deviceType == "AIRCONDITIONER" ||
-                                                  originalType?.contains("에어컨") == true ||
-                                                  originalType?.contains("AIRCON") == true
-                            val isFan = deviceType?.contains("FAN") == true ||
-                                      originalType?.contains("선풍기") == true
-                            
-                            if (isAirConditioner || isFan) {
-                                val finalType = if (isAirConditioner) "AIR_CONDITIONER" else "FAN"
-                                selectedDeviceForControl = Pair(deviceIdInt, finalType)
-                                showDialog = true
+
+                    DeviceUi(
+                        id = deviceResponse.deviceId.toString(),
+                        title = deviceTypeKorean,  // 디바이스 타입(한국어)으로 변경
+                        room = roomName,
+                        statusText = statusText,
+                        iconRes = iconResForType(deviceResponse.deviceType),
+                        statusIconRes = if (isOn) R.drawable.ic_device_on else R.drawable.ic_device_off,
+                        iconTint = Gray500, // 기본값 (사용하지 않지만 유지)
+                        isLarge = false,
+                        supportsTemperature = temperature != null
+                    )
+                }
+
+                // 허브들을 최상단에 배치, 그 다음에 서버 디바이스들
+                hubDevices + serverDevices
+            }
+
+            if (loading) {
+                Text("디바이스 목록 불러오는 중...", color = Gray600)
+            } else {
+                // 디바이스 로드 에러 처리
+                loadError?.let { err ->
+                    if (err.isNotBlank()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("디바이스 오류: $err", color = Red500)
+                            Button(
+                                onClick = { listVm.load() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF), contentColor = Color.White),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("다시 시도")
                             }
                         }
+                        Spacer(Modifier.height(8.dp))
                     }
-                },
-                onAddClick = {
-                    // 등록 초안 초기화 후 등록 플로우 진입
-                    regVm.resetDraft()
-                    navController?.navigate("device_registration")
                 }
-            )
+
+                // 허브 로드 에러 처리
+                hubError?.let { err ->
+                    if (err.isNotBlank()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("허브 오류: $err", color = Red500)
+                            Button(
+                                onClick = { hubVm.getHubs(1) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF), contentColor = Color.White),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("다시 시도")
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+
+                // 통합된 그리드 렌더링 (허브 + 서버 디바이스 + 추가 버튼)
+                DeviceGrid(
+                    items = allDevices,
+                    showAddTile = true,
+                    onToggle = { deviceId ->
+                        // 허브는 토글 불가
+                        if (deviceId.startsWith("hub_")) {
+                            return@DeviceGrid
+                        }
+
+                        // 실제 디바이스 토글
+                        val deviceIdInt = deviceId.toIntOrNull()
+                        if (deviceIdInt != null) {
+                            // 현재 디바이스의 전원 상태 찾기 (로컬 오버라이드 우선)
+                            val serverDevice = serverItems.find { it.deviceId == deviceIdInt }
+                            val serverPower = serverDevice?.let {
+                                runCatching {
+                                    it.deviceDetail.get("power")?.asJsonPrimitive?.asBoolean ?: false
+                                }.getOrDefault(false)
+                            } ?: false
+                            val currentPower = powerOverrides[deviceIdInt] ?: serverPower
+
+                            // 현재 온도 및 레벨 설정 찾기 (오버라이드 우선)
+                            val serverTemp = serverDevice?.let {
+                                runCatching {
+                                    it.deviceDetail.get("temperature")?.asJsonPrimitive?.asInt
+                                }.getOrNull()
+                            }
+                            val currentTemp = tempOverrides[deviceIdInt] ?: serverTemp ?: 23
+
+                            val serverLevel = serverDevice?.let {
+                                runCatching {
+                                    it.deviceDetail.get("level")?.asJsonPrimitive?.asInt
+                                }.getOrNull()
+                            }
+                            val currentLevel = levelOverrides[deviceIdInt] ?: serverLevel ?: 1
+
+                            // 즉시 UI 반영
+                            powerOverrides[deviceIdInt] = !currentPower
+                            overrideCounter++ // 재구성 트리거
+
+                            // API 호출 - 현재 설정값들을 유지하면서 토글
+                            statusVm.toggleDevicePower(
+                                deviceId = deviceIdInt,
+                                currentPower = currentPower,
+                                currentTemperature = currentTemp,
+                                currentLevel = currentLevel
+                            )
+                        }
+                    },
+                    onLongPress = { deviceId ->
+                        // 허브는 제외
+                        if (deviceId.startsWith("hub_")) {
+                            return@DeviceGrid
+                        }
+
+                        // 디바이스 타입 찾기
+                        val deviceIdInt = deviceId.toIntOrNull()
+                        if (deviceIdInt != null) {
+                            val device = serverItems.find { it.deviceId == deviceIdInt }
+                            val deviceType = device?.deviceType?.uppercase()
+
+                            // 디바이스 전원 상태 확인
+                            val serverDevice = serverItems.find { it.deviceId == deviceIdInt }
+                            val serverPower = serverDevice?.let {
+                                runCatching {
+                                    it.deviceDetail.get("power")?.asJsonPrimitive?.asBoolean ?: false
+                                }.getOrDefault(false)
+                            } ?: false
+                            val currentPower = powerOverrides[deviceIdInt] ?: serverPower
+
+                            if (!currentPower) {
+                                // 디바이스가 꺼져있으면 삭제 다이얼로그 표시
+                                selectedDeviceForDelete = deviceIdInt
+                                showDeleteDialog = true
+                            } else {
+                                // 디바이스가 켜져있는 경우 기존 로직 (에어컨/선풍기만 제어 다이얼로그)
+                                val originalType = device?.deviceType?.uppercase()
+                                val isAirConditioner = deviceType?.contains("AIR") == true ||
+                                        deviceType?.contains("CONDITIONER") == true ||
+                                        deviceType == "AC" ||
+                                        deviceType == "AIRCONDITIONER" ||
+                                        originalType?.contains("에어컨") == true ||
+                                        originalType?.contains("AIRCON") == true
+                                val isFan = deviceType?.contains("FAN") == true ||
+                                        originalType?.contains("선풍기") == true
+
+                                if (isAirConditioner || isFan) {
+                                    val finalType = if (isAirConditioner) "AIR_CONDITIONER" else "FAN"
+                                    selectedDeviceForControl = Pair(deviceIdInt, finalType)
+                                    showDialog = true
+                                }
+                            }
+                        }
+                    },
+                    onAddClick = {
+                        // 등록 초안 초기화 후 등록 플로우 진입
+                        regVm.resetDraft()
+                        navController?.navigate("device_registration")
+                    }
+                )
             } // Box 종료
         } // Column 종료
-        
+
         // 디바이스 컨트롤 다이얼로그
         if (showDialog) {
             selectedDeviceForControl?.let { (deviceId, deviceType) ->
@@ -477,7 +534,7 @@ private fun RefreshableContent(
                     deviceType = deviceType,
                     serverItems = serverItems,
                     statusVm = statusVm,
-                    onDismiss = { 
+                    onDismiss = {
                         showDialog = false
                         selectedDeviceForControl = null
                     },
@@ -504,7 +561,7 @@ private fun RefreshableContent(
                 )
             }
         }
-        
+
         // 디바이스 삭제 다이얼로그
         if (showDeleteDialog) {
             selectedDeviceForDelete?.let { deviceId ->
@@ -720,7 +777,7 @@ private fun DeviceControlDialog(
     // 상태 변수들을 기억하여 다이얼로그 닫힘 시 자동 전송
     var finalTemperature by remember { mutableIntStateOf(23) }
     var finalLevel by remember { mutableIntStateOf(1) }
-    
+
     Dialog(
         onDismissRequest = {
             // 다이얼로그가 닫힐 때 자동으로 상태 반영 - 콜백으로 전달
@@ -740,15 +797,15 @@ private fun DeviceControlDialog(
                         it.deviceDetail.get("temperature")?.asJsonPrimitive?.asInt ?: 23
                     }.getOrDefault(23)
                 } ?: 23
-                
+
                 // 초기 온도 설정
                 LaunchedEffect(Unit) {
                     finalTemperature = currentTemp
                 }
-                
+
                 AirConditionerTemperatureControl(
                     currentTemperature = currentTemp,
-                    onTemperatureChange = { newTemp -> 
+                    onTemperatureChange = { newTemp ->
                         finalTemperature = newTemp
                     },
                     onApply = { /* 사용 안함 */ },
@@ -763,15 +820,15 @@ private fun DeviceControlDialog(
                         it.deviceDetail.get("level")?.asJsonPrimitive?.asInt ?: 1
                     }.getOrDefault(1)
                 } ?: 1
-                
+
                 // 초기 레벨 설정
                 LaunchedEffect(Unit) {
                     finalLevel = currentLevel
                 }
-                
+
                 FanLevelControl(
                     currentLevel = currentLevel,
-                    onLevelChange = { newLevel -> 
+                    onLevelChange = { newLevel ->
                         finalLevel = newLevel
                     },
                     onApply = { /* 사용 안함 */ },
@@ -837,7 +894,7 @@ private fun DeviceGrid(
 
 private fun iconResForType(type: String?): Int {
     if (type == null) return R.drawable.ic_device
-    
+
     return when (type) {
         // 영어 타입 (대소문자 구분 없이)
         "HUB", "hub" -> R.drawable.ic_hub
@@ -861,7 +918,7 @@ private fun iconResForType(type: String?): Int {
 
 private fun convertDeviceTypeToKorean(deviceType: String?): String {
     if (deviceType == null) return "디바이스"
-    
+
     return when (deviceType) {
         // 영어 타입 (대소문자 구분 없이)
         "HUB", "hub" -> "허브"
@@ -882,4 +939,3 @@ private fun convertDeviceTypeToKorean(deviceType: String?): String {
         else -> deviceType
     }
 }
-
