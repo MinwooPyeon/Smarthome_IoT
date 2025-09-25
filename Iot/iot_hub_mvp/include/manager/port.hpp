@@ -9,7 +9,7 @@ struct IEnvSource {
     virtual ~IEnvSource() = default;
     virtual bool init() = 0;
     virtual bool start_env_loop(std::chrono::milliseconds interval,
-                                std::function<void(const Dht11Data&)> cb) = 0;
+                                std::function<void(const EnvSample&)> cb) = 0;
     virtual void stop_env_loop() = 0;
 
     virtual bool set_ir_glitch_us(int) = 0;

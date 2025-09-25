@@ -29,7 +29,7 @@ void ActuatorManager::shutdown() {
     // 개별 드라이버는 GPIO 핀을 안전 상태로 되돌림(Dht11Reader::read_once 내부 등)
 }
 
-std::optional<Dht11Data> ActuatorManager::read_env_with_retry() {
+std::optional<EnvSample> ActuatorManager::read_env_with_retry() {
     std::lock_guard<std::mutex> lk(mu_);
     return dht_.read_with_retry(cfg_.dhtAttempts, cfg_.dhtTimeoutMs, cfg_.dhtCooldownMs);
 }
