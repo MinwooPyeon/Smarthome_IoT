@@ -19,7 +19,7 @@ endif()
 # 메인 실행파일: hub_main
 # =========================================
 add_executable(hub_main
-  main.cpp
+  src/main.cpp
 
   # ---- MQTT
   src/mqtt/mqtt_client.cpp
