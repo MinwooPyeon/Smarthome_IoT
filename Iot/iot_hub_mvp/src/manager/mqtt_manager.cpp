@@ -192,9 +192,8 @@ void MqttManager::h_ir_req(const json &j)
         std::string device = j.value("device", "UNKNOWN");
         std::string func = j.value("function", "UNKNOWN");
 
-        IrReceiver ir(actCfg_.irPinBcm, actCfg_.irGapUs);
-        ir.init(50);
-        auto fr = ir.capture_once(5000);
+        
+        auto fr = actMgr_.capture_ir_once(5000);
         if (!fr)
         {
             publish_error(-1, "ir_capture_timeout");

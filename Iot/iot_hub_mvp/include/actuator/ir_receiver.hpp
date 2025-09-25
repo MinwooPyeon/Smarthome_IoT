@@ -20,7 +20,7 @@ public:
 private:
     static void alertThunk(int gpio, int level, uint32_t tick, void* userdata);
 
-    const int pin_;
+    const int pin_ = 17;
     const int gapUs_;
     int       alertSet_{0};
     std::atomic<bool> running_{false};

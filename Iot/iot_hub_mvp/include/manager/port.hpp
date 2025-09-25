@@ -14,6 +14,7 @@ struct IEnvSource {
                                 std::function<void(const EnvSample&)> cb) = 0;
     virtual void stop_env_loop() = 0;
 
+    virtual std::optional<IrSample> capture_ir_once(int timeout_ms) = 0;
     virtual bool set_ir_glitch_us(int) = 0;
     virtual void set_ir_gap_us(int) = 0;
 };
