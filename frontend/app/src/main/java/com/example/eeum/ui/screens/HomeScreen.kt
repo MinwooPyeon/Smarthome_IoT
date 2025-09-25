@@ -43,6 +43,8 @@ import com.example.eeum.ui.theme.EeumTheme
 import com.example.eeum.util.SharedPreferencesUtil
 import com.example.eeum.util.PositionNormalizer
 import com.example.eeum.util.RenderMetrics
+import com.example.eeum.ui.screens.DeviceListViewModel
+import com.example.eeum.ui.screens.EnergyViewModel
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import kotlin.math.roundToInt
@@ -65,6 +67,15 @@ fun HomeScreen(
     val menuVm: MenuViewModel = viewModel(LocalContext.current as androidx.activity.ComponentActivity)
     val userInfo by menuVm.userInfo.observeAsState()
 
+    // 통계 카드용 뷰모델들
+    val lightsVm: DeviceListViewModel = viewModel(LocalContext.current as androidx.activity.ComponentActivity, key = "stats_lights")
+    val activeVm: DeviceListViewModel = viewModel(LocalContext.current as androidx.activity.ComponentActivity, key = "stats_active")
+    val energyVm: EnergyViewModel = viewModel(LocalContext.current as androidx.activity.ComponentActivity, key = "stats_energy")
+
+    val lightsOnCount by lightsVm.totalCount.observeAsState(0)
+    val activeOnCount by activeVm.totalCount.observeAsState(0)
+    val totalKwh by energyVm.totalKwh.observeAsState(0.0)
+
     // SharedPreferences 유틸
     val ctx = LocalContext.current
     val prefs = remember { com.example.eeum.util.SharedPreferencesUtil(ctx) }
@@ -74,6 +85,10 @@ fun HomeScreen(
         vm.fetchUserHomes()
         vm.fetchPrimaryHome() // fetchPrimaryHome에서 자동으로 평면도와 디바이스를 조회함
         menuVm.getUserInfo()
+
+        // 통계용 데이터 로드
+        lightsVm.load(power = true, type = "조명")
+        activeVm.load(power = true)
     }
 
     // 선택된 집 이름
@@ -108,6 +123,11 @@ fun HomeScreen(
     // 대표 집 변경 시 방 목록 조회 (roomColor -> roomId 매핑용)
     LaunchedEffect(primaryHomeId) {
         primaryHomeId?.let { vm.fetchRooms(it) }
+        // 에너지 통계 로드 (homeId는 SharedPreferences -> 없으면 대표집 -> 1)
+        val homeIdForEnergy = prefs.getSelectedHomeId() ?: primaryHomeId ?: 1
+        val today = org.threeten.bp.LocalDate.now()
+            .format(org.threeten.bp.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        energyVm.fetchEnergyTotalUsage(homeId = homeIdForEnergy, range = "day", date = today)
     }
 
     // 카드에 보여줄 이미지 URL
@@ -137,7 +157,11 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(12.dp))
-        StatsRow()
+        StatsRow(
+            lightsOn = lightsOnCount,
+            activeOn = activeOnCount,
+            totalKwh = totalKwh
+        )
         Spacer(Modifier.height(24.dp))
 
         FloorplanHeader(
@@ -360,28 +384,32 @@ private fun Greeting(name: String) {
 }
 
 @Composable
-private fun StatsRow() {
+private fun StatsRow(
+    lightsOn: Int,
+    activeOn: Int,
+    totalKwh: Double
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         StatCard(
             title = "조명",
-            subtitle = "3개 켜짐",
+            subtitle = "${lightsOn}개 켜짐",
             iconResource = R.drawable.ic_light,
             tint = Color(0xFFFACC15),
             modifier = Modifier.weight(1f)
         )
         StatCard(
             title = "전력량",
-            subtitle = "250kWh",
+            subtitle = "${totalKwh}kWh",
             iconResource = R.drawable.ic_energy,
             tint = Color(0xFFF97316),
             modifier = Modifier.weight(1f)
         )
         StatCard(
             title = "활성 기기 수",
-            subtitle = "4개 가동",
+            subtitle = "${activeOn}개 가동",
             iconResource = R.drawable.ic_device,
             tint = Color(0xFF94A3B8),
             modifier = Modifier.weight(1f)
