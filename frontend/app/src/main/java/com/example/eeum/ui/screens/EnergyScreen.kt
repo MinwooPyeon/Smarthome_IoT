@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -68,7 +69,9 @@ import co.yml.charts.ui.piechart.models.PieChartData
 fun EnergyScreen(
     modifier: Modifier = Modifier,
     energyViewModel: EnergyViewModel = viewModel(),
-    deviceViewModel: EnergyDeviceViewModel = viewModel()
+    deviceViewModel: EnergyDeviceViewModel = viewModel(),
+    reportViewModel: ReportViewModel = viewModel(),
+    homeViewModel: HomeViewModel = viewModel()
 ) {
     // 각 섹션의 독립적인 상태 관리
     var energyUsageSelectedPeriod by remember { mutableStateOf("일간") }
@@ -86,10 +89,35 @@ fun EnergyScreen(
     val deviceIsLoading by deviceViewModel.isLoading.observeAsState(false)
     val deviceError by deviceViewModel.error.observeAsState()
 
+    // AI 리포트 ViewModel 데이터 관찰
+    val aiSummaryData by reportViewModel.aiSummaryData.observeAsState()
+    val summary by reportViewModel.summary.observeAsState("")
+    val highlights by reportViewModel.highlights.observeAsState(emptyList())
+    val insights by reportViewModel.insights.observeAsState(emptyList())
+    val suggestions by reportViewModel.suggestions.observeAsState(emptyList())
+    val reportIsLoading by reportViewModel.isLoading.observeAsState(false)
+    val reportError by reportViewModel.error.observeAsState()
+
+    // Home ViewModel 데이터 관찰 (homeId 동적 관리)
+    val primaryHomeId by homeViewModel.primaryHomeId.observeAsState()
+    val selectedHomeId by homeViewModel.selectedHomeId.observeAsState()
+    
+    // 현재 사용할 homeId (선택된 홈이 있으면 우선, 없으면 대표 홈, 둘 다 없으면 기본값 1)
+    val currentHomeId = selectedHomeId ?: primaryHomeId ?: 1
+
     // 초기 데이터 로드
     LaunchedEffect(Unit) {
-        energyViewModel.fetchEnergyUsageByPeriod("일간")
-        deviceViewModel.fetchDeviceEnergyUsageByPeriod("일간")
+        // 대표 홈 정보 및 homeId 가져오기
+        homeViewModel.fetchPrimaryHome()
+    }
+    
+    // homeId가 사용 가능해지면 에너지 데이터 로드
+    LaunchedEffect(currentHomeId) {
+        if (currentHomeId > 0) {
+            energyViewModel.fetchEnergyUsageByPeriod("일간", currentHomeId)
+            deviceViewModel.fetchDeviceEnergyUsageByPeriod("일간", currentHomeId)
+            reportViewModel.fetchAiEnergyReport(currentHomeId)
+        }
     }
 
     Column(
@@ -115,7 +143,7 @@ fun EnergyScreen(
                     selectedPeriod = energyUsageSelectedPeriod,
                     onPeriodChange = { period ->
                         energyUsageSelectedPeriod = period
-                        energyViewModel.fetchEnergyUsageByPeriod(period)
+                        energyViewModel.fetchEnergyUsageByPeriod(period, currentHomeId)
                     },
                     energyData = energySeries,
                     totalKwh = totalKwh,
@@ -132,7 +160,7 @@ fun EnergyScreen(
                     selectedPeriod = deviceReportSelectedPeriod,
                     onPeriodChange = { period ->
                         deviceReportSelectedPeriod = period
-                        deviceViewModel.fetchDeviceEnergyUsageByPeriod(period)
+                        deviceViewModel.fetchDeviceEnergyUsageByPeriod(period, currentHomeId)
                     },
                     deviceItems = deviceItems,
                     totalKwh = deviceTotalKwh,
@@ -145,7 +173,14 @@ fun EnergyScreen(
             }
             item {
                 // AI 리포트 섹션
-                AIReportSection()
+                AIReportSection(
+                    summary = summary,
+                    highlights = highlights,
+                    insights = insights,
+                    suggestions = suggestions,
+                    isLoading = reportIsLoading,
+                    error = reportError
+                )
             }
             item {
                 Spacer(modifier = Modifier.height(24.dp))
@@ -512,7 +547,14 @@ private fun DeviceUsageItem(
 
 // AI 리포트 섹션
 @Composable
-private fun AIReportSection() {
+private fun AIReportSection(
+    summary: String,
+    highlights: List<com.example.eeum.data.model.response.report.AiSummaryHighlight>,
+    insights: List<String>,
+    suggestions: List<String>,
+    isLoading: Boolean,
+    error: String?
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -526,7 +568,7 @@ private fun AIReportSection() {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // AI 아이콘 (간단한 원으로 대체)
+                // AI 아이콘
                 Box(
                     modifier = Modifier
                         .size(18.dp)
@@ -553,15 +595,135 @@ private fun AIReportSection() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // AI 분석 결과
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                repeat(5) { index ->
+            // 로딩, 에러, 데이터 상태에 따른 표시
+            when {
+                isLoading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp), // 로딩 시 더 큰 크기
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(48.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 4.dp
+                            )
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Text(
+                                text = "AI가 리포트를 생성하고 있습니다...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+                }
+                error != null -> {
                     Text(
-                        text = "전원을 끄는 것보다 절전모드가 도움이 될 수 있어요!",
+                        text = "리포트 생성 실패: $error",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                summary.isNotEmpty() -> {
+                    // AI 요약 표시
+                    if (summary.isNotEmpty()) {
+                        Text(
+                            text = summary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                        
+                        if (highlights.isNotEmpty() || insights.isNotEmpty() || suggestions.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                    }
+                    
+                    // 하이라이트 표시
+                    if (highlights.isNotEmpty()) {
+                        Text(
+                            text = "주요 지표",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        highlights.forEach { highlight ->
+                            // • 총 사용량: trend 표시 안함
+                            // • 나머지: trend가 null이 아니면 trend 표시
+                            // • '시대' → '시'로 변경
+                            val formattedValue = highlight.value.replace("시대", "시")
+                            
+                            val displayText = if (highlight.label == "총 사용량") {
+                                "• ${highlight.label}: $formattedValue"
+                            } else {
+                                if (highlight.trend?.isNotBlank() == true && highlight.trend != "null") {
+                                    "• ${highlight.label}: $formattedValue (${highlight.trend})"
+                                } else {
+                                    "• ${highlight.label}: $formattedValue"
+                                }
+                            }
+                            
+                            Text(
+                                text = displayText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+                        
+                        if (insights.isNotEmpty() || suggestions.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                    }
+                    
+                    // 인사이트 표시
+                    if (insights.isNotEmpty()) {
+                        Text(
+                            text = "분석 결과",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        insights.forEach { insight ->
+                            Text(
+                                text = "• $insight",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+                        
+                        if (suggestions.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                    }
+                    
+                    // 제안 표시
+                    if (suggestions.isNotEmpty()) {
+                        Text(
+                            text = "절약 제안",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        suggestions.forEach { suggestion ->
+                            Text(
+                                text = "• $suggestion",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    Text(
+                        text = "AI 리포트 데이터가 없습니다.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
             }
