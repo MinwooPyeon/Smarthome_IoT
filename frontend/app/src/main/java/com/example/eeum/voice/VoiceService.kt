@@ -67,10 +67,6 @@ class VoiceService : Service() {
     // Porcupine (wakeword)
     private var porcupineManager: PorcupineManager? = null
     @Volatile private var isWakewordActive = false
-
-    // 웨이크워드 영구 비활성화 플래그(세션 단위): 에뮬/권한 부재/초기화 실패 등
-    @Volatile private var wakewordDisabled: Boolean = false
-
     private var consecutiveMiss = 0
     private lateinit var kwPath: String
     private lateinit var modelPath: String
@@ -98,48 +94,18 @@ class VoiceService : Service() {
         }
 
         // === Picovoice AccessKey (Manifest meta-data) ===
-        try {
+        pvAccessKey = run {
             val ai = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
-            pvAccessKey = ai.metaData.getString("PICOVOICE_ACCESS_KEY")
-                ?: ""
-        } catch (t: Throwable) {
-            Log.w(TAG, "PICOVOICE_ACCESS_KEY read failed, disabling wakeword", t)
-            pvAccessKey = ""
+            ai.metaData.getString("PICOVOICE_ACCESS_KEY") ?: throw IllegalStateException("PICOVOICE_ACCESS_KEY missing")
         }
 
         // === assets → 내부저장소 경로 확보 ===
-        try {
-            kwPath = copyAssetOnce("jenny_ko_android_v3_0_0.ppn")
-            modelPath = copyAssetOnce("porcupine_params_ko.pv")
-        } catch (t: Throwable) {
-            Log.w(TAG, "Keyword/model copy failed, disabling wakeword", t)
-            wakewordDisabled = true
-        }
+        kwPath = copyAssetOnce("jenny_ko_android_v3_0_0.ppn")
+        modelPath = copyAssetOnce("porcupine_params_ko.pv")
 
-        // === 에뮬/권한/키 점검 & Porcupine 초기화 (절대 크래시 금지) ===
-        // 에뮬레이터면 바로 비활성화
-        if (isProbablyEmulator()) {
-            Log.i(TAG, "Emulator detected -> wakeword disabled for this session")
-            wakewordDisabled = true
-        }
-        // 권한 없으면 비활성화
-        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            Log.w(TAG, "RECORD_AUDIO not granted -> wakeword disabled")
-            wakewordDisabled = true
-        }
-        // AccessKey 누락/빈값이면 비활성화
-        if (pvAccessKey.isBlank()) {
-            Log.w(TAG, "Picovoice access key is blank -> wakeword disabled")
-            wakewordDisabled = true
-        }
-
-        // 안전 초기화 시도 (내부에서 try/catch; 실패 시 disable)
-        if (!wakewordDisabled) {
-            initPorcupineSafely()
-        }
-
-        // 시작 시점에 웨이크워드가 가능하면 시작, 아니면 조용히 패스
-        startWakeword() // wakewordDisabled면 내부에서 no-op
+        // === Porcupine 초기화 & 항상듣기 시작 ===
+        initPorcupine()
+        startWakeword()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -196,7 +162,7 @@ class VoiceService : Service() {
                 override fun onError(error: Int) {
                     Log.e(TAG, "ASR error: $error")
                     shutdownRecognizer()
-                    // STT 에러는 "실패"로 간주: 1회째면 재시작, 2회째면 웨이크워드만 재개(가능 시)
+                    // STT 에러는 "실패"로 간주: 1회째면 재시작, 2회째면 웨이크워드만 재개
                     onUnderstandFail()
                 }
                 override fun onReadyForSpeech(p0: Bundle?) {}
@@ -239,7 +205,7 @@ class VoiceService : Service() {
             val dir = VoiceDeps.directory
             if (dir == null) {
                 tts?.say("아직 디바이스 준비 중이에요.")
-                // 웨이크워드로 복귀(가능한 경우에만)
+                // 웨이크워드로 복귀
                 resumeWakewordWithDelay()
                 Log.d(TAG, "UseCase init skipped: device directory cache is null")
                 return
@@ -273,11 +239,13 @@ class VoiceService : Service() {
                         is AppEffect.Navigate -> Log.i(TAG, "Navigate(route=${eff.route}, params=${eff.params})")
                         is AppEffect.Toast -> Log.i(TAG, "Toast: ${eff.text}")
                         is AppEffect.Speak -> {}
+                        is AppEffect.DevicesChanged  -> { }
+                        is AppEffect.RoutinesChanged -> { }
                     }
                     AppEventBus.tryEmit(eff)
                 }
 
-                // 대화 모드가 아니면 웨이크워드로 복귀(가능한 경우에만)
+                // 대화 모드가 아니면 웨이크워드로 복귀
                 if (!hasExpectReply) resumeWakewordWithDelay()
             } catch (e: Exception) {
                 Log.e(TAG, "UseCase run failed", e)
@@ -304,7 +272,7 @@ class VoiceService : Service() {
                 // 1회차 실패: 바로 다시 STT
                 startListening()
             } else {
-                // 2회 연속 실패: STT 종료, 웨이크워드만 재개(가능 시)
+                // 2회 연속 실패: STT 종료, 웨이크워드만 재개
                 consecutiveMiss = 0
                 resumeWakewordWithDelay()
             }
@@ -320,75 +288,57 @@ class VoiceService : Service() {
     }
 
     // ────────────────────────────
-    // Porcupine (웨이크워드) — 실패해도 절대 크래시 금지
+    // Porcupine (웨이크워드)
     // ────────────────────────────
-    private fun initPorcupineSafely() {
-        // 이미 비활성화된 세션이면 스킵
-        if (wakewordDisabled) return
-
-        // 안전 가드: 권한 / 키 / 파일
+    private fun initPorcupine() {
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
-            Log.w(TAG, "Porcupine init: no RECORD_AUDIO -> disable")
-            wakewordDisabled = true
-            return
-        }
-        if (pvAccessKey.isBlank()) {
-            Log.w(TAG, "Porcupine init: blank access key -> disable")
-            wakewordDisabled = true
+            Log.e(TAG, "RECORD_AUDIO not granted for Porcupine")
             return
         }
 
-        try {
-            val callback = PorcupineManagerCallback { _ ->
-                if (isListening) return@PorcupineManagerCallback
-                Handler(Looper.getMainLooper()).post {
-                    try {
-                        if (isListening) return@post
-                        playEarcon()
-                        safeStopWakeword()
-                        startListening()
-                    } catch (t: Throwable) {
-                        Log.e(TAG, "Wakeword handling failed", t)
-                        // 콜백 처리 실패는 웨이크워드 비활성화로 전환
-                        disableWakeword("wakeword callback failure: ${t.message}")
-                    }
+        val callback = PorcupineManagerCallback { _ ->
+            if (isListening) return@PorcupineManagerCallback
+            Handler(Looper.getMainLooper()).post {
+                try {
+                    if (isListening) return@post
+                    playEarcon()
+                    safeStopWakeword()
+                    startListening()
+                } catch (t: Throwable) {
+                    Log.e(TAG, "Wakeword handling failed", t)
+                    resumeWakewordWithDelay()
                 }
             }
-
-            porcupineManager = PorcupineManager.Builder()
-                .setAccessKey(pvAccessKey)
-                .setKeywordPath(kwPath)          // jenny_ko_android_v3_0_0.ppn
-                .setModelPath(modelPath)         // porcupine_params_ko.pv
-                .setSensitivity(0.55f)           // 민감도
-                .setErrorCallback { e ->
-                    // 예: ActivationLimitException 등 — 크래시 없이 조용히 비활성화
-                    Log.e(TAG, "Porcupine error (will disable wakeword)", e)
-                    disableWakeword("porcupine error: ${e.javaClass.simpleName}")
-                }
-                .build(applicationContext, callback)
-
-            Log.i(TAG, "Porcupine initialized (ko model, sensitivity=0.55)")
-        } catch (t: Throwable) {
-            // 여기서 PicovoiceActivationLimitException 등 발생 → 절대 throw하지 않음
-            Log.e(TAG, "Porcupine init failed (will disable wakeword)", t)
-            disableWakeword("init failed: ${t.javaClass.simpleName}")
         }
+
+        porcupineManager = PorcupineManager.Builder()
+            .setAccessKey(pvAccessKey)
+            .setKeywordPath(kwPath)          // jenny_ko_android_v3_0_0.ppn
+            .setModelPath(modelPath)         // porcupine_params_ko.pv
+            .setSensitivity(0.55f)           // 민감도
+            .setErrorCallback(
+                 { e ->
+                    Log.e(TAG, "Porcupine error", e)
+                    Handler(Looper.getMainLooper()).post {
+                        safeStopWakeword()
+                        resumeWakewordWithDelay(300)
+                    }
+                }
+            )
+            .build(applicationContext, callback)
+
+        Log.i(TAG, "Porcupine initialized (ko model, sensitivity=0.55)")
     }
 
     private fun startWakeword() {
-        if (wakewordDisabled) {
-            Log.d(TAG, "startWakeword: disabled -> no-op")
-            return
-        }
         if (porcupineManager == null || isWakewordActive) return
         try {
             porcupineManager!!.start()
             isWakewordActive = true
             Log.d(TAG, "Porcupine listening")
         } catch (e: Exception) {
-            Log.e(TAG, "Porcupine start failed (will disable)", e)
-            disableWakeword("start failed: ${e.javaClass.simpleName}")
+            Log.e(TAG, "Porcupine start failed", e)
         }
     }
 
@@ -404,18 +354,7 @@ class VoiceService : Service() {
     }
 
     private fun resumeWakewordWithDelay(delayMs: Long = 200L) {
-        // 웨이크워드가 비활성화된 세션이면 조용히 무시
-        if (wakewordDisabled) return
         Handler(Looper.getMainLooper()).postDelayed({ startWakeword() }, delayMs)
-    }
-
-    private fun disableWakeword(reason: String) {
-        Log.w(TAG, "Wakeword disabled for this session: $reason")
-        wakewordDisabled = true
-        // 안전 정지 및 자원 해제
-        try { safeStopWakeword() } catch (_: Throwable) {}
-        try { porcupineManager?.delete() } catch (_: Throwable) {}
-        porcupineManager = null
     }
 
     // ────────────────────────────
@@ -479,25 +418,5 @@ class VoiceService : Service() {
             }
         }
         return out.absolutePath
-    }
-
-    // ────────────────────────────
-    // Emulator heuristic
-    // ────────────────────────────
-    private fun isProbablyEmulator(): Boolean {
-        // 가벼운 휴리스틱: 대부분의 에뮬에서 true
-        val product = Build.PRODUCT?.lowercase() ?: ""
-        val model = Build.MODEL?.lowercase() ?: ""
-        val brand = Build.BRAND?.lowercase() ?: ""
-        val device = Build.DEVICE?.lowercase() ?: ""
-        val manufacturer = Build.MANUFACTURER?.lowercase() ?: ""
-        val fingerprint = Build.FINGERPRINT?.lowercase() ?: ""
-
-        return (product.contains("sdk") || product.contains("emulator") || product.contains("vbox")) ||
-                (model.contains("emulator") || model.contains("sdk")) ||
-                (brand.contains("generic") || brand.contains("google")) ||
-                (device.contains("generic")) ||
-                (manufacturer.contains("genymotion")) ||
-                (fingerprint.contains("generic") || fingerprint.contains("emulator"))
     }
 }
