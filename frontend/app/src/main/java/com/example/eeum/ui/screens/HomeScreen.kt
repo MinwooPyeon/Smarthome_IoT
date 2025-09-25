@@ -2,6 +2,7 @@ package com.example.eeum.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -72,6 +74,14 @@ fun HomeScreen(
 
     // 선택된 집 이름 (UI 표시용)
     var selectedHomeName by remember { mutableStateOf<String?>(null) }
+
+    // 이동/드래그 제어 상태
+    var isEditMode by remember { mutableStateOf(false) }         // 헤더 버튼(완료/이동) 표시용
+    var isDragEnabled by remember { mutableStateOf(false) }      // 실제 드래그 가능 여부
+    var showLocationAlert by remember { mutableStateOf(false) }
+
+    // 드래그된 디바이스 위치 저장 (deviceId -> Offset)
+    var draggedDevicePositions by remember { mutableStateOf<Map<String, IntOffset>>(emptyMap()) }
 
     // 대표집 정보가 업데이트될 때 selectedHomeName도 업데이트
     LaunchedEffect(primaryHomeName) {
@@ -120,7 +130,19 @@ fun HomeScreen(
 
         FloorplanHeader(
             title = "우리 집 평면도",
-            showMoveIcon = homes.isNotEmpty()
+            showMoveIcon = homes.isNotEmpty(),
+            isEditMode = isEditMode,
+            onEditModeToggle = {
+                if (isEditMode) {
+                    // 완료 버튼 클릭: 이동 모드 종료 + 드래그 비활성화
+                    isEditMode = false
+                    isDragEnabled = false
+                } else {
+                    // 이동 아이콘 클릭: 즉시 완료 버튼으로 전환, 드래그는 Alert 확인 후 활성화
+                    isEditMode = true
+                    showLocationAlert = true
+                }
+            }
         )
 
         Spacer(Modifier.height(8.dp))
@@ -145,10 +167,47 @@ fun HomeScreen(
         FloorplanCard(
             imageUrl = firstImageUrl,
             devices = devices,
-            onCardClick = onOpenMap
+            onCardClick = onOpenMap,
+            dragEnabled = isDragEnabled,
+            draggedPositions = draggedDevicePositions,
+            onPositionChange = { deviceId, newOffset ->
+                draggedDevicePositions = draggedDevicePositions + (deviceId to newOffset)
+            }
         )
 
         Spacer(Modifier.height(16.dp))
+    }
+
+    // 위치 수정 Alert Dialog
+    if (showLocationAlert) {
+        AlertDialog(
+            onDismissRequest = { showLocationAlert = false },
+            title = {
+                Text(
+                    text = "디바이스 위치 수정",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "디바이스의 위치를 드래그하여 자유롭게 바꿔주세요!",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLocationAlert = false
+                        // 드래그 활성화는 확인 후 시작
+                        isDragEnabled = true
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFF007AFF)
+                    )
+                ) { Text("확인", fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+            }
+        )
     }
 }
 
@@ -309,7 +368,9 @@ private fun StatCard(
 @Composable
 private fun FloorplanHeader(
     title: String,
-    showMoveIcon: Boolean
+    showMoveIcon: Boolean,
+    isEditMode: Boolean,
+    onEditModeToggle: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -323,11 +384,19 @@ private fun FloorplanHeader(
             color = Color(0xFF0F172A)
         )
         if (showMoveIcon) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_move),
-                contentDescription = "이동",
-                tint = Color(0xFF0F172A)
-            )
+            if (isEditMode) {
+                TextButton(
+                    onClick = onEditModeToggle,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF007AFF))
+                ) { Text("완료", fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+            } else {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_move),
+                    contentDescription = "이동",
+                    tint = Color(0xFF0F172A),
+                    modifier = Modifier.clickable { onEditModeToggle() }
+                )
+            }
         }
     }
 }
@@ -336,7 +405,10 @@ private fun FloorplanHeader(
 private fun FloorplanCard(
     imageUrl: String?,
     devices: List<DeviceItem>,
-    onCardClick: () -> Unit
+    onCardClick: () -> Unit,
+    dragEnabled: Boolean = false,
+    draggedPositions: Map<String, IntOffset> = emptyMap(),
+    onPositionChange: (String, IntOffset) -> Unit = { _, _ -> }
 ) {
     val ctx = LocalContext.current
     val absoluteUrl = remember(imageUrl) { toAbsoluteUrl(ApplicationClass.SERVER_URL, imageUrl) }
@@ -410,27 +482,56 @@ private fun FloorplanCard(
                         val topMargin  = (containerSize.height - drawnH) / 2f
 
                         devices.forEach { item ->
-                            // 서버는 [0..1] 정규화 좌표 → 표시 영역으로 스케일
-                            val xPx = (item.x.toFloat() * drawnW)
-                            val yPx = (item.y.toFloat() * drawnH)
+                            val deviceId = item.deviceId.toString()
 
-                            // Compose 좌표계 그대로 사용 (DeviceRegistrationCompleteScreen과 동일)
-                            val leftFromLeftPx = (leftMargin + xPx - iconSizePx / 2f)
-                                .coerceIn(0f, containerSize.width - iconSizePx)
-                            val topFromTopPx = (topMargin + yPx - iconSizePx / 2f)
-                                .coerceIn(0f, containerSize.height - iconSizePx)
+                            val finalOffset = if (draggedPositions.containsKey(deviceId)) {
+                                // 이미 드래그된 적이 있으면 그 위치를 사용
+                                draggedPositions[deviceId]!!
+                            } else {
+                                // 서버의 [0..1] 좌표를 표시 영역 좌표로 변환
+                                val xPx = (item.x.toFloat() * drawnW)
+                                val yPx = (item.y.toFloat() * drawnH)
+
+                                val leftFromLeftPx = (leftMargin + xPx - iconSizePx / 2f)
+                                    .coerceIn(0f, containerSize.width - iconSizePx)
+                                val topFromTopPx = (topMargin + yPx - iconSizePx / 2f)
+                                    .coerceIn(0f, containerSize.height - iconSizePx)
+
+                                IntOffset(leftFromLeftPx.toInt(), topFromTopPx.toInt())
+                            }
 
                             iconResForDevice(item.deviceType, item.deviceDetail.power)?.let { resId ->
+                                var currentOffset by remember(deviceId) { mutableStateOf(finalOffset) }
+                                LaunchedEffect(finalOffset) { currentOffset = finalOffset }
+
                                 Image(
                                     painter = painterResource(id = resId),
                                     contentDescription = item.deviceName,
                                     modifier = Modifier
                                         .size(iconSizeDp)
-                                        .offset {
-                                            IntOffset(
-                                                leftFromLeftPx.toInt(),
-                                                topFromTopPx.toInt()
-                                            )
+                                        .offset { currentOffset }
+                                        .let { modifier ->
+                                            if (dragEnabled) {
+                                                modifier.pointerInput(deviceId) {
+                                                    detectDragGestures(
+                                                        onDragStart = { _ ->
+                                                            if (!draggedPositions.containsKey(deviceId)) {
+                                                                onPositionChange(deviceId, currentOffset)
+                                                            }
+                                                        },
+                                                        onDrag = { _, dragAmount ->
+                                                            val newOffset = IntOffset(
+                                                                (currentOffset.x + dragAmount.x).toInt()
+                                                                    .coerceIn(0, containerSize.width - iconSizePx.toInt()),
+                                                                (currentOffset.y + dragAmount.y).toInt()
+                                                                    .coerceIn(0, containerSize.height - iconSizePx.toInt())
+                                                            )
+                                                            currentOffset = newOffset
+                                                            onPositionChange(deviceId, newOffset)
+                                                        }
+                                                    )
+                                                }
+                                            } else modifier
                                         }
                                 )
                             }
