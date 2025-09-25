@@ -9,12 +9,16 @@ import com.example.eeum.data.model.response.device.DeviceIcon
 import com.example.eeum.data.model.response.device.DeviceItem
 import com.example.eeum.data.model.response.device.DeviceLocation
 import com.example.eeum.data.model.response.device.LocationData
+import com.example.eeum.data.model.dto.device.DevicesLocation
+import com.example.eeum.data.model.dto.device.LocationItem
 import com.example.eeum.data.model.response.floorplans.FloorPlan
 import com.example.eeum.data.model.response.floorplans.FloorPlansList
 import com.example.eeum.data.model.response.home.AllUserHome
 import com.example.eeum.data.model.response.home.Home
 import com.example.eeum.data.model.response.home.PrimaryHome
 import com.example.eeum.data.model.response.home.GetPrimaryHome
+import com.example.eeum.data.model.response.routine.AllRoom
+import com.example.eeum.data.model.response.routine.RoomData
 import com.example.eeum.data.remote.RetrofitUtil
 import kotlinx.coroutines.launch
 
@@ -49,6 +53,10 @@ class HomeViewModel : ViewModel() {
 
     private val _deviceTotalCount = MutableLiveData<Int>(0)
     val deviceTotalCount: LiveData<Int> get() = _deviceTotalCount
+
+    // 방 목록 (roomColor -> roomId 매핑용)
+    private val _rooms = MutableLiveData<List<RoomData>>(emptyList())
+    val rooms: LiveData<List<RoomData>> get() = _rooms
 
     //디바이스 위치 목록
     private val _deviceLocations = MutableLiveData<List<LocationData>>(emptyList())
@@ -93,6 +101,34 @@ class HomeViewModel : ViewModel() {
     //평면도 초기화
     fun clearFloorplans() {
         _floorplans.value = emptyList()
+    }
+
+    // 방 목록 조회 (roomColor 매핑용)
+    fun fetchRooms(homeId: Int) {
+        viewModelScope.launch {
+            runCatching {
+                RetrofitUtil.homeService.readRooms(homeId)
+            }.onSuccess { response ->
+                if (response.isSuccessful) {
+                    response.body()?.let { body: AllRoom ->
+                        _rooms.value = body.data
+                        _status.value = body.status
+                        _error.value = null
+                        Log.d("HomeViewModel", "방 목록 조회 성공: ${body.data.size}건")
+                    } ?: run {
+                        _rooms.value = emptyList()
+                        _error.value = "응답이 비어있습니다."
+                        Log.e("HomeViewModel", "방 목록 응답 비어있음")
+                    }
+                } else {
+                    _error.value = "방 목록 조회 실패: ${response.code()}"
+                    Log.e("HomeViewModel", "방 목록 조회 실패 code=${response.code()}")
+                }
+            }.onFailure { e ->
+                _error.value = "네트워크 오류: ${e.message}"
+                Log.e("HomeViewModel", "방 목록 조회 실패", e)
+            }
+        }
     }
 
     //유저 집 목록 조회
@@ -292,6 +328,37 @@ class HomeViewModel : ViewModel() {
 
     fun clearDeviceLocations() {
         _deviceLocations.value = emptyList()
+    }
+
+    // 디바이스 위치 배치 수정
+    fun updateDeviceLocations(locations: List<LocationItem>) {
+        viewModelScope.launch {
+            runCatching {
+                RetrofitUtil.deviceService.updateDeviceLocations(
+                    DevicesLocation(items = locations)
+                )
+            }.onSuccess { response ->
+                if (response.isSuccessful) {
+                    response.body()?.let { body ->
+                        _status.value = body.status
+                        _error.value = null
+                        Log.d(
+                            "HomeViewModel",
+                            "디바이스 위치 배치 수정 성공: count=${locations.size}"
+                        )
+                    } ?: run {
+                        _error.value = "응답이 비어있습니다."
+                        Log.e("HomeViewModel", "디바이스 위치 배치 수정 응답이 비어있습니다.")
+                    }
+                } else {
+                    _error.value = "디바이스 위치 배치 수정 실패: ${response.code()}"
+                    Log.e("HomeViewModel", "디바이스 위치 배치 수정 실패 code=${response.code()}")
+                }
+            }.onFailure { e ->
+                _error.value = "네트워크 오류: ${e.message}"
+                Log.e("HomeViewModel", "디바이스 위치 배치 수정 실패", e)
+            }
+        }
     }
 
     //에러 초기화

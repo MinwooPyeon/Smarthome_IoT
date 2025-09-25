@@ -41,13 +41,17 @@ import com.example.eeum.data.model.response.device.DeviceItem
 import com.example.eeum.data.model.response.home.Home
 import com.example.eeum.ui.theme.EeumTheme
 import com.example.eeum.util.SharedPreferencesUtil
+import com.example.eeum.util.PositionNormalizer
+import com.example.eeum.util.RenderMetrics
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenMap: () -> Unit = {},   // 카드 클릭과 동일 동작 (요청: 새 집 추가 클릭 시 onCardClick() 실행)
-    onAddHome: () -> Unit = {},   // (기존 파라미터 유지, 아래에서는 사용 안 함)
+    onOpenMap: () -> Unit = {},   // 카드 클릭과 동일 동작
+    onAddHome: () -> Unit = {},
     vm: HomeViewModel = viewModel(LocalContext.current as androidx.activity.ComponentActivity)
 ) {
     // 서버 데이터
@@ -57,7 +61,7 @@ fun HomeScreen(
     val primaryHomeId by vm.primaryHomeId.observeAsState()
     val primaryHomeName by vm.primaryHomeName.observeAsState()
 
-    // 사용자 정보 (MenuViewModel 재사용)
+    // 사용자 정보
     val menuVm: MenuViewModel = viewModel(LocalContext.current as androidx.activity.ComponentActivity)
     val userInfo by menuVm.userInfo.observeAsState()
 
@@ -68,17 +72,20 @@ fun HomeScreen(
     // 최초 진입 시 대표 집 및 집 목록 조회 + 사용자 정보 조회
     LaunchedEffect(Unit) {
         vm.fetchUserHomes()
-        vm.fetchPrimaryHome() // 이제 fetchPrimaryHome에서 자동으로 평면도와 디바이스를 조회함
+        vm.fetchPrimaryHome() // fetchPrimaryHome에서 자동으로 평면도와 디바이스를 조회함
         menuVm.getUserInfo()
     }
 
-    // 선택된 집 이름 (UI 표시용)
+    // 선택된 집 이름
     var selectedHomeName by remember { mutableStateOf<String?>(null) }
 
     // 이동/드래그 제어 상태
     var isEditMode by remember { mutableStateOf(false) }         // 헤더 버튼(완료/이동) 표시용
     var isDragEnabled by remember { mutableStateOf(false) }      // 실제 드래그 가능 여부
     var showLocationAlert by remember { mutableStateOf(false) }
+
+    // 완료 버튼 클릭 트리거 (FloorplanCard에 커밋 요청)
+    var commitTrigger by remember { mutableStateOf(0) }
 
     // 드래그된 디바이스 위치 저장 (deviceId -> Offset)
     var draggedDevicePositions by remember { mutableStateOf<Map<String, IntOffset>>(emptyMap()) }
@@ -96,6 +103,11 @@ fun HomeScreen(
             selectedHomeName = null
             vm.clearFloorplans()
         }
+    }
+
+    // 대표 집 변경 시 방 목록 조회 (roomColor -> roomId 매핑용)
+    LaunchedEffect(primaryHomeId) {
+        primaryHomeId?.let { vm.fetchRooms(it) }
     }
 
     // 카드에 보여줄 이미지 URL
@@ -134,7 +146,8 @@ fun HomeScreen(
             isEditMode = isEditMode,
             onEditModeToggle = {
                 if (isEditMode) {
-                    // 완료 버튼 클릭: 이동 모드 종료 + 드래그 비활성화
+                    // 완료 버튼 클릭: FloorplanCard에 커밋 요청 → 서버 업데이트 후 드래그 비활성화
+                    commitTrigger += 1
                     isEditMode = false
                     isDragEnabled = false
                 } else {
@@ -170,6 +183,64 @@ fun HomeScreen(
             onCardClick = onOpenMap,
             dragEnabled = isDragEnabled,
             draggedPositions = draggedDevicePositions,
+            commitSignal = commitTrigger,
+onCommit = { metrics, offsets, bitmap ->
+                val hId = primaryHomeId
+                if (hId != null) {
+                    val rooms = vm.rooms.value ?: emptyList()
+
+                    fun colorIntToHex(argb: Int): String {
+                        val r = (argb shr 16) and 0xFF
+                        val g = (argb shr 8) and 0xFF
+                        val b = (argb) and 0xFF
+                        return String.format("#%02X%02X%02X", r, g, b)
+                    }
+
+                    fun sampleRoomIdFor(offset: IntOffset): Int? {
+                        val bmp = bitmap ?: return null
+                        // 스케일과 여백 계산
+                        val scaleW = metrics.container.width.toFloat() / metrics.imageIntrinsic.width.toFloat()
+                        val scaleH = metrics.container.height.toFloat() / metrics.imageIntrinsic.height.toFloat()
+                        val scale = kotlin.math.min(scaleW, scaleH)
+                        val drawnW = metrics.imageIntrinsic.width * scale
+                        val drawnH = metrics.imageIntrinsic.height * scale
+                        val leftMargin = (metrics.container.width - drawnW) / 2f
+                        val topMargin = (metrics.container.height - drawnH) / 2f
+
+                        val centerX = offset.x + metrics.iconSizePx / 2f
+                        val centerY = offset.y + metrics.iconSizePx / 2f
+
+                        if (centerX < leftMargin || centerX > leftMargin + drawnW || centerY < topMargin || centerY > topMargin + drawnH) {
+                            return null
+                        }
+                        val bx = ((centerX - leftMargin) / scale).roundToInt().coerceIn(0, bmp.width - 1)
+                        val by = ((centerY - topMargin) / scale).roundToInt().coerceIn(0, bmp.height - 1)
+                        val argb = runCatching { bmp.getPixel(bx, by) }.getOrNull() ?: return null
+                        val hex = colorIntToHex(argb)
+                        val matched = rooms.firstOrNull { it.roomColor.equals(hex, ignoreCase = true) }
+                        return matched?.roomId
+                    }
+
+                    val locationItems = offsets.mapNotNull { (deviceIdStr, off) ->
+                        val deviceId = deviceIdStr.toIntOrNull() ?: return@mapNotNull null
+                        val normalized = PositionNormalizer.normalizeOffset(off, metrics)
+                        val roomId = sampleRoomIdFor(off)
+                            ?: devices.firstOrNull { it.deviceId == deviceId }?.roomId
+                            ?: 0
+                        com.example.eeum.data.model.dto.device.LocationItem(
+                            deviceId = deviceId,
+                            homeId = hId,
+                            roomId = roomId,
+                            x = normalized.x,
+                            y = normalized.y
+                        )
+                    }
+
+                    if (locationItems.isNotEmpty()) {
+                        vm.updateDeviceLocations(locationItems)
+                    }
+                }
+            },
             onPositionChange = { deviceId, newOffset ->
                 draggedDevicePositions = draggedDevicePositions + (deviceId to newOffset)
             }
@@ -408,6 +479,8 @@ private fun FloorplanCard(
     onCardClick: () -> Unit,
     dragEnabled: Boolean = false,
     draggedPositions: Map<String, IntOffset> = emptyMap(),
+    commitSignal: Int = 0,
+    onCommit: (RenderMetrics, Map<String, IntOffset>, Bitmap?) -> Unit = { _, _, _ -> },
     onPositionChange: (String, IntOffset) -> Unit = { _, _ -> }
 ) {
     val ctx = LocalContext.current
@@ -425,6 +498,9 @@ private fun FloorplanCard(
 
     // 이미지의 intrinsic 크기 (픽셀) 저장
     var imageIntrinsic by remember { mutableStateOf(IntSize.Zero) }
+
+    // 샘플링용 비트맵 저장
+    var imageBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     Card(
         modifier = Modifier
@@ -455,6 +531,7 @@ private fun FloorplanCard(
                     model = ImageRequest.Builder(ctx)
                         .data(absoluteUrl)
                         .crossfade(true)
+                        .allowHardware(false) // 색상 샘플링 위해 소프트웨어 비트맵 사용
                         .build(),
                     contentDescription = "평면도",
                     modifier = Modifier.matchParentSize(),
@@ -463,6 +540,7 @@ private fun FloorplanCard(
                         val dw = state.result.drawable.intrinsicWidth
                         val dh = state.result.drawable.intrinsicHeight
                         if (dw > 0 && dh > 0) imageIntrinsic = IntSize(dw, dh)
+                        imageBitmap = (state.result.drawable as? BitmapDrawable)?.bitmap
                     }
                 )
 
@@ -539,6 +617,36 @@ private fun FloorplanCard(
                     }
                 }
             }
+        }
+    }
+
+    // 완료 버튼에서 커밋 요청이 들어오면 현재 오프셋을 부모로 전달
+    LaunchedEffect(commitSignal) {
+        if (commitSignal != 0 && imageIntrinsic.width > 0 && imageIntrinsic.height > 0 && containerSize.width > 0 && containerSize.height > 0) {
+            val scaleW = containerSize.width.toFloat() / imageIntrinsic.width.toFloat()
+            val scaleH = containerSize.height.toFloat() / imageIntrinsic.height.toFloat()
+            val scale = minOf(scaleW, scaleH)
+            val drawnW = imageIntrinsic.width * scale
+            val drawnH = imageIntrinsic.height * scale
+            val leftMargin = (containerSize.width - drawnW) / 2f
+            val topMargin = (containerSize.height - drawnH) / 2f
+
+            // 각 디바이스에 대한 최종 오프셋 계산 (드래그 우선, 없으면 서버 좌표)
+            val offsets = devices.associate { item ->
+                val deviceId = item.deviceId.toString()
+                val off = draggedPositions[deviceId] ?: run {
+                    val xPx = (item.x.toFloat() * drawnW)
+                    val yPx = (item.y.toFloat() * drawnH)
+                    val leftFromLeftPx = (leftMargin + xPx - iconSizePx / 2f)
+                        .coerceIn(0f, containerSize.width - iconSizePx)
+                    val topFromTopPx = (topMargin + yPx - iconSizePx / 2f)
+                        .coerceIn(0f, containerSize.height - iconSizePx)
+                    IntOffset(leftFromLeftPx.toInt(), topFromTopPx.toInt())
+                }
+                deviceId to off
+            }
+            val metrics = RenderMetrics(containerSize, imageIntrinsic, iconSizePx)
+            onCommit(metrics, offsets, imageBitmap)
         }
     }
 }
