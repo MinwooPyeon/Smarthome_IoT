@@ -12,6 +12,7 @@ import com.eeum.entity.Address;
 import com.eeum.entity.Home;
 import com.eeum.entity.UserHome;
 import com.eeum.repository.AddressRepository;
+import com.eeum.repository.FloorplanRepository;
 import com.eeum.repository.HomeRepository;
 import com.eeum.repository.UserHomeRepository;
 
@@ -24,7 +25,7 @@ public class UserHomeService {
     private final UserHomeRepository userHomeRepository;
     private final HomeRepository homeRepository;
     private final AddressRepository addressRepository;
-
+    private final FloorplanRepository floorplanRepository;
 
     // 유저의 집 목록 조회
     public List<UserHomeItemResponse> listUserHomes(Integer userId) {
@@ -87,10 +88,17 @@ public class UserHomeService {
         Address addr = addressRepository.findById(home.getAddressId())
             .orElseThrow(() -> new IllegalArgumentException("addressId=" + home.getAddressId() + " 주소를 찾을 수 없습니다."));
 
-        
+        String squareText = "";
+        Optional<Double> squareOpt = floorplanRepository.findSquareByHomeId(uh.getHomeId());
+        if (squareOpt.isPresent()) {
+            squareText = " " + java.math.BigDecimal.valueOf(squareOpt.get())
+                    .stripTrailingZeros()
+                    .toPlainString() + "평";
+        }
+
         return UserHomeItemResponse.builder()
                 .homeId(uh.getHomeId())
-                .homeName(addr.getHomeName())
+                .homeName(addr.getHomeName() + squareText)
                 .build();
     }
     
