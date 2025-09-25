@@ -116,7 +116,7 @@ void MqttManager::run_loop()
             if (auto r = actMgr_.read_env_with_retry()) {
                 // Analyzer는 단일 샘플도 처리
                 std::vector<EnvSample> one;
-                one.emplace_back(EnvSample{ now_ms(), r->tempC, r->hum });
+                one.emplace_back(EnvSample{ now_ms(), r->t, r->h });
                 ::Metrics mcalc = az_.compute(one);
 
                 // 전역 Metrics로 이벤트/저장/퍼블리시
