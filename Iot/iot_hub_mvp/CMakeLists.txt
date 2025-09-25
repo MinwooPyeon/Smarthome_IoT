@@ -25,11 +25,16 @@ add_executable(hub_main
   src/mqtt/mqtt_client.cpp
   src/mqtt/mqtt_handler.cpp
 
-  # ---- MANAGERs (DI 버전)
+  # ----- CSV
+  src/csv/csv_reader.cpp
+  src/csv/csv_writer.cpp
+
+  # ---- MANAGER
   src/manager/mqtt_manager.cpp
   src/manager/actuator_manager.cpp
   src/manager/data_manager.cpp
   src/manager/csv_manager.cpp
+  src/manager/main_manager.cpp
 
   # ---- 기타 유틸/분석 (있으면 사용)
   src/analyzer.cpp
