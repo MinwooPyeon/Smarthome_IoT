@@ -25,11 +25,11 @@ bool ActuatorManager::init() {
 }
 
 void ActuatorManager::shutdown() {
-    stop_env_poll();
+    stop_env_loop();
     // 개별 드라이버는 GPIO 핀을 안전 상태로 되돌림(Dht11Reader::read_once 내부 등)
 }
 
-std::optional<Dht11Data> ActuatorManager::read_env_with_retry() {
+std::optional<EnvSample> ActuatorManager::read_env_with_retry() {
     std::lock_guard<std::mutex> lk(mu_);
     return dht_.read_with_retry(cfg_.dhtAttempts, cfg_.dhtTimeoutMs, cfg_.dhtCooldownMs);
 }
@@ -39,13 +39,13 @@ std::optional<IrSample> ActuatorManager::capture_ir_once(int timeout_ms) {
     return ir_.capture_once(timeout_ms);
 }
 
-bool ActuatorManager::start_env_poll(std::chrono::milliseconds interval, EnvCallback cb) {
+bool ActuatorManager::start_env_loop(std::chrono::milliseconds interval, EnvCallback cb) {
     if (polling_.exchange(true)) return false; // 이미 동작중
     envThread_ = std::thread([this, interval, cb]{ env_loop(interval, cb); });
     return true;
 }
 
-void ActuatorManager::stop_env_poll() {
+void ActuatorManager::stop_env_loop() {
     if (!polling_.exchange(false)) return;
     if (envThread_.joinable()) envThread_.join();
 }

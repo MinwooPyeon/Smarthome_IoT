@@ -121,7 +121,7 @@ Metrics Analyzer::compute(const std::vector<EnvSample>& v)
 
     m.tEwma = ewT;
     m.hEwma = ewH;
-    m.tsMs = last.tsMs;
+    m.ts = last.ts;
 
     m.dewPoint = dewPointC(ewT, ewH);
     m.heatIndex = heatIndexC(ewT, ewH);

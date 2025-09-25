@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iostream>
 #include <thread>
+#include <pigpio.h>
 
 #include "config.hpp"                 // AppConfig, ActuatorConfig
 #include "manager/actuator_manager.hpp"
@@ -38,6 +39,12 @@ int main(int argc, char** argv) {
     // Actuator(핀/IR 파라미터)
     ActuatorConfig act{};
 
+    int rc = gpioInitialise();
+    if (rc < 0) {
+        std::cerr << "[main] pigpio init failed rc=" << rc << "\n";
+        return 1;
+    }
+
     // 3) 의존성 생성(외부 → DI)
     ActuatorManager actMgr(act);
     DataManager     dataMgr(/*max_metrics=*/20000, /*max_ir=*/50000);
@@ -67,7 +74,7 @@ int main(int argc, char** argv) {
         // auto last = dataMgr.last_metrics(3);
         // std::cout << "[main] last metrics: " << last.size() << "\n";
     }
-
+    gpioTerminate();
     std::cout << "[main] exited.\n";
     return 0;
 }

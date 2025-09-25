@@ -14,7 +14,7 @@ using json = nlohmann::json;
 namespace manager {
 
 MqttManager::MqttManager(const AppConfig &cfg, const ActuatorConfig &actCfg,
-                         ActuatorManager& act, DataManager& data, CsvManager& csv)
+                         IEnvSource& act, IDataStore& data, IEventSink& csv)
 : cfg_(cfg), actCfg_(actCfg_),actMgr_(act), dataMgr_(data), csvMgr_(csv), evh_(mqtt::Deps{&dataMgr_, &csvMgr_, &mqtt_, &cfg_ })
 {
     az_.setAlpha(cfg_.ewmaAlphaT, cfg_.ewmaAlphaH);
@@ -51,6 +51,27 @@ bool MqttManager::start()
         return false;
     }
 
+    auto ok = actMgr_.start_env_loop(std::chrono::milliseconds(cfg_.envIntervalMs),
+        [this](const ::EnvSample& s){
+            // Analyzer
+            std::vector<EnvSample> one{ s };
+            ::Metrics mcalc = az_.compute(one);
+
+            ::Metrics ev{};
+            ev.ts          = std::chrono::system_clock::now();
+            ev.tAvg        = mcalc.tAvg;   ev.hAvg      = mcalc.hAvg;
+            ev.tEwma       = mcalc.tEwma;  ev.hEwma     = mcalc.hEwma;
+            ev.dewPoint    = mcalc.dewPoint;
+            ev.heatIndex   = mcalc.heatIndex;
+            ev.absHumidity = mcalc.absHumidity;
+            ev.wbgt        = mcalc.wbgt;
+            ev.pmv         = mcalc.pmv;    ev.ppd       = mcalc.ppd;
+            ev.spike       = mcalc.spike;
+
+            evh_.on_metrics(ev); // DataStore/Csv/MQTT publish 내부 위임
+        });
+    if (!ok) { std::cerr << "env loop start failed\n"; return false; }
+
     mqtt_.set_message_handler([this](const std::string &topic, const std::string &payload)
     { on_mqtt_message(topic, payload); });
 
@@ -58,7 +79,12 @@ bool MqttManager::start()
     csvMgr_.start();
 
     running_ = true;
-    loopThread_ = std::thread([this]{ run_loop(); });
+    loopThread_ = std::thread([this]{
+        while (running_) {
+            mqtt_.loop_for_ms(10);
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+    });
 
     std::cout << "[mqtt] manager started\n";
     return true;
@@ -77,6 +103,8 @@ void MqttManager::stop()
     active_control_topics_.clear();
     handlers_.clear();
 
+    mqtt_.cleanup();
+    actMgr_.stop_env_loop();
     csvMgr_.stop();
     mqtt_.cleanup();
 
@@ -102,46 +130,46 @@ void MqttManager::on_mqtt_message(const std::string &topic, const std::string &p
     it->second(j);
 }
 
-void MqttManager::run_loop()
-{
-    auto nextTick = steady_clock::now();
+// void MqttManager::run_loop()
+// {
+//     auto nextTick = steady_clock::now();
 
-    while (running_) {
-        mqtt_.loop_for_ms(10);
+//     while (running_) {
+//         mqtt_.loop_for_ms(10);
 
-        // 일정 주기마다 환경 측정/분석
-        if (steady_clock::now() >= nextTick) {
-            nextTick = steady_clock::now() + milliseconds(cfg_.envIntervalMs);
+//         // 일정 주기마다 환경 측정/분석
+//         if (steady_clock::now() >= nextTick) {
+//             nextTick = steady_clock::now() + milliseconds(cfg_.envIntervalMs);
 
-            if (auto r = actMgr_.read_env_with_retry()) {
-                // Analyzer는 단일 샘플도 처리
-                std::vector<EnvSample> one;
-                one.emplace_back(EnvSample{ now_ms(), r->tempC, r->hum });
-                ::Metrics mcalc = az_.compute(one);
+//             if (auto r = actMgr_.read_env_with_retry()) {
+//                 // Analyzer는 단일 샘플도 처리
+//                 std::vector<EnvSample> one;
+//                 one.emplace_back(EnvSample{ std::chrono::system_clock::now(), r->t, r->h });
+//                 ::Metrics mcalc = az_.compute(one);
 
-                // 전역 Metrics로 이벤트/저장/퍼블리시
-                ::Metrics ev{};
-                ev.ts          = std::chrono::system_clock::now();
-                ev.tAvg        = mcalc.tAvg;
-                ev.hAvg        = mcalc.hAvg;
-                ev.tEwma       = mcalc.tEwma;
-                ev.hEwma       = mcalc.hEwma;
-                ev.dewPoint    = mcalc.dewPoint;
-                ev.heatIndex   = mcalc.heatIndex;
-                ev.absHumidity = mcalc.absHumidity;
-                ev.wbgt        = mcalc.wbgt;
-                ev.pmv         = mcalc.pmv;
-                ev.ppd         = mcalc.ppd;
-                ev.spike       = mcalc.spike;
+//                 // 전역 Metrics로 이벤트/저장/퍼블리시
+//                 ::Metrics ev{};
+//                 ev.ts          = std::chrono::system_clock::now();
+//                 ev.tAvg        = mcalc.tAvg;
+//                 ev.hAvg        = mcalc.hAvg;
+//                 ev.tEwma       = mcalc.tEwma;
+//                 ev.hEwma       = mcalc.hEwma;
+//                 ev.dewPoint    = mcalc.dewPoint;
+//                 ev.heatIndex   = mcalc.heatIndex;
+//                 ev.absHumidity = mcalc.absHumidity;
+//                 ev.wbgt        = mcalc.wbgt;
+//                 ev.pmv         = mcalc.pmv;
+//                 ev.ppd         = mcalc.ppd;
+//                 ev.spike       = mcalc.spike;
 
-                // 분리된 핸들러에 위임 (DataManager/CSV/MQTT 퍼블리시 포함)
-                evh_.on_metrics(ev);
-            }
-        }
+//                 // 분리된 핸들러에 위임 (DataManager/CSV/MQTT 퍼블리시 포함)
+//                 evh_.on_metrics(ev);
+//             }
+//         }
 
-        std::this_thread::sleep_for(milliseconds(5));
-    }
-}
+//         std::this_thread::sleep_for(milliseconds(5));
+//     }
+// }
 
 // ---------- handlers ----------
 

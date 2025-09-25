@@ -5,7 +5,7 @@
 
 struct EnvSample
 {
-    long long tsMs; // timestamp
+    std::chrono::system_clock::time_point ts{};
     double t, h;    // temperature , humidity
 };
 
