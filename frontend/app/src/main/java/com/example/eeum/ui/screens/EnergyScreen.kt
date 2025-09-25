@@ -73,25 +73,25 @@ fun EnergyScreen(
     // 각 섹션의 독립적인 상태 관리
     var energyUsageSelectedPeriod by remember { mutableStateOf("일간") }
     var deviceReportSelectedPeriod by remember { mutableStateOf("일간") }
-    
+
     // 전체 에너지 ViewModel 데이터 관찰
     val energySeries by energyViewModel.energySeries.observeAsState(emptyList())
     val totalKwh by energyViewModel.totalKwh.observeAsState(0.0)
     val isLoading by energyViewModel.isLoading.observeAsState(false)
     val error by energyViewModel.error.observeAsState()
-    
+
     // 디바이스별 ViewModel 데이터 관찰
     val deviceItems by deviceViewModel.deviceItems.observeAsState(emptyList())
     val deviceTotalKwh by deviceViewModel.totalKwh.observeAsState(0.0)
     val deviceIsLoading by deviceViewModel.isLoading.observeAsState(false)
     val deviceError by deviceViewModel.error.observeAsState()
-    
+
     // 초기 데이터 로드
     LaunchedEffect(Unit) {
         energyViewModel.fetchEnergyUsageByPeriod("일간")
         deviceViewModel.fetchDeviceEnergyUsageByPeriod("일간")
     }
-    
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -104,7 +104,7 @@ fun EnergyScreen(
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(bottom = 24.dp)
         )
-        
+
         // 스크롤 가능한 컨텐츠
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -186,15 +186,15 @@ private fun EnergyUsageSection(
                 )
             }
         }
-        
+
         // 기간 선택 탭
         PeriodSelector(
             selectedPeriod = selectedPeriod,
             onPeriodChange = onPeriodChange
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // 차트 카드
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -278,7 +278,7 @@ private fun EnergyUsageSection(
                         } else if (selectedPeriod == "월간") {
                             // 월간 - 주차별 집계 후 라인차트
                             val weeklyData = groupDailyDataToWeekly(energyData)
-            // 월간 레이블이 모두 보이도록 가로 스크롤과 넓은 폭 적용
+                            // 월간 레이블이 모두 보이도록 가로 스크롤과 넓은 폭 적용
                             val scrollState = rememberScrollState()
                             val chartWidth = (weeklyData.size * 80).dp
                             Box(modifier = Modifier.fillMaxSize().horizontalScroll(scrollState)) {
@@ -313,7 +313,7 @@ private fun PeriodSelector(
 ) {
     val periods = listOf("일간", "주간", "월간", "연간")
     val selectedIndex = periods.indexOf(selectedPeriod)
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -373,15 +373,15 @@ private fun DeviceReportSection(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 16.dp)
         )
-        
+
         // 기간 선택 탭
         PeriodSelector(
             selectedPeriod = selectedPeriod,
             onPeriodChange = onPeriodChange
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // 제품별 리포트 카드
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -446,9 +446,9 @@ private fun DeviceReportSection(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // 제품별 사용량 목록
                 DeviceUsageList(deviceItems)
             }
@@ -491,16 +491,16 @@ private fun DeviceUsageItem(
                     .clip(CircleShape)
                     .background(color)
             )
-            
+
             Spacer(modifier = Modifier.width(12.dp))
-            
+
             Text(
                 text = device.deviceType,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        
+
         Text(
             text = "${device.kwh}kWh (${device.percentage.toInt()}%)",
             style = MaterialTheme.typography.bodyMedium,
@@ -541,18 +541,18 @@ private fun AIReportSection() {
                         fontSize = 8.sp
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.width(8.dp))
-                
+
                 Text(
                     text = "AI 리포트",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // AI 분석 결과
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -580,9 +580,9 @@ private fun groupHourlyDataToThreeHours(
     data: List<com.example.eeum.data.model.response.device.EnergyTotalUsageDataList>
 ): List<EnergyData> {
     if (data.isEmpty()) return emptyList()
-    
+
     val threeHourData = mutableMapOf<String, Float>()
-    
+
     data.forEach { item ->
         try {
             // 시간 형식 처리 ("0시", "1시", ... 또는 "00:00", "01:00", ...)
@@ -591,24 +591,24 @@ private fun groupHourlyDataToThreeHours(
                 item.label.matches(Regex("\\d{1,2}:00")) -> item.label.split(":")[0].toIntOrNull() ?: 0
                 else -> item.label.toIntOrNull() ?: 0
             }
-            
+
             // 3시간 구간으로 그룹화 (0-2시 -> 3시까지, 3-5시 -> 6시까지, ...)
             val groupStartHour = (hour / 3) * 3
             val groupEndHour = groupStartHour + 3
             val groupKey = if (groupEndHour == 24) "24:00" else "${groupEndHour}:00"
-            
+
             threeHourData[groupKey] = (threeHourData[groupKey] ?: 0f) + item.kwh.toFloat()
         } catch (e: Exception) {
             // 시간 파싱 실패 시 원본 데이터 그대로 사용
         }
     }
-    
+
     // 8개 그룹을 순서대로 정렬
     val orderedGroups = listOf(
-        "3:00", "6:00", "9:00", "12:00", 
+        "3:00", "6:00", "9:00", "12:00",
         "15:00", "18:00", "21:00", "24:00"
     )
-    
+
     return orderedGroups.map { group ->
         EnergyData(group, threeHourData[group] ?: 0f)
     }
@@ -664,7 +664,7 @@ private fun DeviceUsagePieChart(
     modifier: Modifier = Modifier
 ) {
     var selectedSlice by remember { mutableStateOf<com.example.eeum.data.model.response.device.EnergyDeviceUsageDataList?>(null) }
-    
+
     Box(modifier = modifier) {
         // API 데이터를 파이차트 데이터로 변환
         val pieChartData = PieChartData(
@@ -678,7 +678,7 @@ private fun DeviceUsagePieChart(
             },
             plotType = PlotType.Pie
         )
-        
+
         val pieChartConfig = PieChartConfig(
             labelVisible = false,  // 라벨 숨김
             strokeWidth = 2f,
@@ -688,7 +688,7 @@ private fun DeviceUsagePieChart(
             showSliceLabels = false,  // 슬라이스 라벨 숨김
             isClickOnSliceEnabled = true  // 슬라이스 클릭 활성화
         )
-        
+
         PieChart(
             modifier = Modifier.fillMaxSize(),
             pieChartData = pieChartData,
@@ -703,7 +703,7 @@ private fun DeviceUsagePieChart(
                 }
             }
         )
-        
+
         // 선택된 디바이스 이름을 중앙에 표시
         selectedSlice?.let { device ->
             Box(
@@ -799,77 +799,38 @@ private fun EnergyBarChart(
         return
     }
 
-    // 막대 클릭 및 값 표시를 위한 상태 변수
-    var selectedIndex by remember { mutableStateOf<Int?>(null) }
-    
-    Box(modifier = modifier) {
-        ProvideChartStyle(m3ChartStyle()) {
-            Chart(
-                chart = columnChart(),
-                chartModelProducer = modelProducer,
-                startAxis = rememberStartAxis(
-                    guideline = null,  // Y축 격자선 제거
-                    valueFormatter = { value, _ -> 
-                        if (value < 0f) "" else if (maxValue <= 1f) {
-                            String.format("%.1fkWh", value)
-                        } else {
-                            "${value.toInt()}kWh"
-                        }
-                    }
-                ),
-                bottomAxis = rememberBottomAxis(
-                    guideline = null,  // X축 격자선 제거
-                    valueFormatter = { value, _ ->
-                        if (period == "일간") {
-                            val index = value.toInt()
-                            if (index >= 0 && index < data.size) {
-                                data[index].time  // "3:00", "6:00" 형식
-                            } else ""
-                        } else {
-                            val index = value.toInt()
-                            if (index >= 0 && index < data.size) {
-                                data[index].time
-                            } else ""
-                        }
-                    }
-                ),
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-        
-        // 차트 위에 클릭 감지 오버레이
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.Top
-        ) {
-            data.forEachIndexed { idx, e ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(200.dp)  // 차트 전체 높이에 맞게 클릭 영역 설정
-                        .clickable(
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() }
-                        ) {
-                            selectedIndex = if (selectedIndex == idx) null else idx
-                        },
-                    contentAlignment = Alignment.TopCenter
-                ) {
-                    if (selectedIndex == idx) {
-                        Text(
-                            text = String.format("%.2f", e.value),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Black
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+    ProvideChartStyle(m3ChartStyle()) {
+        Chart(
+            chart = columnChart(),
+            chartModelProducer = modelProducer,
+            startAxis = rememberStartAxis(
+                guideline = null,  // Y축 격자선 제거
+                valueFormatter = { value, _ ->
+                    if (value < 0f) "" else if (maxValue <= 1f) {
+                        String.format("%.1fkWh", value)
+                    } else {
+                        "${value.toInt()}kWh"
                     }
                 }
-            }
-        }
+            ),
+            bottomAxis = rememberBottomAxis(
+                guideline = null,  // X축 격자선 제거
+                valueFormatter = { value, _ ->
+                    if (period == "일간") {
+                        val index = value.toInt()
+                        if (index >= 0 && index < data.size) {
+                            data[index].time  // "3:00", "6:00" 형식
+                        } else ""
+                    } else {
+                        val index = value.toInt()
+                        if (index >= 0 && index < data.size) {
+                            data[index].time
+                        } else ""
+                    }
+                }
+            ),
+            modifier = modifier
+        )
     }
 }
 
@@ -897,7 +858,7 @@ private fun EnergyLineChart(
 
     val modelProducer = remember { ChartEntryModelProducer() }
     var ready by remember { mutableStateOf(false) }
-    
+
     // 데이터의 최댓값 계산 및 상한 추정 (Y축 라벨 표기 개선)
     val maxValue = data.maxOfOrNull { it.value } ?: 0f
     val upperBound = if (maxValue <= 1f) 1f else kotlin.math.ceil(maxValue.toDouble()).toFloat()

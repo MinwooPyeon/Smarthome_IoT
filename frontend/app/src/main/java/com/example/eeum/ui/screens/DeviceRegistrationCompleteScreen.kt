@@ -7,12 +7,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
@@ -110,6 +114,10 @@ fun DeviceRegistrationCompleteScreen(
 
     // 등록 성공 시 토스트 + 새로고침 신호 + Device 탭 이동
     val status by regVm.status.observeAsState()
+    val regError by regVm.error.observeAsState()
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    
     LaunchedEffect(status) {
         if (status == "SUCCESS") {
             Toast.makeText(ctx, "등록이 완료되었습니다.", Toast.LENGTH_SHORT).show()
@@ -125,6 +133,47 @@ fun DeviceRegistrationCompleteScreen(
                 launchSingleTop = true
                 popUpTo("main_tabs") { inclusive = false }
             }
+        }
+    }
+    
+    // 등록 실패 에러 처리
+    LaunchedEffect(regError) {
+        regError?.let { error ->
+            Log.d("디바이스 등록 에러", "Error: $error")
+            
+            // 에러 메시지에서 디바이스 타입 추출 및 변환
+            val deviceTypeInKorean = when (kind) {
+                "AIR_CONDITIONER" -> "에어컨"
+                "FAN" -> "선풍기"
+                "TV" -> "텔레비전"
+                "BEAM_PROJECTOR" -> "빔프로젝터"
+                "AIR_PURIFIER" -> "공기청정기"
+                "LIGHT" -> "조명"
+                "HUB" -> "허브"
+                else -> "디바이스"
+            }
+            
+            // 에러 메시지 처리 로직 개선
+            val customMessage = when {
+                // 중복 등록 에러 처리
+                error.contains("이미 해당 방에 동일 타입") -> {
+                    "이미 해당 방에 ${deviceTypeInKorean}이/가 등록되어 있습니다."
+                }
+                // 등록 실패가 포함된 에러
+                error.contains("등록 실패") -> {
+                    "이미 해당 방에 ${deviceTypeInKorean}이/가 등록되어 있습니다."
+                }
+                // 400 오류 코드가 있는 경우 (중복 등록으로 간주)
+                error.contains("400") -> {
+                    "이미 해당 방에 ${deviceTypeInKorean}이/가 등록되어 있습니다."
+                }
+                else -> {
+                    "디바이스 등록 중 오류가 발생했습니다."
+                }
+            }
+            
+            errorMessage = customMessage
+            showErrorDialog = true
         }
     }
 
@@ -496,6 +545,55 @@ fun DeviceRegistrationCompleteScreen(
                     fontSize = 16.sp,
                     fontFamily = FontFamily(Font(R.font.goormsansmedium))
                 )
+            )
+        }
+        
+        // 에러 다이얼로그
+        if (showErrorDialog) {
+            AlertDialog(
+                onDismissRequest = { 
+                    showErrorDialog = false 
+                    regVm.clearError() // 에러 청소
+                },
+                title = {
+                    Text(
+                        text = "등록 실패",
+                        style = TextStyle(
+                            fontSize = 18.sp,
+                            fontFamily = FontFamily(Font(R.font.goormsansbold)),
+                            color = Gray800,
+                            textAlign = TextAlign.Center
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                text = {
+                    Text(
+                        text = errorMessage,
+                        style = TextStyle(
+                            fontSize = 14.sp,
+                            fontFamily = FontFamily(Font(R.font.goormsansmedium)),
+                            color = Gray600
+                        )
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showErrorDialog = false
+                            regVm.clearError() // 에러 청소
+                        }
+                    ) {
+                        Text(
+                            text = "확인",
+                            style = TextStyle(
+                                fontSize = 14.sp,
+                                fontFamily = FontFamily(Font(R.font.goormsansmedium)),
+                                color = Color(0xFF007AFF)
+                            )
+                        )
+                    }
+                }
             )
         }
     }
