@@ -18,14 +18,14 @@
         "use_tls": true
     },
     "gpio": {
-        "ir_tx_pin": 22,
+        "ir_tx_pin": 25,
         "led_status_pin": 2,
         "button_pin": 0
     },
     "ir": {
         "protocol": "NEC",
         "carrier_frequency": 38000,
-        "tx_pin": 22,
+        "tx_pin": 25,
         "debug_mode": true,
         "timeout_ms": 1000
     },

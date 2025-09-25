@@ -18,7 +18,6 @@ SerialController::SerialController(int baud_rate)
 }
 
 SerialController::~SerialController() {
-    // cleanup
 }
 
 bool SerialController::initialize() {
@@ -81,33 +80,48 @@ void SerialController::loop() {
         }
 
         if (!m_input_buffer.empty()) {
-            int open_braces = 0;
-            int close_braces = 0;
-            bool in_string = false;
-            bool escaped = false;
-
-            for (char c : m_input_buffer) {
-                if (escaped) {
-                    escaped = false;
-                    continue;
-                }
-                if (c == '\\') {
-                    escaped = true;
-                    continue;
-                }
-                if (c == '"') {
-                    in_string = !in_string;
-                    continue;
-                }
-                if (!in_string) {
-                    if (c == '{') open_braces++;
-                    else if (c == '}') close_braces++;
-                }
+            size_t newline_pos = m_input_buffer.find('\n');
+            if (newline_pos == std::string::npos) {
+                newline_pos = m_input_buffer.find('\r');
             }
 
-            if (open_braces > 0 && open_braces == close_braces && m_input_buffer.length() > 10) {
-                processInput();
-                m_input_buffer.clear();
+            if (newline_pos != std::string::npos) {
+                std::string command = m_input_buffer.substr(0, newline_pos);
+                m_input_buffer = m_input_buffer.substr(newline_pos + 1);
+
+                if (!command.empty()) {
+                    processCommand(command);
+                }
+            } else {
+                int open_braces = 0;
+                int close_braces = 0;
+                bool in_string = false;
+                bool escaped = false;
+
+                for (char c : m_input_buffer) {
+                    if (escaped) {
+                        escaped = false;
+                        continue;
+                    }
+                    if (c == '\\') {
+                        escaped = true;
+                        continue;
+                    }
+                    if (c == '"') {
+                        in_string = !in_string;
+                        continue;
+                    }
+                    if (!in_string) {
+                        if (c == '{') open_braces++;
+                        else if (c == '}') close_braces++;
+                    }
+                }
+
+                if ((open_braces > 0 && open_braces == close_braces && m_input_buffer.length() > 10) ||
+                    isSimpleCommand(m_input_buffer)) {
+                    processInput();
+                    m_input_buffer.clear();
+                }
             }
         }
     }
@@ -189,9 +203,14 @@ void SerialController::processCommand(const std::string& json_str) {
     }
 
     if (!validateJson(sanitized_input)) {
-        ESP_LOGE(TAG, "JSON 유효성 검증 실패: %s", sanitized_input.c_str());
-        sendError("INVALID_JSON", "잘못된 JSON 형식");
-        return;
+        if (isSimpleCommand(sanitized_input)) {
+            processSimpleCommand(sanitized_input);
+            return;
+        } else {
+            ESP_LOGE(TAG, "JSON 유효성 검증 실패: %s", sanitized_input.c_str());
+            sendError("INVALID_JSON", "잘못된 JSON 형식");
+            return;
+        }
     }
 
     DynamicJsonDocument doc(1024);
@@ -379,4 +398,33 @@ bool SerialController::checkRateLimit() {
 
     m_message_count++;
     return true;
+}
+
+bool SerialController::isSimpleCommand(const std::string& input) const {
+    static const std::vector<std::string> simple_commands = {
+        "ac_both"
+    };
+
+    for (const auto& cmd : simple_commands) {
+        if (input == cmd) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void SerialController::processSimpleCommand(const std::string& command) {
+    ESP_LOGI(TAG, "단순 명령어 처리: %s", command.c_str());
+
+    std::string result;
+
+    if (m_command_callback) {
+        JsonObject empty_params;
+        result = m_command_callback(command, empty_params);
+    } else {
+        result = handleDefaultCommand(command, JsonObject());
+    }
+
+    sendResponse(result);
 }

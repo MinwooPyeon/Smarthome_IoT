@@ -46,4 +46,6 @@ private:
     std::string handleDefaultCommand(const std::string& command, const JsonObject& params);
     void debugPrint(const std::string& message);
     bool checkRateLimit();
+    bool isSimpleCommand(const std::string& input) const;
+    void processSimpleCommand(const std::string& command);
 };
