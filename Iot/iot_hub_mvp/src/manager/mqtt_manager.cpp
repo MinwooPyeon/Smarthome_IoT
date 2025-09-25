@@ -1,4 +1,8 @@
 #include "manager/mqtt_manager.hpp"
+#include "manager/csv_manager.hpp"
+#include "manager/data_manager.hpp"
+#include "manager/actuator_manager.hpp"
+
 #include "util.hpp"     // now_ms()
 #include <chrono>
 #include <iostream>
@@ -9,24 +13,9 @@ using json = nlohmann::json;
 
 namespace manager {
 
-MqttManager::MqttManager(const AppConfig &cfg, const ActuatorConfig &actCfg)
-    : cfg_(cfg), actCfg_(actCfg),
-      // ★ ActuatorManager 설정값 구성
-      actMgr_(actCfg),
-      dataMgr_(/*max_metrics*/ 20000, /*max_ir*/ 50000),
-      csvMgr_([this]{
-          CsvOptions o;
-          o.base_dir = "./logs";          // 필요시 AppConfig에 csvBaseDir 추가
-          o.device_id = cfg_.deviceId;
-          o.rotate_daily = true;
-          o.flush_every_n = 200;
-          o.flush_interval_ms = 1000;
-          o.max_queue = 20000;
-          o.drop_oldest_on_full = true;
-          return o;
-      }()),
-      // 분리된 핸들러에 의존성 주입
-      evh_(mqtt::Deps{ &dataMgr_, &csvMgr_, &mqtt_, &cfg_ })
+MqttManager::MqttManager(const AppConfig &cfg, const ActuatorConfig &actCfg,
+                         ActuatorManager& act, DataManager& data, CsvManager& csv)
+: cfg_(cfg), actCfg_(actCfg_),actMgr_(act), dataMgr_(data), csvMgr_(csv), evh_(mqtt::Deps{&dataMgr_, &csvMgr_, &mqtt_, &cfg_ })
 {
     az_.setAlpha(cfg_.ewmaAlphaT, cfg_.ewmaAlphaH);
     az_.setComfort(cfg_.comfortClo, cfg_.comfortMet, cfg_.comfortTr, cfg_.comfortVel);

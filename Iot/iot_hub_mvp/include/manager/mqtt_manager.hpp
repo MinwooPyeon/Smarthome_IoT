@@ -13,17 +13,19 @@
 #include "types.hpp"
 #include "config.hpp"
 
-#include "manager/data_manager.hpp"
-#include "manager/csv_manager.hpp"
-#include "manager/actuator_manager.hpp"
 
 
 
 namespace manager {
 
+    class DataManager;
+    class CsvManager;
+    class ActuatorManager;
+
 class MqttManager : public IMqttBus{
 public:
-    explicit MqttManager(const AppConfig &cfg, const ActuatorConfig &actCfg);
+    explicit MqttManager(const AppConfig &cfg, const ActuatorConfig &actCfg,
+                        ActuatorManager& act, DataManager& data, CsvManager& csv);
     ~MqttManager();
 
     bool start() override;
@@ -40,9 +42,9 @@ private:
     Analyzer az_;
 
     // --- in-proc storage / csv ---
-    manager::DataManager dataMgr_;
-    manager::CsvManager  csvMgr_;
-    manager::ActuatorManager actMgr_;
+    manager::DataManager& dataMgr_;
+    manager::CsvManager& csvMgr_;
+    manager::ActuatorManager& actMgr_;
 
     // --- 분리된 이벤트 핸들러(의존성 주입) ---
     mqtt::MqttHandler evh_;
