@@ -1,8 +1,9 @@
 #include "manager/data_manager.hpp"
 
+
 namespace manager{
     DataManager::DataManager(size_t max_metrics, size_t max_ir)
-: max_metrics_(max_metrics), max_ir_(max_ir) {}
+: max_metrics_(max_metrics), max_log_(max_ir) {}
 
 void DataManager::add(const Metrics& m) {
     std::lock_guard<std::mutex> lk(mu_m_);
@@ -11,7 +12,7 @@ void DataManager::add(const Metrics& m) {
 }
 void DataManager::add(const IrSignalLog& l) {
     std::lock_guard<std::mutex> lk(mu_i_);
-    if (q_i_.size() >= max_ir_) q_i_.pop_front();
+    if (q_i_.size() >= max_log_) q_i_.pop_front();
     q_i_.push_back(l);
 }
 void DataManager::add(const IrSendDevice& d){
@@ -23,7 +24,7 @@ std::vector<Metrics> DataManager::snapshot_metrics() const {
     std::lock_guard<std::mutex> lk(mu_m_);
     return std::vector<Metrics>(q_m_.begin(), q_m_.end());
 }
-std::vector<IrSignalLog> DataManager::snapshot_ir() const {
+std::vector<IrSignalLog> DataManager::snapshot_log() const {
     std::lock_guard<std::mutex> lk(mu_i_);
     return std::vector<IrSignalLog>(q_i_.begin(), q_i_.end());
 }
@@ -38,7 +39,7 @@ std::vector<Metrics> DataManager::last_metrics(size_t n) const {
     std::lock_guard<std::mutex> lk(mu_m_);
     return _last_n_locked(q_m_, n);
 }
-std::vector<IrSignalLog> DataManager::last_ir(size_t n) const {
+std::vector<IrSignalLog> DataManager::last_log(size_t n) const {
     std::lock_guard<std::mutex> lk(mu_i_);
     return _last_n_locked(q_i_, n);
 }
@@ -63,7 +64,7 @@ std::vector<Metrics> DataManager::metrics_between(
     return _between_locked(q_m_, [](auto& x){ return x.ts; }, s, e);
 }
 
-std::vector<IrSignalLog> DataManager::ir_between(
+std::vector<IrSignalLog> DataManager::log_between(
     std::chrono::system_clock::time_point s,
     std::chrono::system_clock::time_point e) const
 {
@@ -72,5 +73,5 @@ std::vector<IrSignalLog> DataManager::ir_between(
 }
 
 void DataManager::clear_metrics() { std::lock_guard<std::mutex> lk(mu_m_); q_m_.clear(); }
-void DataManager::clear_ir()      { std::lock_guard<std::mutex> lk(mu_i_); q_i_.clear(); }
+void DataManager::clear_log()      { std::lock_guard<std::mutex> lk(mu_i_); q_i_.clear(); }
 }

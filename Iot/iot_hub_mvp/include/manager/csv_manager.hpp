@@ -15,12 +15,15 @@
 #include "csv/csv_reader.hpp"
 #include "csv/csv_writer.hpp"
 #include "csv/csv_mapper.hpp"
+
+#include "manager/port.hpp"
+
 #include "util.hpp"
 #include "types.hpp"
 
 namespace manager
 {
-    class CsvManager
+    class CsvManager : public IEventSink
     {
     public:
         using Clock = std::chrono::system_clock;
@@ -35,9 +38,9 @@ namespace manager
         // ---- 쓰기 사이드 ----
         void start();
         void stop();
-        void post(const Metrics &m);
-        void post(const IrSignalLog &l);
-        void post(const IrSendDevice &d);
+        void post(const Metrics &m) override;
+        void post(const IrSignalLog &l) override;
+        void post(const IrSendDevice &d) override;
         void post(Event &&ev);
 
         // ---- 읽기 사이드 ----
