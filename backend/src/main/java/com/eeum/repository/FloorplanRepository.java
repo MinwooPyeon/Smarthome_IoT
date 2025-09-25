@@ -1,6 +1,7 @@
 package com.eeum.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -42,4 +43,14 @@ public interface FloorplanRepository extends JpaRepository<Floorplan, Integer> {
         """)
         List<Floorplan> findAllByHomeId(@Param("homeId") Integer homeId);
     
+    
+    // homeId로 평면도 square 조회
+    @Query(value = """
+            SELECT f.square
+              FROM eeum.floorplans f
+             WHERE f.home_id = :homeId
+             ORDER BY f.floorplan_id
+             LIMIT 1
+            """, nativeQuery = true)
+    Optional<Double> findSquareByHomeId(@Param("homeId") Integer homeId);
 }

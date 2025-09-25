@@ -29,6 +29,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.eeum.base.ApplicationClass
+import com.example.eeum.core.AppEffect
+import com.example.eeum.core.AppEventBus
 import com.example.eeum.data.model.response.routine.RoutineData
 import com.example.eeum.ui.screens.RoutineViewModel
 import com.example.eeum.util.ResourceUtils
@@ -46,6 +48,14 @@ fun MyRoutinePage(
 ) {
     // 최초 로딩
     LaunchedEffect(Unit) { viewModel.fetchAllRoutines() }
+
+    LaunchedEffect(Unit) {
+        AppEventBus.effects.collect { eff ->
+            if (eff is AppEffect.RoutinesChanged) {
+                viewModel.fetchAllRoutines()
+            }
+        }
+    }
 
     // 삭제 확인 다이얼로그 상태
     var routineToDelete by remember { mutableStateOf<RoutineData?>(null) }
