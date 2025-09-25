@@ -50,11 +50,17 @@ class VoiceUseCase(
             when (block) {
                 is ControlBlock -> {
                     val speech = applyComposite(block)
-                    if (speech.isNotBlank()) effects += AppEffect.Speak(speech, false)
+                    if (speech.isNotBlank()) {
+                        effects += AppEffect.Speak(speech, false)
+                        effects += AppEffect.DevicesChanged
+                    }
                 }
                 is ScopeBlock -> {
                     val speech = applyScope(block)
-                    if (speech.isNotBlank()) effects += AppEffect.Speak(speech, false)
+                    if (speech.isNotBlank()) {
+                        effects += AppEffect.Speak(speech, false)
+                        effects += AppEffect.DevicesChanged
+                    }
                 }
                 is QueryItem -> {
                     val speech = handleQuery(block.intent)
@@ -79,7 +85,9 @@ class VoiceUseCase(
             level = b.level
         )
         return r.fold(
-            onSuccess = { buildSuccessSpeech(b) },
+            onSuccess = {
+                AppEventBus.tryEmit(AppEffect.DevicesChanged)
+                buildSuccessSpeech(b) },
             onFailure = { e -> friendlyFail(e) }
         )
     }
@@ -94,6 +102,7 @@ class VoiceUseCase(
             )
             return r.fold(
                 onSuccess = { cnt ->
+                    AppEventBus.tryEmit(AppEffect.DevicesChanged)
                     val what = b.deviceType ?: "모든 기기"
                     val act  = if (b.power) "켰어요" else "껐어요"
                     if (cnt > 0) "${b.roomName} 계열의 $what ${cnt}대 $act." else "대상이 없어요."
@@ -112,6 +121,7 @@ class VoiceUseCase(
             )
             return r.fold(
                 onSuccess = { cnt ->
+                    AppEventBus.tryEmit(AppEffect.DevicesChanged)
                     val what = b.deviceType ?: "모든 기기"
                     val act  = if (b.power) "켰어요" else "껐어요"
                     val room = buildRoomKey(b.roomName, b.number)
@@ -125,6 +135,7 @@ class VoiceUseCase(
         val r = repo.bulkSetPower(deviceType = b.deviceType, on = b.power)
         return r.fold(
             onSuccess = { cnt ->
+                AppEventBus.tryEmit(AppEffect.DevicesChanged)
                 val what = b.deviceType ?: "모든 기기"
                 val verb = if (b.power) "켰어요" else "껐어요"
                 if (cnt > 0) "$what ${cnt}대 $verb." else "대상이 없어요."
@@ -274,7 +285,9 @@ class VoiceUseCase(
                     val r = routineRepo.createRoutine(req)
                     routineSession = null
                     return r.fold(
-                        onSuccess = { Speech("루틴이 등록되었어요.", false) }, // 완료 → 재청취 종료
+                        onSuccess = {
+                            AppEventBus.tryEmit(AppEffect.RoutinesChanged)
+                            Speech("루틴이 등록되었어요.", false) }, // 완료 → 재청취 종료
                         onFailure = { Speech(friendlyFail(it), true) }       // 실패 → 계속 듣기
                     )
                 }
@@ -503,6 +516,7 @@ class VoiceUseCase(
             "불", "조명" -> "전등"
             "빔", "빔프로젝터" -> "프로젝터"
             "팬" -> "선풍기"
+            "공기 청정기"-> "공기청정기"
             else -> t
         }
     }
@@ -570,7 +584,9 @@ class VoiceUseCase(
             "ROUTINE_DELETE_BY_NAME" -> {
                 val r = routineRepo.deleteRoutineById(id)
                 r.fold(
-                    onSuccess = { "루틴 '${name}'을 삭제했어요." },
+                    onSuccess = {
+                        AppEventBus.tryEmit(AppEffect.RoutinesChanged)
+                        "루틴 '${name}'을 삭제했어요." },
                     onFailure = { e -> friendlyFail(e) }
                 )
             }

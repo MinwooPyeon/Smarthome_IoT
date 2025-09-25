@@ -54,6 +54,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.eeum.R
+import com.example.eeum.core.AppEffect
+import com.example.eeum.core.AppEventBus
 import com.example.eeum.ui.theme.*
 import com.example.eeum.ui.components.AirConditionerTemperatureControl
 import com.example.eeum.ui.components.DeviceDeleteDialog
@@ -220,7 +222,19 @@ private fun RefreshableContent(
             }
         }
 
-        Column(modifier = modifier.fillMaxSize()) {
+        LaunchedEffect(Unit) {
+            AppEventBus.effects.collect { eff ->
+                when (eff) {
+                    is AppEffect.DevicesChanged -> {
+                        listVm.load()
+                        hubVm.getHubs(1)
+                    }
+                    else -> Unit
+                }
+            }
+        }
+
+    Column(modifier = modifier.fillMaxSize()) {
             // 헤더 추가
             if (showHeader) {
                 Column(
