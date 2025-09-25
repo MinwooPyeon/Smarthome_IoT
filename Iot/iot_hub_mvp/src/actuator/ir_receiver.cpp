@@ -1,4 +1,4 @@
-#include "ir_receiver.hpp"
+#include "actuator/ir_receiver.hpp"
 #include <pigpio.h>
 #include <chrono>
 #include <thread>
