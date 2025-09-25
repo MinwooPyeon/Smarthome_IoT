@@ -400,7 +400,7 @@ android.widget.LinearLayout(context).apply {
                         setPadding(0, 0, 0, 12)
                     })
                     
-                    // 디테일 주소 (API에서 받아온 실제 데이터)
+                    // 디테일 주소
                     if (!house.detail.isNullOrEmpty()) {
                         addView(TextView(context).apply {
                             text = house.detail
