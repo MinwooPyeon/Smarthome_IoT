@@ -34,7 +34,7 @@ namespace csv
     class CsvMapper
     {
     public:
-        Mapper &add(const Column<T> &c)
+        CsvMapper &add(const Column<T> &c)
         {
             cols_.push_back(c);
             return *this;

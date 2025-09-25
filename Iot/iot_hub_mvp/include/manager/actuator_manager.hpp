@@ -10,7 +10,7 @@
 #include <chrono>
 #include <mutex>
 #include <thread>
-
+#include <atomic>
 
 namespace manager{
     class ActuatorManager : public IEnvSource{

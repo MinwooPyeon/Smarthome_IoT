@@ -87,5 +87,7 @@ namespace csv
         m.add(make_column<IrSendDevice>("consumption", [](const IrSendDevice &e)
                                        { return std::to_string(e.consumption); }, [](IrSendDevice &e, const std::string &s)
                                        { e.consumption = to_f64(s).value_or(0.0); }));
+        
+        return m;
     }
 }
