@@ -214,6 +214,11 @@ class HomeViewModel : ViewModel() {
                         )
                         // 최신 상태 반영을 위해 집 목록 재조회
                         fetchUserHomes()
+                        clearFloorplans()
+                        clearDevices()
+                        fetchRooms(homeId)
+                        fetchUserHomeFloorplans(homeId)      
+                        fetchDevicesIcon()
                     } ?: run {
                         _error.value = "대표 집 변경 응답이 비어있습니다."
                         Log.e("HomeViewModel", "대표 집 변경 응답이 비어있습니다.")
