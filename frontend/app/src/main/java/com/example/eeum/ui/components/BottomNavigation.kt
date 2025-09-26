@@ -87,7 +87,7 @@ private fun BottomNavItem(
             .clickable(onClick = onClick)
     ) {
         M2Icon(
-            imageVector = tab.icon,
+            imageVector = tab.getIcon(),
             contentDescription = tab.label,
             tint = if (selected) selColor else dimColor,
             modifier = Modifier.size(22.dp)

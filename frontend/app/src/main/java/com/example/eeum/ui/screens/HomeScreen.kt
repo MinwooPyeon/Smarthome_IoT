@@ -410,7 +410,7 @@ private fun StatsRow(
             modifier = Modifier.weight(1f)
         )
         StatCard(
-            title = "활성 기기 수",
+            title = "활성 기기",
             subtitle = "${activeOn}개 가동",
             iconResource = R.drawable.ic_device,
             tint = Color(0xFF94A3B8),
