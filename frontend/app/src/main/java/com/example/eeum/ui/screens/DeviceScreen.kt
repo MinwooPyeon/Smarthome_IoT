@@ -72,6 +72,7 @@ fun DeviceScreen(navController: NavController? = null) {
     val regVm: DeviceRegistrationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
     val hubVm: HubViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
     val statusVm: DeviceStatusViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
+    val homeVm: HomeViewModel = androidx.lifecycle.viewmodel.compose.viewModel(activity)
 
     // 새로고침 상태
     var isRefreshing by remember { mutableStateOf(false) }
@@ -97,6 +98,7 @@ fun DeviceScreen(navController: NavController? = null) {
             regVm = regVm,
             hubVm = hubVm,
             statusVm = statusVm,
+            homeVm = homeVm,
             activity = activity,
             refreshKey = refreshKey,
             isRefreshing = isRefreshing,
@@ -113,6 +115,7 @@ private fun RefreshableContent(
     regVm: DeviceRegistrationViewModel,
     hubVm: HubViewModel,
     statusVm: DeviceStatusViewModel,
+    homeVm: HomeViewModel,
     activity: androidx.activity.ComponentActivity,
     refreshKey: Long,
     isRefreshing: Boolean,
@@ -201,12 +204,17 @@ private fun RefreshableContent(
     // 디바이스 상태 변경 관련 상태 관찰
     val statusChangeResult by statusVm.result.observeAsState()
     val statusChangeError by statusVm.error.observeAsState()
+    
+    // 대표 집 이름 관찰
+    val primaryHomeName by homeVm.primaryHomeName.observeAsState()
 
     // 최초 진입 시 1회 로드
     LaunchedEffect(Unit) {
         listVm.load()
         // 허브 목록도 로드 (기본 homeId 1 사용)
         hubVm.getHubs(1)
+        // 대표 집 정보 로드
+        homeVm.fetchPrimaryHome()
     }
 
     // 수동 새로고침 처리 (필요 시 사용)
@@ -215,6 +223,7 @@ private fun RefreshableContent(
             try {
                 listVm.load()
                 hubVm.getHubs(1)
+                homeVm.fetchPrimaryHome()
             } finally {
                 onRefreshComplete()
             }
@@ -235,6 +244,7 @@ private fun RefreshableContent(
             android.widget.Toast.makeText(activity, "디바이스 목록을 새로고침했습니다.", android.widget.Toast.LENGTH_SHORT).show()
             listVm.load()
             hubVm.getHubs(1) // 허브 목록도 새로고침
+            homeVm.fetchPrimaryHome() // 대표 집 정보도 새로고침
         }
     }
 
@@ -279,6 +289,7 @@ private fun RefreshableContent(
                     is AppEffect.DevicesChanged -> {
                         listVm.load()
                         hubVm.getHubs(1)
+                        homeVm.fetchPrimaryHome()
                     }
                     else -> Unit
                 }
@@ -300,7 +311,7 @@ private fun RefreshableContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "우리 집",
+                            text = primaryHomeName ?: "우리 집", // 대표 집 이름 사용, 로딩 전에는 기본값
                             style = TextStyle(
                                 fontSize = 30.sp,
                                 fontFamily = FontFamily(Font(R.font.goormsansbold)),
