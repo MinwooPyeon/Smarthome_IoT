@@ -15,4 +15,7 @@ sealed class AppEffect {
         val route: String,
         val params: Map<String, String> = emptyMap()
     ) : AppEffect()
+
+    object DevicesChanged : AppEffect()
+    object RoutinesChanged : AppEffect()
 }

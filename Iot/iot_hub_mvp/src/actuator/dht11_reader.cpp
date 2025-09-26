@@ -1,4 +1,4 @@
-#include "dht11_reader.hpp"
+#include "actuator/dht11_reader.hpp"
 #include <pigpio.h>
 #include <stdexcept>
 #include <thread>
@@ -47,7 +47,7 @@ uint8_t Dht11Reader::calc_checksum(uint8_t hh, uint8_t hl, uint8_t th, uint8_t t
     return static_cast<uint8_t>(hh + hl + th + tl);
 }
 
-std::optional<Dht11Data> Dht11Reader::process_data(uint64_t Data) {
+std::optional<EnvSample> Dht11Reader::process_data(uint64_t Data) {
     uint8_t HumidityHigh    = (Data >> 32) & 0xFF;
     uint8_t HumidityLow     = (Data >> 24) & 0xFF;
     uint8_t TemperatureHigh = (Data >> 16) & 0xFF;
@@ -59,13 +59,13 @@ std::optional<Dht11Data> Dht11Reader::process_data(uint64_t Data) {
     }
 
     // DHT11은 소수부(LL)가 거의 0. 안전하게 High 바이트만 사용.
-    Dht11Data out;
-    out.hum   = static_cast<float>(HumidityHigh);
-    out.tempC = static_cast<float>(TemperatureHigh);
+    EnvSample out;
+    out.h   = static_cast<float>(HumidityHigh);
+    out.t = static_cast<float>(TemperatureHigh);
     return out;
 }
 
-std::optional<Dht11Data> Dht11Reader::read_with_retry(int attempts,
+std::optional<EnvSample> Dht11Reader::read_with_retry(int attempts,
                                                       int timeout_ms,
                                                       int cool_down_ms) {
     if (attempts < 1) attempts = 1;
@@ -82,7 +82,7 @@ std::optional<Dht11Data> Dht11Reader::read_with_retry(int attempts,
 }
 
 
-std::optional<Dht11Data> Dht11Reader::read_once(int timeout_ms) {
+std::optional<EnvSample> Dht11Reader::read_once(int timeout_ms) {
     // pigpio는 µs 단위, 상한 보호
     const int MAX_US = std::max(1, timeout_ms) * 1000;
 

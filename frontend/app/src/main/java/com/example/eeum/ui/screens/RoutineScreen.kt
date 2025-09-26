@@ -1,5 +1,6 @@
 package com.example.eeum.ui.screens
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -41,10 +42,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.composed
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.eeum.core.AppEffect
+import com.example.eeum.core.AppEventBus
 import kotlin.math.roundToInt
 
 private val TabBg = Color(0xFFF5F5F5)
@@ -57,6 +62,17 @@ fun RoutineScreen(navController: NavController) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
     val tabs = listOf("내 루틴", "AI 추천 루틴")
+
+    val activity = LocalContext.current as ComponentActivity
+    val routineVm: RoutineViewModel = viewModel(activity)
+
+    LaunchedEffect(Unit) {
+        AppEventBus.effects.collect { eff ->
+            if (eff is AppEffect.RoutinesChanged) {
+                routineVm.fetchAllRoutines()
+            }
+        }
+    }
 
     Column(
         modifier = Modifier

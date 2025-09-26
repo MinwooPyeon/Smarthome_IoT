@@ -268,4 +268,54 @@ public interface DeviceRepository extends JpaRepository<Device, Integer> {
             """, nativeQuery = true)
     Optional<Integer> findHomeIdByDeviceId(@Param("deviceId") Integer deviceId);
     
+    
+    // 디바이스 좌표변경시 방에 동일한 devicetype이 있는지 확인
+    @Query(value = """
+            SELECT EXISTS (
+              SELECT 1
+                FROM eeum.device d
+                JOIN eeum.device_positions dp ON dp.device_id = d.device_id
+                JOIN eeum.ir_remoteir rr ON rr.model = d.model
+               WHERE d.user_home_id = :userHomeId
+                 AND dp.room_id = :roomId
+                 AND LOWER(rr.device_type) = LOWER(:deviceType)
+                 AND d.device_id <> :excludeDeviceId
+            )
+            """, nativeQuery = true)
+        boolean existsDeviceInRoomByDeviceTypeExcept(@Param("userHomeId") Integer userHomeId,
+                                                     @Param("roomId") Integer roomId,
+                                                     @Param("deviceType") String deviceType,
+                                                     @Param("excludeDeviceId") Integer excludeDeviceId);
+    
+    // 디바이스별 현재 roomId 조회
+    @Query(value = """
+    	    SELECT dp.room_id
+    	      FROM eeum.device_positions dp
+    	     WHERE dp.device_id = :deviceId
+    	     LIMIT 1
+    	    """, nativeQuery = true)
+    	Integer findCurrentRoomId(@Param("deviceId") Integer deviceId);
+
+
+    
+    // 여러 roomId에 있는 디바이스들의 (deviceId, roomId, deviceType) 전부 조회
+    public static interface RoomDeviceTypeRow {
+        Integer getDeviceId();
+        Integer getRoomId();
+        String  getDeviceType();
+    }
+
+    @Query(value = """
+        SELECT d.device_id        AS deviceId,
+               dp.room_id         AS roomId,
+               LOWER(rr.device_type) AS deviceType
+          FROM eeum.device d
+          JOIN eeum.device_positions dp ON dp.device_id = d.device_id
+          JOIN eeum.ir_remoteir rr      ON rr.model = d.model
+         WHERE d.user_home_id = :userHomeId
+           AND dp.room_id IN (:roomIds)
+        """, nativeQuery = true)
+    List<RoomDeviceTypeRow> findDevicesByRoomIds(@Param("userHomeId") Integer userHomeId,
+                                                 @Param("roomIds") List<Integer> roomIds);
+
 }

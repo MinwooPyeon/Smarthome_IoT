@@ -37,6 +37,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.eeum.R
 import com.example.eeum.base.ApplicationClass
+import com.example.eeum.core.AppEffect
+import com.example.eeum.core.AppEventBus
 import com.example.eeum.data.model.response.device.DeviceItem
 import com.example.eeum.data.model.response.home.Home
 import com.example.eeum.ui.theme.EeumTheme

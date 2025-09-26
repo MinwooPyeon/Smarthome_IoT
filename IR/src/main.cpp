@@ -188,6 +188,10 @@ void sendErrorMessage(const std::string& level, const std::string& code,
     }
 }
 
+bool isSimpleMQTTCommand(const std::string& message);
+void processSimpleMQTTCommand(const std::string& command);
+std::string onSerialCommand(const std::string& command, const JsonObject& params);
+
 void onMQTTMessage(char* topic, unsigned char* payload, unsigned int length) {
     std::string message((char*)payload, length);
     std::string topic_str = std::string(topic);
@@ -195,13 +199,23 @@ void onMQTTMessage(char* topic, unsigned char* payload, unsigned int length) {
     ESP_LOGI(TAG, "토픽: %s", topic);
     ESP_LOGI(TAG, "길이: %d bytes", length);
     ESP_LOGI(TAG, "내용: %s", message.c_str());
-    ESP_LOGI(TAG, "========================");
+    ESP_LOGI(TAG, "===");
 
+    if (length > 4096) {
+        ESP_LOGE(TAG, "메시지가 너무 큼: %d bytes (최대 4096)", length);
+        return;
+    }
 
     if (topic_str.find("/order/control") != std::string::npos) {
         ESP_LOGI(TAG, "IR 제어 명령 메시지 수신");
 
-        DynamicJsonDocument doc(8192);
+        if (isSimpleMQTTCommand(message)) {
+            ESP_LOGI(TAG, "단순 명령어 처리: %s", message.c_str());
+            processSimpleMQTTCommand(message);
+            return;
+        }
+
+        DynamicJsonDocument doc(4096);
         DeserializationError error = deserializeJson(doc, message);
         if (error) {
             ESP_LOGE(TAG, "JSON 파싱 실패: %s", error.c_str());
@@ -259,12 +273,52 @@ void onMQTTMessage(char* topic, unsigned char* payload, unsigned int length) {
         if (g_ir_sender && !raw_data_array.empty()) {
             auto start_time = esp_timer_get_time();
 
-            ESP_LOGI(TAG, "IR 신호 송신 시작 (Raw 데이터: %d개 펄스)", (int)raw_data_array.size());
+            gpio_set_level(GPIO_NUM_2, 1);
+            ESP_LOGI(TAG, "LED ON - IR 송신 시작");
+
+            ESP_LOGI(TAG, "=== IR 송신 디버그 정보 ===");
+            ESP_LOGI(TAG, "Raw 데이터: %d개 펄스", (int)raw_data_array.size());
+            ESP_LOGI(TAG, "첫 5개 타이밍: %d, %d, %d, %d, %d",
+                     raw_data_array[0], raw_data_array[1], raw_data_array[2],
+                     raw_data_array[3], raw_data_array[4]);
+            ESP_LOGI(TAG, "GPIO 25번 핀에서 38kHz 캐리어로 송신 중...");
+            ESP_LOGI(TAG, "===");
+
             auto result = g_ir_sender->sendRawData(raw_data_array);
 
             auto duration = (esp_timer_get_time() - start_time) / 1000;
             ESP_LOGI(TAG, "IR 송신 완료 (소요시간: %lldms, 결과: %s)", duration,
                      result.result == IRSendResult::SUCCESS ? "성공" : "실패");
+
+            if (result.result != IRSendResult::SUCCESS) {
+                ESP_LOGE(TAG, "IR 송신 실패 원인: %s", result.message.c_str());
+            } else {
+                ESP_LOGI(TAG, "IR 송신 성공 - 기기가 응답해야 함");
+            }
+
+            if (result.result == IRSendResult::SUCCESS) {
+                ESP_LOGI(TAG, "IR 신호 지속시간 연장을 위한 반복 송신 시작");
+
+                auto repeat_result = g_ir_sender->sendRepeatedSignal(raw_data_array, 20, 20);
+
+                if (repeat_result.result == IRSendResult::SUCCESS) {
+                    ESP_LOGI(TAG, "IR 신호 반복 송신 성공 - 총 6회 송신 완료");
+                } else {
+                    ESP_LOGW(TAG, "IR 신호 반복 송신 실패: %s", repeat_result.message.c_str());
+                }
+            }
+
+            ESP_LOGI(TAG, "적외선 다이오드 2초간 연속 송신 시작...");
+            auto continuous_result = g_ir_sender->sendContinuousSignal(2000);
+
+            if (continuous_result.result == IRSendResult::SUCCESS) {
+                ESP_LOGI(TAG, "적외선 다이오드 2초간 연속 송신 성공");
+            } else {
+                ESP_LOGW(TAG, "적외선 다이오드 연속 송신 실패: %s", continuous_result.message.c_str());
+            }
+
+            gpio_set_level(GPIO_NUM_2, 0);
+            ESP_LOGI(TAG, "LED OFF - IR 송신 완료");
 
             if (result.result == IRSendResult::SUCCESS) {
                 if (g_pubsub_client.connected()) {
@@ -296,10 +350,98 @@ void onMQTTMessage(char* topic, unsigned char* payload, unsigned int length) {
     ESP_LOGW(TAG, "알 수 없는 토픽: %s", topic_str.c_str());
 }
 
+bool isSimpleMQTTCommand(const std::string& message) {
+    static const std::vector<std::string> simple_commands = {
+        "ac_both"
+    };
+
+    for (const auto& cmd : simple_commands) {
+        if (message == cmd) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void processSimpleMQTTCommand(const std::string& command) {
+    ESP_LOGI(TAG, "MQTT 단순 명령어 실행: %s", command.c_str());
+
+    gpio_set_level(GPIO_NUM_2, 1);
+
+    std::string result = onSerialCommand(command, JsonObject());
+
+    gpio_set_level(GPIO_NUM_2, 0);
+
+    ESP_LOGI(TAG, "명령어 실행 결과: %s", result.c_str());
+
+    std::string response_topic = "hub/" + std::string(DEVICE_ID) + "/response/command";
+    DynamicJsonDocument response_doc(512);
+    response_doc["command"] = command.c_str();
+    response_doc["result"] = result.c_str();
+    response_doc["timestamp"] = esp_timer_get_time() / 1000;
+
+    std::string response_str;
+    serializeJson(response_doc, response_str);
+    g_pubsub_client.publish(response_topic.c_str(), response_str.c_str());
+
+    ESP_LOGI(TAG, "응답 전송: %s", response_str.c_str());
+}
+
 std::string onSerialCommand(const std::string& command, const JsonObject& params) {
     ESP_LOGI(TAG, "시리얼 명령 수신: %s", command.c_str());
 
-    if (command == "raw_send") {
+    if (command == "ac_both") {
+        if (g_ir_sender) {
+            ESP_LOGI(TAG, "삼성 에어컨 ON/OFF 연속 테스트 시작");
+
+            gpio_set_level(GPIO_NUM_2, 1);
+            ESP_LOGI(TAG, "LED ON - 에어컨 ON/OFF 연속 테스트");
+
+            std::vector<int> samsung_ac_on_signal = {
+                612,408,565,1429,561,409,612,408,561,409,620,408,561,408,612,408,561,460,561,1428,
+                561,459,512,459,561,1428,561,1428,561,459,561,1428,561,1429,561,1428,561,1428,561,1428,
+                561,459,510,510,510,459,510,510,510,459,510,510,510,459,510,510,510,459,561,459,
+                561,408,561,459,561,411,561,459,561,408,561,459,561,408,561,459,561,408,561,459,
+                561,459,510,459,561,459,510,510,510,459,510,510,510,459,561,459,510,459,561,459,
+                510,459,561,459,510,459,561,459,510,1479,510,1479,510,2958,3060
+            };
+
+            std::vector<int> samsung_ac_off_signal = {
+                561,408,612,1378,612,409,561,459,561,409,567,459,510,459,561,459,510,460,561,1479,
+                510,459,561,459,510,1479,510,1479,561,408,561,1428,561,1430,561,1428,561,1437,561,1431,
+                561,459,561,408,561,459,561,459,510,459,561,459,510,459,561,459,510,510,510,459,
+                561,459,510,459,561,460,510,459,561,459,510,459,561,459,510,486,510,459,561,459,
+                510,510,510,459,510,510,510,459,510,510,510,459,561,459,561,408,561,459,561,408,
+                561,459,561,408,561,459,561,408,561,1479,510,1479,510,2958,3009
+            };
+
+            ESP_LOGI(TAG, "1. 삼성 에어컨 ON 신호 연속 송신 (5회)");
+            auto result1 = g_ir_sender->sendRepeatedSignal(samsung_ac_on_signal, 5, 100);
+            vTaskDelay(pdMS_TO_TICKS(800));
+
+            ESP_LOGI(TAG, "2. 삼성 에어컨 OFF 신호 연속 송신 (5회)");
+            auto result2 = g_ir_sender->sendRepeatedSignal(samsung_ac_off_signal, 5, 100);
+            vTaskDelay(pdMS_TO_TICKS(800));
+
+            ESP_LOGI(TAG, "3. 삼성 에어컨 ON 신호 추가 송신 (8회)");
+            auto result3 = g_ir_sender->sendRepeatedSignal(samsung_ac_on_signal, 8, 50);
+            vTaskDelay(pdMS_TO_TICKS(800));
+
+            ESP_LOGI(TAG, "4. 삼성 에어컨 OFF 신호 추가 송신 (8회)");
+            auto result4 = g_ir_sender->sendRepeatedSignal(samsung_ac_off_signal, 8, 50);
+
+            gpio_set_level(GPIO_NUM_2, 0);
+            ESP_LOGI(TAG, "LED OFF - 에어컨 ON/OFF 연속 테스트 완료");
+
+            return std::string("삼성 에어컨 ON/OFF 테스트 완료 - ON:") + (result1.result == IRSendResult::SUCCESS ? "성공" : "실패") +
+                   std::string(", OFF:") + (result2.result == IRSendResult::SUCCESS ? "성공" : "실패") +
+                   std::string(", ON반복:") + (result3.result == IRSendResult::SUCCESS ? "성공" : "실패") +
+                   std::string(", OFF반복:") + (result4.result == IRSendResult::SUCCESS ? "성공" : "실패");
+        } else {
+            return "IR 송신기가 초기화되지 않음";
+        }
+    } else if (command == "raw_send") {
         if (!params.containsKey("raw_data") || !params["raw_data"].is<JsonArray>()) {
             return "오류: raw_data 배열이 필요";
         }
@@ -330,7 +472,9 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
     } else if (command == "ir_status") {
         DynamicJsonDocument ir_doc(256);
         ir_doc["sending"] = (g_ir_sender != nullptr);
-        ir_doc["tx_pin"] = 23;
+        ir_doc["tx_pin"] = 25;
+        ir_doc["carrier_freq"] = 38000;
+        ir_doc["duty_cycle"] = 50;
 
         std::string result_str;
         serializeJson(ir_doc, result_str);
@@ -380,13 +524,11 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
         DynamicJsonDocument device_doc(512);
         JsonArray devices = device_doc.createNestedArray("devices");
 
-        // Samsung TV
         JsonObject tv = devices.createNestedObject();
         tv["id"] = "samsung_tv";
         tv["name"] = "Samsung TV";
         tv["type"] = "tv";
 
-        // Samsung AC
         JsonObject ac = devices.createNestedObject();
         ac["id"] = "samsung_ac";
         ac["name"] = "Samsung AC";
@@ -394,6 +536,52 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
 
         std::string result_str;
         serializeJson(device_doc, result_str);
+        return result_str;
+    } else if (command == "analyze_raw") {
+        if (!params.containsKey("raw_data") || !params["raw_data"].is<JsonArray>()) {
+            return "오류: raw_data 배열이 필요";
+        }
+
+        JsonArray raw_data = params["raw_data"];
+        DynamicJsonDocument analysis_doc(1024);
+        JsonArray original = analysis_doc.createNestedArray("original");
+        JsonArray processed = analysis_doc.createNestedArray("processed");
+        JsonArray differences = analysis_doc.createNestedArray("differences");
+
+        for (JsonVariant item : raw_data) {
+            if (item.is<int>()) {
+                int original_val = item.as<int>();
+                int processed_val = original_val;
+
+                if (processed_val < 50) processed_val = 50;
+                if (processed_val > 65535) processed_val = 65535;
+                if (processed_val % 10 != 0) {
+                    processed_val = ((processed_val + 5) / 10) * 10;
+                }
+
+                original.add(original_val);
+                processed.add(processed_val);
+                differences.add(processed_val - original_val);
+            }
+        }
+
+        analysis_doc["total_pulses"] = raw_data.size();
+        analysis_doc["max_difference"] = 0;
+        analysis_doc["avg_difference"] = 0.0;
+
+        int total_diff = 0;
+        int max_diff = 0;
+        for (JsonVariant diff : differences) {
+            int d = diff.as<int>();
+            total_diff += abs(d);
+            if (abs(d) > max_diff) max_diff = abs(d);
+        }
+
+        analysis_doc["max_difference"] = max_diff;
+        analysis_doc["avg_difference"] = raw_data.size() > 0 ? (double)total_diff / raw_data.size() : 0.0;
+
+        std::string result_str;
+        serializeJson(analysis_doc, result_str);
         return result_str;
     } else if (command == "samsung_test") {
         if (g_ir_sender) {
@@ -425,6 +613,25 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
 
             std::string result_str;
             serializeJson(response_doc, result_str);
+    } else if (command == "test_ir") {
+        if (g_ir_sender) {
+            ESP_LOGI(TAG, "IR 송신 테스트 시작");
+
+            std::vector<int> test_signal = {612,408,565,1429,561,409,612,408,561,409,620,408,561,408,612,408,561,460,561,1428};
+
+            gpio_set_level(GPIO_NUM_2, 1);
+            auto result = g_ir_sender->sendRawData(test_signal);
+            gpio_set_level(GPIO_NUM_2, 0);
+
+            DynamicJsonDocument test_doc(256);
+            test_doc["success"] = (result.result == IRSendResult::SUCCESS);
+            test_doc["message"] = result.message.c_str();
+            test_doc["duration_ms"] = result.duration_ms;
+            test_doc["tx_pin"] = 25;
+            test_doc["carrier_freq"] = 38000;
+
+            std::string result_str;
+            serializeJson(test_doc, result_str);
             return result_str;
         } else {
             return "오류: IR 송신기가 초기화되지 않음";
@@ -767,6 +974,52 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
         } else {
             return "오류: IRremoteESP8266 송신기가 초기화되지 않음";
         }
+    } else if (command == "analyze_raw") {
+        if (!params.containsKey("raw_data") || !params["raw_data"].is<JsonArray>()) {
+            return "오류: raw_data 배열이 필요";
+        }
+
+        JsonArray raw_data = params["raw_data"];
+        DynamicJsonDocument analysis_doc(1024);
+        JsonArray original = analysis_doc.createNestedArray("original");
+        JsonArray processed = analysis_doc.createNestedArray("processed");
+        JsonArray differences = analysis_doc.createNestedArray("differences");
+
+        for (JsonVariant item : raw_data) {
+            if (item.is<int>()) {
+                int original_val = item.as<int>();
+                int processed_val = original_val;
+
+                if (processed_val < 50) processed_val = 50;
+                if (processed_val > 65535) processed_val = 65535;
+                if (processed_val % 10 != 0) {
+                    processed_val = ((processed_val + 5) / 10) * 10;
+                }
+
+                original.add(original_val);
+                processed.add(processed_val);
+                differences.add(processed_val - original_val);
+            }
+        }
+
+        analysis_doc["total_pulses"] = raw_data.size();
+        analysis_doc["max_difference"] = 0;
+        analysis_doc["avg_difference"] = 0.0;
+
+        int total_diff = 0;
+        int max_diff = 0;
+        for (JsonVariant diff : differences) {
+            int d = diff.as<int>();
+            total_diff += abs(d);
+            if (abs(d) > max_diff) max_diff = abs(d);
+        }
+
+        analysis_doc["max_difference"] = max_diff;
+        analysis_doc["avg_difference"] = raw_data.size() > 0 ? (double)total_diff / raw_data.size() : 0.0;
+
+        std::string result_str;
+        serializeJson(analysis_doc, result_str);
+        return result_str;
     } else if (command == "restart") {
         ESP_LOGI(TAG, "시스템 재시작 요청");
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -805,6 +1058,9 @@ bool connectMQTT() {
     g_pubsub_client.setCallback([](char* topic, unsigned char* payload, unsigned int length) {
         onMQTTMessage(topic, payload, length);
     });
+    g_pubsub_client.setKeepAlive(60);
+    g_pubsub_client.setSocketTimeout(15);
+    g_pubsub_client.setBufferSize(4096);  // MQTT 버퍼 크기 증가
 
     int retry_count = 0;
     const int max_retries = 3;
@@ -828,9 +1084,15 @@ bool connectMQTT() {
 
             std::string control_topic = "hub/" + std::string(DEVICE_ID) + "/order/control";
 
-            g_pubsub_client.subscribe(control_topic.c_str());
+            bool subscribe_result = g_pubsub_client.subscribe(control_topic.c_str());
+            ESP_LOGI(TAG, "MQTT 토픽 구독: %s (결과: %s)", control_topic.c_str(), subscribe_result ? "성공" : "실패");
 
-            ESP_LOGI(TAG, "MQTT 토픽 구독: %s", control_topic.c_str());
+            // 추가 디버깅: 구독 상태 확인
+            if (subscribe_result) {
+                ESP_LOGI(TAG, "MQTT 구독 성공 - 메시지 대기 중...");
+            } else {
+                ESP_LOGE(TAG, "MQTT 구독 실패!");
+            }
 
             return true;
         } else {
@@ -876,15 +1138,22 @@ void mqtt_task(void* parameter) {
         if (!g_pubsub_client.connected() && WiFi.status() == WL_CONNECTED) {
             if (millis() - last_reconnect > 5000) {
                 last_reconnect = millis();
+                ESP_LOGI(TAG, "MQTT 재연결 시도...");
                 connectMQTT();
             }
         }
 
         if (g_pubsub_client.connected()) {
             g_pubsub_client.loop();
+        } else {
+            static uint32_t last_warning = 0;
+            if (millis() - last_warning > 10000) {  // 10초마다 한 번씩만 경고
+                ESP_LOGW(TAG, "MQTT 연결 끊어짐, 재연결 시도");
+                last_warning = millis();
+            }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(100));  // 1초 -> 100ms로 변경하여 더 빠른 응답
     }
 }
 
@@ -917,6 +1186,21 @@ void loadConfiguration() {
 
 void initHardware() {
     ESP_LOGI(TAG, "하드웨어 초기화 중");
+
+    gpio_config_t led_conf = {};
+    led_conf.intr_type = GPIO_INTR_DISABLE;
+    led_conf.mode = GPIO_MODE_OUTPUT;
+    led_conf.pin_bit_mask = (1ULL << 2);
+    led_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    led_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+
+    esp_err_t led_ret = gpio_config(&led_conf);
+    if (led_ret == ESP_OK) {
+        ESP_LOGI(TAG, "LED GPIO 2번 핀 초기화 성공");
+        gpio_set_level(GPIO_NUM_2, 0);
+    } else {
+        ESP_LOGE(TAG, "LED GPIO 2번 핀 초기화 실패: %s", esp_err_to_name(led_ret));
+    }
 
     g_serial_controller = new SerialController(115200);
     g_serial_controller->setCommandCallback(onSerialCommand);
@@ -979,16 +1263,9 @@ void setup() {
     ESP_LOGI(TAG, "Free heap: %d bytes", esp_get_free_heap_size());
     ESP_LOGI(TAG, "Chip revision: %d", esp_chip_info_t().revision);
 
-    // if (Security::initialize()) {
-    //     ESP_LOGI(TAG, "보안 시스템 초기화 성공");
-    // } else {
-    //     ESP_LOGE(TAG, "보안 시스템 초기화 실패");
-    // }
     ESP_LOGI(TAG, "보안 시스템 초기화 건너뜀 (개발 중)");
 
     ESP_LOGI(TAG, "독립 실행 모드 활성화");
-
-    // Serial.end();
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -1025,6 +1302,7 @@ void loop() {
     if (millis() - last_led_time > 2000) {
         led_state = !led_state;
         gpio_set_level(GPIO_NUM_2, led_state ? 1 : 0);
+        ESP_LOGI(TAG, "LED 상태: %s (GPIO 2)", led_state ? "ON" : "OFF");
         last_led_time = millis();
     }
 

@@ -1,11 +1,7 @@
 #pragma once
 #include <optional>
 #include <cstdint>
-
-struct Dht11Data {
-    float tempC{};
-    float hum{};
-};
+#include <types.hpp>
 
 class Dht11Reader {
 public:
@@ -16,8 +12,8 @@ public:
     bool init();
 
     // 한 번 읽기 (timeout_ms 내에 실패 시 std::nullopt)
-    std::optional<Dht11Data> read_once(int timeout_ms = 1500);
-    std::optional<Dht11Data> read_with_retry(int attempts = 3,
+    std::optional<EnvSample> read_once(int timeout_ms = 1500);
+    std::optional<EnvSample> read_with_retry(int attempts = 3,
                                          int timeout_ms = 1500,
                                          int cool_down_ms = 1200);
 
@@ -32,5 +28,5 @@ private:
     static uint8_t calc_checksum(uint8_t hh, uint8_t hl, uint8_t th, uint8_t tl);
 
     // 40비트 raw를 해석해 값 리턴 (체크섬 불일치 시 nullopt)
-    std::optional<Dht11Data> process_data(uint64_t data);
+    std::optional<EnvSample> process_data(uint64_t data);
 };

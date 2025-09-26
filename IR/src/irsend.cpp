@@ -69,6 +69,20 @@ bool IRSend::initialize() {
 #ifdef PLATFORM_ESP32
     int tx_pin = 25;
 
+    gpio_config_t io_conf = {};
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL << tx_pin);
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+
+    esp_err_t gpio_ret = gpio_config(&io_conf);
+    if (gpio_ret != ESP_OK) {
+        ESP_LOGE("IR_SEND", "GPIO %d 설정 실패: %s", tx_pin, esp_err_to_name(gpio_ret));
+        return false;
+    }
+    ESP_LOGI("IR_SEND", "GPIO %d 설정 완료", tx_pin);
+
     rmt_config_t config = {};
     config.rmt_mode = RMT_MODE_TX;
     config.channel = RMT_CHANNEL_1;
@@ -77,12 +91,12 @@ bool IRSend::initialize() {
     config.tx_config.loop_en = false;
     config.tx_config.carrier_en = true;
     config.tx_config.carrier_freq_hz = 38000;
-    config.tx_config.carrier_duty_percent = 33;
+    config.tx_config.carrier_duty_percent = 50;
     config.tx_config.carrier_level = RMT_CARRIER_LEVEL_HIGH;
     config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
     config.tx_config.idle_output_en = true;
 
-    config.clk_div = 80;
+    config.clk_div = 100;
 
     esp_err_t ret = rmt_config(&config);
     if (ret != ESP_OK) {
@@ -211,21 +225,51 @@ IRSendStatus IRSend::sendRawData(const std::vector<int>& raw_data) {
         return IRSendStatus(IRSendResult::INVALID_CODE, "Raw 데이터가 비어있음");
     }
 
+    // Raw 데이터 검증
+    for (size_t i = 0; i < raw_data.size(); i++) {
+        if (raw_data[i] <= 0 || raw_data[i] > 65535) {
+            return IRSendStatus(IRSendResult::INVALID_CODE,
+                "잘못된 타이밍 값: 인덱스 " + std::to_string(i) + ", 값 " + std::to_string(raw_data[i]));
+        }
+    }
+
+    std::vector<int> processed_data = raw_data;
+
+    for (size_t i = 0; i < processed_data.size(); i++) {
+        if (processed_data[i] < 50) {
+            processed_data[i] = 50;
+        } else if (processed_data[i] > 65535) {
+            processed_data[i] = 65535;
+        }
+
+        if (processed_data[i] % 10 != 0) {
+            processed_data[i] = ((processed_data[i] + 5) / 10) * 10;
+        }
+    }
+
+    ESP_LOGI("IR_SEND", "Raw 데이터 검증 완료: %d개 펄스", (int)processed_data.size());
+    if (debug_mode_) {
+        ESP_LOGI("IR_SEND", "원본 vs 처리된 타이밍 (첫 10개):");
+        for (size_t i = 0; i < std::min((size_t)10, raw_data.size()); i++) {
+            ESP_LOGI("IR_SEND", "  [%d]: %d → %d μs", (int)i, raw_data[i], processed_data[i]);
+        }
+    }
+
     auto start_time = std::chrono::high_resolution_clock::now();
 
 #ifdef PLATFORM_ESP32
-    size_t item_count = (raw_data.size() + 1) / 2;
+    size_t item_count = (processed_data.size() + 1) / 2;
     rmt_item32_t* items = new rmt_item32_t[item_count];
 
-    for (size_t i = 0; i < raw_data.size(); i += 2) {
+    for (size_t i = 0; i < processed_data.size(); i += 2) {
         size_t item_idx = i / 2;
 
         items[item_idx].level0 = 1;
-        items[item_idx].duration0 = raw_data[i];
+        items[item_idx].duration0 = processed_data[i];
 
-        if (i + 1 < raw_data.size()) {
+        if (i + 1 < processed_data.size()) {
             items[item_idx].level1 = 0;
-            items[item_idx].duration1 = raw_data[i + 1];
+            items[item_idx].duration1 = processed_data[i + 1];
         } else {
             items[item_idx].level1 = 0;
             items[item_idx].duration1 = 0;
@@ -237,6 +281,7 @@ IRSendStatus IRSend::sendRawData(const std::vector<int>& raw_data) {
 
     if (ret == ESP_OK) {
         ESP_LOGI("IR_SEND", "ESP32 Raw 데이터 전송: %d개 펄스", (int)raw_data.size());
+        ESP_LOGI("IR_SEND", "IR 송신기 GPIO 25번 핀에서 신호 송신 중...");
         auto end_time = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
         return IRSendStatus(IRSendResult::SUCCESS, "Raw 데이터 전송 성공", duration.count() / 1000.0);
@@ -247,6 +292,121 @@ IRSendStatus IRSend::sendRawData(const std::vector<int>& raw_data) {
 #endif
 
     return IRSendStatus(IRSendResult::TRANSMISSION_FAILED, "Raw 데이터 송신 실패");
+}
+
+IRSendStatus IRSend::sendContinuousSignal(int duration_ms) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (!initialized_) {
+        return IRSendStatus(IRSendResult::DEVICE_NOT_FOUND, "IR 송신기가 초기화되지 않음");
+    }
+
+    if (duration_ms <= 0 || duration_ms > 10000) {
+        return IRSendStatus(IRSendResult::INVALID_CODE, "지속시간은 1-10000ms 범위여야 함");
+    }
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+#ifdef PLATFORM_ESP32
+    ESP_LOGI("IR_SEND", "연속 IR 신호 송신 시작 - %dms 동안", duration_ms);
+
+    rmt_item32_t continuous_item;
+    continuous_item.level0 = 1;
+    continuous_item.duration0 = 13;
+    continuous_item.level1 = 0;
+    continuous_item.duration1 = 5;
+
+    auto end_time = start_time + std::chrono::milliseconds(duration_ms);
+
+    while (std::chrono::high_resolution_clock::now() < end_time) {
+        esp_err_t ret = rmt_write_items(RMT_CHANNEL_1, &continuous_item, 1, false);
+        if (ret != ESP_OK) {
+            ESP_LOGE("IR_SEND", "연속 IR 신호 전송 실패: %s", esp_err_to_name(ret));
+            return IRSendStatus(IRSendResult::TRANSMISSION_FAILED, "연속 IR 신호 전송 실패");
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+
+    ESP_LOGI("IR_SEND", "연속 IR 신호 송신 완료 - GPIO 25번 핀");
+    auto actual_end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(actual_end_time - start_time);
+    return IRSendStatus(IRSendResult::SUCCESS, "연속 IR 신호 전송 성공", duration.count() / 1000.0);
+#endif
+
+    return IRSendStatus(IRSendResult::TRANSMISSION_FAILED, "연속 IR 신호 송신 실패");
+}
+
+IRSendStatus IRSend::sendRepeatedSignal(const std::vector<int>& raw_data, int repeat_count, int delay_ms) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (!initialized_) {
+        return IRSendStatus(IRSendResult::DEVICE_NOT_FOUND, "IR 송신기가 초기화되지 않음");
+    }
+
+    if (raw_data.empty()) {
+        return IRSendStatus(IRSendResult::INVALID_CODE, "Raw 데이터가 비어있음");
+    }
+
+    if (repeat_count <= 0 || repeat_count > 10) {
+        return IRSendStatus(IRSendResult::INVALID_CODE, "반복 횟수는 1-10 범위여야 함");
+    }
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+#ifdef PLATFORM_ESP32
+    ESP_LOGI("IR_SEND", "IR 신호 반복 송신 시작 - %d회 반복, %dms 간격", repeat_count, delay_ms);
+
+    std::vector<int> processed_data = raw_data;
+    for (size_t i = 0; i < processed_data.size(); i++) {
+        if (processed_data[i] < 50) processed_data[i] = 50;
+        if (processed_data[i] > 65535) processed_data[i] = 65535;
+        if (processed_data[i] % 10 != 0) {
+            processed_data[i] = ((processed_data[i] + 5) / 10) * 10;
+        }
+    }
+
+    for (int i = 0; i < repeat_count; i++) {
+        size_t item_count = (processed_data.size() + 1) / 2;
+        rmt_item32_t* items = new rmt_item32_t[item_count];
+
+        for (size_t j = 0; j < processed_data.size(); j += 2) {
+            size_t item_idx = j / 2;
+
+            items[item_idx].level0 = 1;
+            items[item_idx].duration0 = processed_data[j];
+
+            if (j + 1 < processed_data.size()) {
+                items[item_idx].level1 = 0;
+                items[item_idx].duration1 = processed_data[j + 1];
+            } else {
+                items[item_idx].level1 = 0;
+                items[item_idx].duration1 = 0;
+            }
+        }
+
+        esp_err_t ret = rmt_write_items(RMT_CHANNEL_1, items, item_count, true);
+        delete[] items;
+
+        if (ret != ESP_OK) {
+            ESP_LOGE("IR_SEND", "IR 신호 반복 송신 실패 (%d/%d): %s", i+1, repeat_count, esp_err_to_name(ret));
+            return IRSendStatus(IRSendResult::TRANSMISSION_FAILED, "IR 신호 반복 송신 실패");
+        }
+
+        ESP_LOGI("IR_SEND", "IR 신호 송신 완료 (%d/%d)", i+1, repeat_count);
+
+        if (i < repeat_count - 1) {
+            vTaskDelay(pdMS_TO_TICKS(delay_ms));
+        }
+    }
+
+    ESP_LOGI("IR_SEND", "IR 신호 반복 송신 완료 - GPIO 25번 핀");
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    return IRSendStatus(IRSendResult::SUCCESS, "IR 신호 반복 송신 성공", duration.count() / 1000.0);
+#endif
+
+    return IRSendStatus(IRSendResult::TRANSMISSION_FAILED, "IR 신호 반복 송신 실패");
 }
 
 std::vector<IRSendStatus> IRSend::sendControlSignals(const std::vector<std::string>& control_signals, int delay_ms) {

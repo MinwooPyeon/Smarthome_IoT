@@ -21,6 +21,8 @@ import com.eeum.dto.response.DeviceItemResponse;
 import com.eeum.dto.response.DeviceLocationResponse;
 import com.eeum.dto.response.DeviceLogItemResponse;
 import com.eeum.dto.response.DeviceResponse;
+import com.eeum.dto.request.UpdateDeviceLocationItem;
+import com.eeum.dto.response.UpdateDeviceLocationsResponse;
 import com.eeum.entity.Device;
 import com.eeum.entity.IrButton;
 import com.eeum.entity.IrDevice;
@@ -105,9 +107,10 @@ public class DeviceService {
         Integer colorInt = parseHexColorToInt(req.getRoomColor());
         
         // home_id + room_color 로 방 조회
-        Room room = roomRepository
-                .findNearestByHomeIdAndRoomColorWithinTol(req.getHomeId(), colorInt, 10000000)
-                .orElseThrow(() -> new IllegalArgumentException("해당 색상(±" + 10000000 + ")의 방을 찾을 수 없습니다."));
+        int[] rgb = parseHexToRgb(req.getRoomColor()); // (R,G,B) 반환
+        Room room = roomRepository.findNearestByHomeIdAndRgbWithinTol(
+                req.getHomeId(), rgb[0], rgb[1], rgb[2], 10
+        ).orElseThrow(() -> new IllegalArgumentException("해당 색상(±10) 방을 찾을 수 없습니다."));
 
         
         Integer roomId = room.getRoomId();
@@ -228,6 +231,30 @@ public class DeviceService {
         }
         return Integer.parseInt(v, 16);
     }
+    
+    
+    // #RRGGBB" 또는 "RRGGBB" HEX 문자열을 (R,G,B) int 배열로 변환
+    private static int[] parseHexToRgb(String hex) {
+        if (hex == null) {
+            throw new IllegalArgumentException("색상 문자열이 null입니다.");
+        }
+
+        String v = hex.trim();
+        if (v.startsWith("#")) {
+            v = v.substring(1);
+        }
+        if (!v.matches("(?i)[0-9a-f]{6}")) {
+            throw new IllegalArgumentException("유효하지 않은 색상값입니다. 기대형식: #RRGGBB 또는 RRGGBB");
+        }
+
+        int color = Integer.parseInt(v, 16);
+        int r = (color >> 16) & 0xFF;
+        int g = (color >> 8)  & 0xFF;
+        int b = (color)       & 0xFF;
+
+        return new int[]{r, g, b};
+    }
+
     
   
     // device 전체/조건 목록 조회
@@ -620,12 +647,37 @@ public class DeviceService {
             throw new IllegalArgumentException("room(" + req.getRoomId() + ")은 home(" + req.getHomeId() + ")에 속하지 않습니다.");
         }
     
+        // 방에 동일한 devicetype 이 있는지 체크
+        Device device = deviceRepository.findById(deviceId)
+            .orElseThrow(() -> new NoSuchElementException("device 조회 실패: " + deviceId));
+        String deviceType = resolveDeviceType(device);
+
+        boolean dup = deviceRepository.existsDeviceInRoomByDeviceTypeExcept(
+            userHomeId, req.getRoomId(), deviceType, deviceId
+        );
+        if (dup) {
+            throw new IllegalArgumentException(
+                "해당 방(" + req.getRoomId() + ")에는 이미 동일 타입(" + deviceType + ")의 기기가 존재합니다.");
+        }
+        
+        // 좌표 업데이트
         int updated = deviceRepository.updateDevicePosition(
                 deviceId, req.getHomeId(), req.getRoomId(), req.getX(), req.getY());
 
         if (updated == 0) {
             throw new NoSuchElementException("디바이스의 위치 변경을 실패했습니다. deviceId=" + deviceId);
         }
+        
+         // 새 방 이름 + 타입으로 deviceName 갱신
+        String roomName = deviceRepository.findRoomNameById(req.getRoomId())
+                .orElseThrow(() -> new IllegalArgumentException("room을 찾을 수 없습니다: " + req.getRoomId()));
+            String newName = roomName + " " + deviceType;
+            if (!newName.equals(device.getDeviceName())) {
+                device.setDeviceName(newName);
+                deviceRepository.save(device);
+                log.info("[DEVICE-RENAME] deviceId={} -> {}", deviceId, newName);
+            }
+        
         return deviceId;
     }
 
@@ -686,4 +738,176 @@ public class DeviceService {
     private String safeJson(Object o) {
         try { return objectMapper.writeValueAsString(o); } catch (Exception e) { return String.valueOf(o); }
     }
+   
+
+    @Transactional
+    public UpdateDeviceLocationsResponse updateLocationsBatch(Integer userId, List<UpdateDeviceLocationItem> items) {
+        if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
+        if (items == null || items.isEmpty()) throw new IllegalArgumentException("수정할 항목이 비었습니다.");
+
+        for (UpdateDeviceLocationItem it : items) {
+            if (it.getDeviceId() == null) throw new IllegalArgumentException("deviceId는 필수입니다.");
+            if (it.getHomeId() == null)   throw new IllegalArgumentException("homeId는 필수입니다.");
+            if (it.getRoomId() == null)   throw new IllegalArgumentException("roomId는 필수입니다.");
+            if (it.getX() == null || it.getY() == null) throw new IllegalArgumentException("x, y는 필수입니다.");
+        }
+
+        // --- 1) 홈 일관성/소유권/room-home 관계 검증 ---
+        final Integer homeId0 = items.get(0).getHomeId();
+
+        Integer userHomeId = deviceRepository.findUserHomeId(userId, homeId0)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "사용자가 home(" + homeId0 + ")에 소속되어 있지 않습니다."));
+
+        for (UpdateDeviceLocationItem it : items) {
+            // 소유권 확인
+            if (!deviceRepository.userOwnsDevice(userId, it.getDeviceId())) {
+                throw new NoSuchElementException("디바이스가 없거나 권한이 없습니다. deviceId=" + it.getDeviceId());
+            }
+            // room이 home에 속하는지
+            if (!deviceRepository.existsRoomInHome(it.getHomeId(), it.getRoomId())) {
+                throw new IllegalArgumentException("room(" + it.getRoomId() + ")은 home(" + it.getHomeId() + ")에 속하지 않습니다.");
+            }
+        }
+
+        // --- 2) 현재 상태 수집: device, deviceType, 현재 roomId ---
+        Map<Integer, Device> deviceMap = new HashMap<>();
+        Map<Integer, String> typeDisplayMap = new HashMap<>();
+        Map<Integer, String> typeLowerMap   = new HashMap<>();
+        Map<Integer, Integer> currentRoomMap = new HashMap<>();
+
+        for (UpdateDeviceLocationItem it : items) {
+            Integer devId = it.getDeviceId();
+            Device d = deviceRepository.findById(devId)
+                .orElseThrow(() -> new NoSuchElementException("device 조회 실패: " + devId));
+            deviceMap.put(devId, d);
+
+            String displayType = resolveDeviceType(d); // 예: "조명", "에어컨"
+            typeDisplayMap.put(devId, displayType);
+            typeLowerMap.put(devId, displayType == null ? null : displayType.toLowerCase());
+
+            Integer curRoomId = deviceRepository.findCurrentRoomId(devId);
+            if (curRoomId == null) {
+                throw new IllegalStateException("현재 roomId를 찾을 수 없습니다. deviceId=" + devId);
+            }
+            currentRoomMap.put(devId, curRoomId);
+        }
+
+        // --- 3) 영향 받는 방 집합 (출발방 ∪ 도착방) ---
+        java.util.Set<Integer> affectedRoomIds = new java.util.HashSet<>(currentRoomMap.values());
+        for (UpdateDeviceLocationItem it : items) {
+            affectedRoomIds.add(it.getRoomId());
+        }
+
+        // --- 4) 영향 방들의 현 분포 로드: roomId -> (type -> deviceId 집합) ---
+        // DeviceRepository.RoomDeviceTypeRow { getDeviceId(), getRoomId(), getDeviceType() } 전제
+        List<DeviceRepository.RoomDeviceTypeRow> rows =
+            deviceRepository.findDevicesByRoomIds(userHomeId, new java.util.ArrayList<>(affectedRoomIds));
+
+        Map<Integer, Map<String, java.util.Set<Integer>>> roomTypeToDevices = new HashMap<>();
+        for (var r : rows) {
+            Integer roomId = r.getRoomId();
+            String typeLc = r.getDeviceType();
+            roomTypeToDevices
+                .computeIfAbsent(roomId, k -> new HashMap<>())
+                .computeIfAbsent(typeLc, k -> new java.util.HashSet<>())
+                .add(r.getDeviceId());
+        }
+        // 비어있는 방도 키만 생성
+        for (Integer rid : affectedRoomIds) {
+            roomTypeToDevices.computeIfAbsent(rid, k -> new HashMap<>());
+        }
+
+        // --- 5) 시뮬레이션: 모든 이동을 "동시에" 적용 ---
+        for (UpdateDeviceLocationItem it : items) {
+            Integer devId = it.getDeviceId();
+            Integer src = currentRoomMap.get(devId);
+            Integer dst = it.getRoomId();
+            String typeLc = typeLowerMap.get(devId);
+
+            if (!src.equals(dst)) {
+                // src에서 제거
+                roomTypeToDevices
+                    .computeIfAbsent(src, k -> new HashMap<>())
+                    .computeIfAbsent(typeLc, k -> new java.util.HashSet<>())
+                    .remove(devId);
+
+                // dst에 추가
+                roomTypeToDevices
+                    .computeIfAbsent(dst, k -> new HashMap<>())
+                    .computeIfAbsent(typeLc, k -> new java.util.HashSet<>())
+                    .add(devId);
+            }
+        }
+
+        // --- 6) 최종 상태 검증: 어떤 방이든 동일 type이 2개 이상이면 실패 ---
+        for (var eRoom : roomTypeToDevices.entrySet()) {
+            Integer roomId = eRoom.getKey();
+            for (var eType : eRoom.getValue().entrySet()) {
+                String typeLc = eType.getKey();
+                int count = eType.getValue().size();
+                if (count > 1) {
+                    throw new IllegalArgumentException(
+                        "동시 이동 결과, room(" + roomId + ")에 동일 타입(" + typeLc + ") 기기가 " + count + "개가 됩니다.");
+                }
+            }
+        }
+
+        // --- 7) 커밋 단계: 실제 업데이트 + 이름 동기화 ---
+        int updated = 0;
+        List<UpdateDeviceLocationsResponse.ErrorItem> errors = new java.util.ArrayList<>();
+
+        for (UpdateDeviceLocationItem it : items) {
+            try {
+                int cnt = deviceRepository.updateDevicePosition(
+                    it.getDeviceId(), it.getHomeId(), it.getRoomId(), it.getX(), it.getY()
+                );
+                if (cnt == 0) throw new NoSuchElementException("디바이스의 위치 변경 실패. deviceId=" + it.getDeviceId());
+
+                // 새 방 이름 + 타입으로 deviceName 동기화
+                Device device = deviceMap.get(it.getDeviceId());
+                String deviceTypeDisplay = typeDisplayMap.get(it.getDeviceId()); // 표시용 (대소문자 보존)
+                String roomName = deviceRepository.findRoomNameById(it.getRoomId())
+                    .orElseThrow(() -> new IllegalArgumentException("room을 찾을 수 없습니다: " + it.getRoomId()));
+                String newName = roomName + " " + deviceTypeDisplay;
+                if (!newName.equals(device.getDeviceName())) {
+                    device.setDeviceName(newName);
+                    deviceRepository.save(device);
+                    log.info("[BATCH-RENAME] deviceId={} -> {}", it.getDeviceId(), newName);
+                }
+
+                updated++;
+            } catch (Exception e) {
+                log.warn("[BATCH-LOC] update fail deviceId={} err={}", it != null ? it.getDeviceId() : null, e.toString());
+                errors.add(UpdateDeviceLocationsResponse.ErrorItem.builder()
+                        .deviceId(it != null ? it.getDeviceId() : null)
+                        .message(e.getMessage())
+                        .build());
+            }
+        }
+
+        return UpdateDeviceLocationsResponse.builder()
+                .total(items.size())
+                .updated(updated)
+                .errors(errors)
+                .build();
+    }
+    
+    
+    private String resolveDeviceType(Device device) {
+        return irRemoteirRepository.findById(device.getModel())
+                .map(IrRemoteir::getDeviceType)
+                .filter(s -> s != null && !s.isBlank())
+                .orElseGet(() -> {
+                    String name = device.getDeviceName();
+                    if (name != null) {
+                        int idx = name.lastIndexOf(' ');
+                        if (idx >= 0 && idx + 1 < name.length()) {
+                            return name.substring(idx + 1);
+                        }
+                    }
+                    return "디바이스";
+                });
+    }
+
 }

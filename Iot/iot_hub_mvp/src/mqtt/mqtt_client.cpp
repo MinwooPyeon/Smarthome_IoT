@@ -1,7 +1,9 @@
-#include "mqtt_client.hpp"
+#include "mqtt/mqtt_client.hpp"
 #include <iostream>
 #include <chrono>
 #include <thread>
+
+using namespace mqtt;
 
 bool MqttClient::init(const AppConfig& cfg, const std::string& clientId){
     cfg_ = cfg;
