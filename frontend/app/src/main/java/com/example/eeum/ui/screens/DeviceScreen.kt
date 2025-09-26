@@ -205,16 +205,26 @@ private fun RefreshableContent(
     val statusChangeResult by statusVm.result.observeAsState()
     val statusChangeError by statusVm.error.observeAsState()
     
-    // 대표 집 이름 관찰
+    // 대표 집 이름 및 homeId 관찰
     val primaryHomeName by homeVm.primaryHomeName.observeAsState()
+    val primaryHomeId by homeVm.primaryHomeId.observeAsState()
+    val selectedHomeId by homeVm.selectedHomeId.observeAsState()
+    
+    // 현재 사용할 homeId (선택된 홈이 있으면 우선, 없으면 대표 홈, 둘 다 없으면 기본값 1)
+    val currentHomeId = selectedHomeId ?: primaryHomeId ?: 1
 
     // 최초 진입 시 1회 로드
     LaunchedEffect(Unit) {
         listVm.load()
-        // 허브 목록도 로드 (기본 homeId 1 사용)
-        hubVm.getHubs(1)
         // 대표 집 정보 로드
         homeVm.fetchPrimaryHome()
+    }
+    
+    // homeId가 사용 가능해지면 허브 목록 로드
+    LaunchedEffect(currentHomeId) {
+        if (currentHomeId > 0) {
+            hubVm.getHubs(currentHomeId)
+        }
     }
 
     // 수동 새로고침 처리 (필요 시 사용)
@@ -222,8 +232,10 @@ private fun RefreshableContent(
         if (isRefreshing) {
             try {
                 listVm.load()
-                hubVm.getHubs(1)
                 homeVm.fetchPrimaryHome()
+                if (currentHomeId > 0) {
+                    hubVm.getHubs(currentHomeId)
+                }
             } finally {
                 onRefreshComplete()
             }
@@ -235,7 +247,9 @@ private fun RefreshableContent(
     val registrationStatus by hubVm.registrationStatus.observeAsState()
     LaunchedEffect(userHomeId, registrationStatus) {
         if (userHomeId != null && registrationStatus == "success") {
-            hubVm.getHubs(1) // 허브 등록 성공 후 목록 새로고침
+            if (currentHomeId > 0) {
+                hubVm.getHubs(currentHomeId) // 허브 등록 성공 후 목록 새로고침
+            }
         }
     }
     // 자동 새로고침 신호 수신 시 서버 목록 재조회
@@ -243,8 +257,10 @@ private fun RefreshableContent(
         if (refreshKey != 0L) {
             android.widget.Toast.makeText(activity, "디바이스 목록을 새로고침했습니다.", android.widget.Toast.LENGTH_SHORT).show()
             listVm.load()
-            hubVm.getHubs(1) // 허브 목록도 새로고침
             homeVm.fetchPrimaryHome() // 대표 집 정보도 새로고침
+            if (currentHomeId > 0) {
+                hubVm.getHubs(currentHomeId) // 허브 목록도 새로고침
+            }
         }
     }
 
@@ -288,8 +304,10 @@ private fun RefreshableContent(
                 when (eff) {
                     is AppEffect.DevicesChanged -> {
                         listVm.load()
-                        hubVm.getHubs(1)
                         homeVm.fetchPrimaryHome()
+                        if (currentHomeId > 0) {
+                            hubVm.getHubs(currentHomeId)
+                        }
                     }
                     else -> Unit
                 }
