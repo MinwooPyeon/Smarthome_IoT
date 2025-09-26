@@ -2,9 +2,11 @@ package com.example.eeum.data.remote.service
 
 import com.example.eeum.data.model.dto.device.DeviceRequest
 import com.example.eeum.data.model.dto.device.DeviceStatusChangeRequest
+import com.example.eeum.data.model.dto.device.DevicesLocation
 import com.example.eeum.data.model.response.common.ApiResponse
 import com.example.eeum.data.model.response.common.BaseResponse
 import com.example.eeum.data.model.response.common.Page
+import com.example.eeum.data.model.response.device.DeviceChangeResponse
 import com.example.eeum.data.model.response.device.DeviceDeleteResponse
 import com.example.eeum.data.model.response.device.DeviceIcon
 import com.example.eeum.data.model.response.device.DeviceLocation
@@ -78,4 +80,10 @@ interface DeviceService {
         @Query("homeId") homeId: Int? = null,
         @Query("roomId") roomId: Int? = null,
     ): Response<DeviceLocation>
+
+    // 디바이스 위치 배치 전체 수정
+    @PUT("/api/devices/locations")
+    suspend fun updateDeviceLocations(
+        @Body body: DevicesLocation
+    ): Response<DeviceChangeResponse>
 }
