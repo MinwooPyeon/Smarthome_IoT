@@ -105,7 +105,11 @@ class VoiceService : Service() {
 
         // === Porcupine 초기화 & 항상듣기 시작 ===
         initPorcupine()
-        startWakeword()
+        if (porcupineManager != null) {
+            startWakeword()
+        } else {
+            Log.w(TAG, "Wakeword is disabled due to init failure or activation limit.") // [CHANGED]
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -297,38 +301,54 @@ class VoiceService : Service() {
             return
         }
 
-        val callback = PorcupineManagerCallback { _ ->
-            if (isListening) return@PorcupineManagerCallback
-            Handler(Looper.getMainLooper()).post {
-                try {
-                    if (isListening) return@post
-                    playEarcon()
-                    safeStopWakeword()
-                    startListening()
-                } catch (t: Throwable) {
-                    Log.e(TAG, "Wakeword handling failed", t)
-                    resumeWakewordWithDelay()
+        try { // [CHANGED] 전체를 try 블록으로 감쌈
+            val callback = PorcupineManagerCallback { _ ->
+                if (isListening) return@PorcupineManagerCallback
+                Handler(Looper.getMainLooper()).post {
+                    try {
+                        if (isListening) return@post
+                        playEarcon()
+                        safeStopWakeword()
+                        startListening()
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "Wakeword handling failed", t)
+                        resumeWakewordWithDelay()
+                    }
                 }
             }
-        }
 
-        porcupineManager = PorcupineManager.Builder()
-            .setAccessKey(pvAccessKey)
-            .setKeywordPath(kwPath)          // jenny_ko_android_v3_0_0.ppn
-            .setModelPath(modelPath)         // porcupine_params_ko.pv
-            .setSensitivity(0.55f)           // 민감도
-            .setErrorCallback(
-                 { e ->
-                    Log.e(TAG, "Porcupine error", e)
+            porcupineManager = PorcupineManager.Builder()
+                .setAccessKey(pvAccessKey)
+                .setKeywordPath(kwPath)          // jenny_ko_android_v3_0_0.ppn
+                .setModelPath(modelPath)         // porcupine_params_ko.pv
+                .setSensitivity(0.55f)
+                .setErrorCallback { e ->
+                    Log.e(TAG, "Porcupine runtime error", e)
                     Handler(Looper.getMainLooper()).post {
                         safeStopWakeword()
                         resumeWakewordWithDelay(300)
                     }
                 }
-            )
-            .build(applicationContext, callback)
+                .build(applicationContext, callback)
 
-        Log.i(TAG, "Porcupine initialized (ko model, sensitivity=0.55)")
+            Log.i(TAG, "Porcupine initialized (ko model, sensitivity=0.55)")
+        }
+        catch (e: ai.picovoice.porcupine.PorcupineActivationLimitException) {
+            Log.e(TAG, "Porcupine activation limit reached; disabling wakeword", e)
+            porcupineManager = null
+            isWakewordActive = false
+            // 사용성 안내 (필요 시 주석 해제)
+            tts?.say("웨이크워드 한도에 도달했어요. 버튼을 눌러 말씀해 주세요.")
+        }
+        catch (e: ai.picovoice.porcupine.PorcupineActivationException) {
+            Log.e(TAG, "Porcupine activation refused", e)
+            porcupineManager = null
+            tts?.say("웨이크워드 활성화에 실패했어요.")
+        }
+        catch (e: Exception) {
+            Log.e(TAG, "Porcupine init failed", e)
+            porcupineManager = null
+        }
     }
 
     private fun startWakeword() {
