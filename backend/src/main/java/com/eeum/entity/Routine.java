@@ -43,8 +43,8 @@ public class Routine {
     @Column(name = "user_id", nullable = false)
     private Integer userId;
 
+    @Column(name = "act_time", columnDefinition = "time")
     @JdbcTypeCode(SqlTypes.TIME)
-    @Column(name = "act_time")
     private LocalTime actTime;
     
     @Column(name = "icon_id", nullable = false)
