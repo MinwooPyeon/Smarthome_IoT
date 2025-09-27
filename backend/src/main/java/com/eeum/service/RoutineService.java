@@ -2,7 +2,7 @@ package com.eeum.service;
 
 import java.time.Instant;
 import java.time.LocalTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -69,6 +69,7 @@ public class RoutineService {
         }
 
         LocalTime actTimeLocal = instantToLocalTimeMinute(req.getActTime());
+
         
         Routine routine = Routine.builder()
                 .userId(userId)
@@ -313,12 +314,11 @@ public class RoutineService {
         throw new IllegalStateException("deviceId=" + deviceId + " 에 대한 homeId를 찾을 수 없습니다.");
     }
     
-    // 프론트에서 온 Instant → LocalTime
+
     private LocalTime instantToLocalTimeMinute(Instant instant) {
         if (instant == null) return null;
-        return instant.atZone(ZoneId.systemDefault())
-                      .toLocalTime()
-                      .withSecond(0)
-                      .withNano(0);
+        return LocalTime.ofInstant(instant, ZoneOffset.UTC)
+                        .withSecond(0)
+                        .withNano(0);
     }
 }
