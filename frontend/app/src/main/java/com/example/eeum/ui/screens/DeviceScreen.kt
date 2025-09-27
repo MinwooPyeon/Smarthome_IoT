@@ -577,6 +577,8 @@ private fun RefreshableContent(
                     deviceType = deviceType,
                     serverItems = serverItems,
                     statusVm = statusVm,
+                    tempOverrides = tempOverrides,
+                    levelOverrides = levelOverrides,
                     onDismiss = {
                         showDialog = false
                         selectedDeviceForControl = null
@@ -813,6 +815,8 @@ private fun DeviceControlDialog(
     deviceType: String,
     serverItems: List<com.example.eeum.data.model.response.device.DeviceResponse>,
     statusVm: DeviceStatusViewModel,
+    tempOverrides: Map<Int, Int>,
+    levelOverrides: Map<Int, Int>,
     onDismiss: () -> Unit,
     onApplyAirConditioner: (Int) -> Unit = {},
     onApplyFan: (Int) -> Unit = {}
@@ -833,13 +837,14 @@ private fun DeviceControlDialog(
     ) {
         when (deviceType) {
             "AIR_CONDITIONER" -> {
-                // 현재 온도 찾기
+                // 현재 온도 찾기 - 로컬 오버라이드 우선 사용
                 val device = serverItems.find { it.deviceId == deviceId }
-                val currentTemp = device?.let {
+                val serverTemp = device?.let {
                     runCatching {
                         it.deviceDetail.get("temperature")?.asJsonPrimitive?.asInt ?: 23
                     }.getOrDefault(23)
                 } ?: 23
+                val currentTemp = tempOverrides[deviceId] ?: serverTemp
 
                 // 초기 온도 설정
                 LaunchedEffect(Unit) {
@@ -856,13 +861,14 @@ private fun DeviceControlDialog(
                 )
             }
             "FAN" -> {
-                // 현재 레벨 찾기
+                // 현재 레벨 찾기 - 로컬 오버라이드 우선 사용
                 val device = serverItems.find { it.deviceId == deviceId }
-                val currentLevel = device?.let {
+                val serverLevel = device?.let {
                     runCatching {
                         it.deviceDetail.get("level")?.asJsonPrimitive?.asInt ?: 1
                     }.getOrDefault(1)
                 } ?: 1
+                val currentLevel = levelOverrides[deviceId] ?: serverLevel
 
                 // 초기 레벨 설정
                 LaunchedEffect(Unit) {
