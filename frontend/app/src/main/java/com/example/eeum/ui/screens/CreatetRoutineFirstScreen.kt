@@ -168,17 +168,12 @@ fun CreateRoutineFirstScreen(
         }
     }
     
-    // 편집 모드에서 방 목록이 로드되면 모든 방의 디바이스들을 로드
-    LaunchedEffect(rooms, routineDetailV2, isEditMode) {
-        if (isEditMode && rooms.isNotEmpty() && routineDetailV2 != null) {
+    // 편집 모드에서 모든 디바이스를 한 번에 로드 (방별 호출 대신 전체 조회)
+    LaunchedEffect(isEditMode, routineDetailV2) {
+        if (isEditMode && routineDetailV2 != null) {
             val routine = routineDetailV2!!
-            Log.d("CreateRoutineFirst", "Edit mode: Loading devices from ${rooms.size} rooms for ${routine.details.size} details")
-            
-            // 모든 방에서 디바이스 로드 (순차적으로)
-            rooms.forEachIndexed { index, room ->
-                Log.d("CreateRoutineFirst", "Loading devices from room: ${room.roomName} (${index + 1}/${rooms.size})")
-                vm.fetchDevicesSimple(room.roomName)
-            }
+            Log.d("CreateRoutineFirst", "Edit mode: Loading ALL devices for ${routine.details.size} details")
+            vm.fetchDevicesAll()
         }
     }
     
