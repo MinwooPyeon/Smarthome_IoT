@@ -169,7 +169,7 @@ fun EeumApp() {
             val kind = backStackEntry.arguments?.getString("kind")
             DeviceRegistrationSerialScreen(navController) { serial ->
                 if (kind == "HUB") {
-                    navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") {
+                    navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind?serial=$serial") {
                         launchSingleTop = true
                     }
                 } else {
@@ -187,16 +187,18 @@ fun EeumApp() {
                 navController = navController,
                 serial = serial,
                 onNext = {
-                    navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind") {
+                    navController.navigate("$DEVICE_REGISTRATION_COMPLETE_ROUTE/$kind?serial=$serial") {
                         launchSingleTop = true
                     }
                 }
             )
         }
 
-        composable("$DEVICE_REGISTRATION_COMPLETE_ROUTE/{kind}") { backStackEntry ->
+        composable("$DEVICE_REGISTRATION_COMPLETE_ROUTE/{kind}?serial={serial}&homeId={homeId}") { backStackEntry ->
             val kind = backStackEntry.arguments?.getString("kind")
-            DeviceRegistrationCompleteScreen(navController, kind)
+            val serial = backStackEntry.arguments?.getString("serial")
+            val homeId = backStackEntry.arguments?.getString("homeId")?.toIntOrNull()
+            DeviceRegistrationCompleteScreen(navController, kind, homeId = homeId, serial = serial)
         }
     }
 }

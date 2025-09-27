@@ -209,8 +209,9 @@ fun DeviceRegistrationQRScreen(
                                 regVm.setSerial(code)
                                 if (k == "HUB") {
                                     val homeId = homeVm.selectedHomeId.value
-                                    val query = homeId?.let { "?homeId=$it" } ?: ""
-                                    navController?.navigate("device_registration_complete/$k$query") { launchSingleTop = true }
+                                    val serialParam = "?serial=$code"
+                                    val homeParam = homeId?.let { "&homeId=$it" } ?: ""
+                                    navController?.navigate("device_registration_complete/$k$serialParam$homeParam") { launchSingleTop = true }
                                 } else {
                                     navController?.navigate("device_registration_brand/$k?serial=$code") { launchSingleTop = true }
                                 }

@@ -60,6 +60,7 @@ fun DeviceRegistrationCompleteScreen(
     navController: NavController? = null,
     kind: String? = null,
     homeId: Int? = null,
+    serial: String? = null,
     onRegister: () -> Unit = {},
     onPositionChange: (Float, Float, Color?) -> Unit = { _, _, _ -> }
 ) {
@@ -89,6 +90,13 @@ fun DeviceRegistrationCompleteScreen(
         homeId?.let { 
             homeVm.selectHome(it)
             regVm.setHomeId(it)
+        }
+    }
+    
+    // 라우트로 받은 serial이 있으면 ViewModel에 설정
+    LaunchedEffect(serial) {
+        serial?.let { 
+            regVm.setSerial(it)
         }
     }
     // 선택된 집이 정해지면 해당 집의 평면도 로드 및 등록 VM에 homeId 설정
