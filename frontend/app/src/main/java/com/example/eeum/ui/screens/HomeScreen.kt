@@ -93,6 +93,21 @@ fun HomeScreen(
         activeVm.load(power = true)
     }
 
+    LaunchedEffect(Unit) {
+        AppEventBus.effects.collect { eff ->
+            when (eff) {
+                is AppEffect.DevicesChanged -> {
+                    vm.fetchDevicesIcon()
+                    lightsVm.load(power = true, type = "조명")
+                    activeVm.load(power = true)
+                }
+                is AppEffect.RoutinesChanged -> {
+                }
+                else -> Unit
+            }
+        }
+    }
+
     // 선택된 집 이름
     var selectedHomeName by remember { mutableStateOf<String?>(null) }
 
@@ -410,7 +425,7 @@ private fun StatsRow(
             modifier = Modifier.weight(1f)
         )
         StatCard(
-            title = "활성 기기 수",
+            title = "활성 기기",
             subtitle = "${activeOn}개 가동",
             iconResource = R.drawable.ic_device,
             tint = Color(0xFF94A3B8),
