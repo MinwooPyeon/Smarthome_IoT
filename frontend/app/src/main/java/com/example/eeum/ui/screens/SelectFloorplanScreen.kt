@@ -1,5 +1,6 @@
 package com.example.eeum.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,7 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -23,9 +29,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.eeum.R
 import com.example.eeum.base.ApplicationClass
 import com.example.eeum.data.model.response.floorplans.FloorPlansList
-import com.example.eeum.ui.theme.EeumTheme
+import com.example.eeum.ui.theme.*
 
 private val BrandBlue = Color(0xFF007AFF)
 
@@ -81,29 +88,32 @@ fun SelectFloorplanScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(start = 16.dp, end = 16.dp, top = 60.dp, bottom = 50.dp)
+            .padding(horizontal = 16.dp, vertical = 60.dp)
     ) {
-        // 상단바
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+        // 헤더: 뒤로가기 + 중앙 타이틀
+        Box(modifier = Modifier.fillMaxWidth()) {
+
+            Image(
+                painter = painterResource(id = R.drawable.ic_page_move_left),
                 contentDescription = "뒤로가기",
-                tint = Color.Black,
+                colorFilter = ColorFilter.tint(Gray800),
                 modifier = Modifier
+                    .align(Alignment.CenterStart)
                     .size(24.dp)
                     .clickable { onBack() }
             )
-            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "평면도 선택",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = Gray900,
+                style = TextStyle(
+                    fontSize = 30.sp,
+                    fontFamily = FontFamily(Font(R.font.goormsansbold))
+                ),
+                modifier = Modifier.align(Alignment.Center)
             )
         }
+
+        Spacer(modifier = Modifier.height(60.dp))
 
         Text(
             text = "평면도를 선택해주세요.",
@@ -179,7 +189,6 @@ fun SelectFloorplanScreen(
                 Text(text = "이전", fontSize = 14.sp)
             }
 
-            // 다음: 선택된 Chip의 homeId로 등록
             val isNextEnabled = selected != null
             Button(
                 onClick = { selected?.let { vm.registerFloorplan(it.homeId) } },
@@ -193,7 +202,7 @@ fun SelectFloorplanScreen(
                     .weight(1f)
                     .height(48.dp)
             ) {
-                Text(text = "다음", fontSize = 14.sp)
+                Text(text = "완료", fontSize = 14.sp)
             }
         }
     }

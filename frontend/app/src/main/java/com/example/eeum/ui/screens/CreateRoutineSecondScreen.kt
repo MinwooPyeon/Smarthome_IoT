@@ -1,6 +1,7 @@
 package com.example.eeum.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,9 +21,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -33,7 +38,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.eeum.R
 import com.example.eeum.data.model.response.device.DeviceItem
 import com.example.eeum.data.model.response.routine.RoomData
-import com.example.eeum.ui.theme.EeumTheme
+import com.example.eeum.ui.theme.*
 import com.example.eeum.util.SharedPreferencesUtil
 
 private val TextBlue = Color(0xFF3B82F6)
@@ -96,31 +101,36 @@ fun CreateRoutineSecondScreen(
             (!features.showWind || windChosen) &&
             (!features.showAcTemp || acTempChosen)
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            Row(
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 60.dp)
+    ) {
+        // 헤더: 뒤로가기 + 중앙 타이틀
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_page_move_left),
+                contentDescription = "뒤로가기",
+                colorFilter = ColorFilter.tint(Gray800),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 40.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Black,
-                    modifier = Modifier.clickable { navController.popBackStack() }
-                )
-                Text("루틴 만들기", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.size(24.dp))
-            }
+                    .align(Alignment.CenterStart)
+                    .size(24.dp)
+                    .clickable { navController.popBackStack() }
+            )
+            Text(
+                text = "루틴 만들기",
+                color = Gray900,
+                style = TextStyle(
+                    fontSize = 30.sp,
+                    fontFamily = FontFamily(Font(R.font.goormsansbold))
+                ),
+                modifier = Modifier.align(Alignment.Center)
+            )
         }
-    ) { inner ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(inner)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
