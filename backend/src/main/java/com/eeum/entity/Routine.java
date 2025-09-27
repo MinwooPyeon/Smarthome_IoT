@@ -8,6 +8,9 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 @Entity
 @Table(name = "routine")
 @Getter @Setter
@@ -40,6 +43,7 @@ public class Routine {
     @Column(name = "user_id", nullable = false)
     private Integer userId;
 
+    @JdbcTypeCode(SqlTypes.TIME)
     @Column(name = "act_time")
     private LocalTime actTime;
     
