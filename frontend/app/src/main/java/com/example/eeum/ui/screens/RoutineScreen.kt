@@ -18,8 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -28,6 +32,7 @@ import androidx.compose.ui.zIndex
 import com.example.eeum.R
 import com.example.eeum.ui.pages.MyRoutinePage
 import com.example.eeum.ui.pages.RecommendRoutinePage
+import com.example.eeum.ui.theme.*
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
@@ -77,36 +82,44 @@ fun RoutineScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 40.dp)
+            .padding(horizontal = 16.dp, vertical = 60.dp)
     ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Icon(
-                    Icons.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Black,
-                    modifier = Modifier.clickable { navController.popBackStack() }
-                )
-                Text(
-                    text = "루틴 관리",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-                Text(
-                    text = "추가",
-                    modifier = Modifier.clickable {
-                        navController.navigate("createRoutineFirst") // ROUTE_CREATE_ROUTINE_FIRST
+        // 헤더: 뒤로가기 + 중앙 타이틀 + 추가 버튼
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_page_move_left),
+                contentDescription = "뒤로가기",
+                colorFilter = ColorFilter.tint(Gray800),
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .size(24.dp)
+                    .clickable { navController.popBackStack() }
+            )
+            Text(
+                text = "루틴 관리",
+                color = Gray900,
+                style = TextStyle(
+                    fontSize = 30.sp,
+                    fontFamily = FontFamily(Font(R.font.goormsansbold))
+                ),
+                modifier = Modifier.align(Alignment.Center)
+            )
+            Text(
+                text = "추가",
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .clickable {
+                        navController.navigate("createRoutineFirst")
                     },
-                    color = TextSelected,
-                    fontSize = 16.sp
+                color = TextSelected,
+                style = TextStyle(
+                    fontSize = 16.sp,
+                    fontFamily = FontFamily(Font(R.font.goormsansmedium))
                 )
-            }
+            )
+        }
 
-            Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(40.dp))
 
             SegmentedTabRow(
                 selectedIndex = pagerState.currentPage,

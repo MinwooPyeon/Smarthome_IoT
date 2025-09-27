@@ -27,9 +27,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -44,7 +48,7 @@ import com.example.eeum.base.ApplicationClass
 import com.example.eeum.data.model.dto.routine.DeviceDetail
 import com.example.eeum.data.model.dto.routine.Detail
 import com.example.eeum.data.model.dto.routine.RoutineRequestDto
-import com.example.eeum.ui.theme.EeumTheme
+import com.example.eeum.ui.theme.*
 import com.example.eeum.util.ResourceUtils
 import com.google.gson.JsonParser
 import com.google.gson.JsonSyntaxException
@@ -314,36 +318,37 @@ fun CreateRoutineFirstScreen(
         }
     }
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            Row(
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 60.dp)
+    ) {
+        // 헤더: 뒤로가기 + 중앙 타이틀
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_page_move_left),
+                contentDescription = "뒤로가기",
+                colorFilter = ColorFilter.tint(Gray800),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 40.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Black,
-                    modifier = Modifier.clickable { navController.popBackStack() }
-                )
-                Text(
-                    text = if (isEditMode) "루틴 수정" else "루틴 만들기",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(" ", color = TextBlue, fontSize = 16.sp)
-            }
+                    .align(Alignment.CenterStart)
+                    .size(24.dp)
+                    .clickable { navController.popBackStack() }
+            )
+            Text(
+                text = if (isEditMode) "루틴 수정" else "루틴 만들기",
+                color = Gray900,
+                style = TextStyle(
+                    fontSize = 30.sp,
+                    fontFamily = FontFamily(Font(R.font.goormsansbold))
+                ),
+                modifier = Modifier.align(Alignment.Center)
+            )
         }
-    ) { inner ->
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(inner)
-                .padding(horizontal = 16.dp, vertical = 24.dp),
+                .padding(horizontal = 0.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // 카드 1: 이름/설명/아이콘
