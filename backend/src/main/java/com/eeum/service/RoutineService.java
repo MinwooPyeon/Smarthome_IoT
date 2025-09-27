@@ -68,8 +68,7 @@ public class RoutineService {
             }
         }
 
-        LocalTime actTimeLocal = (req.getActTime() == null) ? null : req.getActTime().toLocalTime();
-
+        LocalTime actTimeLocal = toLocalTimeUTC(req.getActTime());
         
         Routine routine = Routine.builder()
                 .userId(userId)
@@ -107,7 +106,7 @@ public class RoutineService {
         Routine entity = routineRepository.findByRoutineIdAndUserId(routineId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("루틴이 존재하지 않거나 접근 권한이 없습니다."));
 
-        LocalTime actTimeLocal = (req.getActTime() == null) ? null : req.getActTime().toLocalTime();
+        LocalTime actTimeLocal = toLocalTimeUTC(req.getActTime());
         
         if (req.getName() != null) entity.setName(req.getName());
         if (req.getTriggerType() != null) entity.setTriggerType(req.getTriggerType());
@@ -312,5 +311,11 @@ public class RoutineService {
         if (viaPositions.isPresent()) return viaPositions.get();
 
         throw new IllegalStateException("deviceId=" + deviceId + " 에 대한 homeId를 찾을 수 없습니다.");
+    }
+    
+    private LocalTime toLocalTimeUTC(Instant instant) {
+        if (instant == null) return null;
+        return LocalTime.ofInstant(instant, ZoneOffset.UTC)
+                        .withSecond(0).withNano(0);
     }
 }
