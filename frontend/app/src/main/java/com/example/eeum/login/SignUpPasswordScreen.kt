@@ -327,7 +327,7 @@ fun SignUpPasswordScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 50.dp),
+                .padding(bottom = 80.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (canProceed) Blue600 else Gray300,
                 contentColor = Color.White,
