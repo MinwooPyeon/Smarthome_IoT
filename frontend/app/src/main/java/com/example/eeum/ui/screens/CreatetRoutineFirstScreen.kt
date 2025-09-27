@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -23,13 +24,18 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -38,6 +44,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
@@ -160,17 +168,12 @@ fun CreateRoutineFirstScreen(
         }
     }
     
-    // 편집 모드에서 방 목록이 로드되면 모든 방의 디바이스들을 로드
-    LaunchedEffect(rooms, routineDetailV2, isEditMode) {
-        if (isEditMode && rooms.isNotEmpty() && routineDetailV2 != null) {
+    // 편집 모드에서 모든 디바이스를 한 번에 로드 (방별 호출 대신 전체 조회)
+    LaunchedEffect(isEditMode, routineDetailV2) {
+        if (isEditMode && routineDetailV2 != null) {
             val routine = routineDetailV2!!
-            Log.d("CreateRoutineFirst", "Edit mode: Loading devices from ${rooms.size} rooms for ${routine.details.size} details")
-            
-            // 모든 방에서 디바이스 로드 (순차적으로)
-            rooms.forEachIndexed { index, room ->
-                Log.d("CreateRoutineFirst", "Loading devices from room: ${room.roomName} (${index + 1}/${rooms.size})")
-                vm.fetchDevicesSimple(room.roomName)
-            }
+            Log.d("CreateRoutineFirst", "Edit mode: Loading ALL devices for ${routine.details.size} details")
+            vm.fetchDevicesAll()
         }
     }
     
@@ -847,31 +850,80 @@ private fun NumberPicker(
 ) {
     val values = range.toList()
     val selectedIndex = values.indexOf(value).coerceAtLeast(0)
+
     val listState = androidx.compose.foundation.lazy.rememberLazyListState(
-        initialFirstVisibleItemIndex = (selectedIndex - 2).coerceAtLeast(0)
+        // 첫 번째 보이는 아이템이 바로 위 행이 되도록 설정해 중앙에 value가 오게 함
+        initialFirstVisibleItemIndex = (selectedIndex - 1).coerceAtLeast(0)
     )
-    androidx.compose.foundation.lazy.LazyColumn(
+    val flingBehavior = rememberSnapFlingBehavior(listState)
+    val density = LocalDensity.current
+    val itemHeightPx = with(density) { 40.dp.toPx() }
+    val containerHeightPx = with(density) { 120.dp.toPx() }
+    val centerPx = containerHeightPx / 2f
+
+    // 중앙 라인에 가장 가까운 아이템을 선택 (콘텐츠 패딩을 자동 반영)
+    val centerIndex by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+            val closest = layoutInfo.visibleItemsInfo.minByOrNull { info ->
+                abs((info.offset + info.size / 2) - viewportCenter)
+            }
+            (closest?.index ?: selectedIndex).coerceIn(0, values.lastIndex)
+        }
+    }
+
+    // 중앙 값이 바뀌면 선택값으로 반영
+    LaunchedEffect(centerIndex) {
+        val newValue = values[centerIndex]
+        if (newValue != value) onValueChange(newValue)
+    }
+
+    val scope = rememberCoroutineScope()
+
+    Box(
         modifier = Modifier
             .height(120.dp)
-            .width(60.dp),
-        state = listState
+            .width(70.dp) // 약간 넓혀서 가독성 확보
+            .drawWithContent {
+                drawContent()
+                // 중앙 선택 영역 가이드 라인 (위/아래 경계)
+                val top = (containerHeightPx - itemHeightPx) / 2f
+                val bottom = top + itemHeightPx
+                val lineColor = Color(0xFFCBD5E1) // slate-300
+                val stroke = with(density) { 1.5.dp.toPx() }
+                drawLine(lineColor, Offset(0f, top), Offset(size.width, top), strokeWidth = stroke)
+                drawLine(lineColor, Offset(0f, bottom), Offset(size.width, bottom), strokeWidth = stroke)
+            }
     ) {
-        items(values.size) { idx ->
-            val v = values[idx]
-            val isSelected = v == value
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .clickable { onValueChange(v) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "%02d".format(v),
-                    fontSize = if (isSelected) 20.sp else 16.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) TextBlue else Color.Gray
-                )
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = listState,
+            flingBehavior = flingBehavior,
+            contentPadding = PaddingValues(vertical = 40.dp) // 양끝 아이템도 중앙에 올 수 있도록 패딩
+        ) {
+            items(values.size) { idx ->
+                val v = values[idx]
+                val isSelected = v == value
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .clickable {
+                            // 클릭 시 해당 값이 중앙에 오도록 스크롤
+                            val targetFirst = (idx - 1).coerceAtLeast(0)
+                            scope.launch { listState.animateScrollToItem(targetFirst, scrollOffset = 0) }
+                            onValueChange(v)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "%02d".format(v),
+                        fontSize = if (isSelected) 20.sp else 16.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSelected) TextBlue else Color.Gray
+                    )
+                }
             }
         }
     }

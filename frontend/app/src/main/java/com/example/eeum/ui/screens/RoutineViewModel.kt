@@ -187,6 +187,37 @@ class RoutineViewModel : ViewModel() {
         }
     }
 
+    // 모든 방의 디바이스 목록 조회 (roomName 필터 없이)
+    fun fetchDevicesAll() {
+        viewModelScope.launch {
+            runCatching {
+                RetrofitUtil.deviceService.readDevicesSimple(
+                    power = null,
+                    type = null,
+                    roomName = null,
+                    deviceName = null
+                )
+            }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body()
+                        val items = body?.data?.items ?: emptyList()
+                        _devices.value = items.sortedWith(compareBy({ it.deviceName }, { it.deviceType?.toString() ?: "" }))
+                        Log.d("RoutineViewModel", "fetchDevicesAll size=${_devices.value?.size}")
+                    } else {
+                        val msg = "readDevicesSimple(all) failed: code=${response.code()} msg=${response.message()}"
+                        _error.value = msg
+                        Log.e("RoutineViewModel", msg)
+                    }
+                }
+                .onFailure { e ->
+                    val msg = "readDevicesSimple(all) exception: ${e.message}"
+                    _error.value = msg
+                    Log.e("RoutineViewModel", "readDevicesSimple(all) exception", e)
+                }
+        }
+    }
+
     // 루틴 수정
     fun updateRoutine(routineId: Int, body: RoutineRequestDto) {
         viewModelScope.launch {
