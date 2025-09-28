@@ -46,6 +46,30 @@ class MainActivity : ComponentActivity() {
         }
         requestStartupPermissions()
 
+        homeVm.devices.observe(this) { items ->
+            Log.d(TAG, "devices updated → voice caches reloaded (${items.size} devices)")
+
+            lifecycleScope.launch {
+                try {
+                    val deviceDir = DeviceDirectoryCache(RetrofitUtil.deviceService)
+                    withContext(Dispatchers.IO) { deviceDir.loadAllDevices() }
+                    VoiceDeps.directory = deviceDir
+
+                    val routineDir = RoutineDirectoryCache(RetrofitUtil.routineService)
+                    withContext(Dispatchers.IO) { routineDir.loadAllRoutines() }
+                    VoiceDeps.routineDirectory = routineDir
+
+                    ContextCompat.startForegroundService(
+                        this@MainActivity,
+                        Intent(this@MainActivity, VoiceService::class.java)
+                            .setAction(VoiceService.ACTION_RELOAD_CACHES)
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "devices observer: reload voice caches failed: ${e.message}", e)
+                }
+            }
+        }
+
         homeVm.primaryHomeId.observe(this) { id ->
             id ?: return@observe
 
@@ -128,9 +152,9 @@ class MainActivity : ComponentActivity() {
                         VoiceDeps.routineDirectory = routineDir
                         Log.d(TAG, "requestStartupPermissions: 루틴 $rCount 개 로드됨")
 
-                        ContextCompat.startForegroundService(
-                            this@MainActivity,
+                        startService(
                             Intent(this@MainActivity, VoiceService::class.java)
+                                .setAction(VoiceService.ACTION_RELOAD_CACHES)
                         )
                     } catch (e: Exception) {
                         Log.d(TAG, "requestStartupPermissions: ERROR - ${e.message}")

@@ -86,6 +86,9 @@ class DeviceDirectoryCache(
             .replace("빔프로젝터", "프로젝터")
             .replace("빔", "프로젝터")
             .replace("팬", "선풍기")
+            .replace("티비", "텔레비전")
+            .replace("TV", "텔레비전")
+            .replace("텔레비젼", "텔레비전")
 
         return t
     }

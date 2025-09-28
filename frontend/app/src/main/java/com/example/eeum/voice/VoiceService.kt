@@ -45,6 +45,7 @@ class VoiceService : Service() {
     companion object {
         const val ACTION_START_LISTEN = "com.example.eeum.voice.START_LISTEN"
         const val ACTION_STOP_LISTEN  = "com.example.eeum.voice.STOP_LISTEN"
+        const val ACTION_RELOAD_CACHES = "com.example.eeum.voice.ACTION_RELOAD_CACHES"
     }
 
     private var tts: TtsHelper? = null
@@ -116,6 +117,9 @@ class VoiceService : Service() {
         when (intent?.action) {
             ACTION_START_LISTEN -> startListening()
             ACTION_STOP_LISTEN  -> stopListening()
+            ACTION_RELOAD_CACHES -> {
+                reloadVoiceCaches()
+            }
         }
         return START_STICKY
     }
@@ -438,5 +442,22 @@ class VoiceService : Service() {
             }
         }
         return out.absolutePath
+    }
+
+    private fun reloadVoiceCaches() {
+        val dir = VoiceDeps.directory
+        val routineDir = VoiceDeps.routineDirectory
+        if (dir == null) {
+            Log.w(TAG, "reloadVoiceCaches: directory is null – skipping")
+            return
+        }
+        try {
+            val repo = DeviceRepository(RetrofitUtil.deviceService, dir)
+            val routineRepo = RoutineRepository(RetrofitUtil.routineService, routineDir)
+            useCase = VoiceUseCase(repo, routineRepo)
+            Log.i(TAG, "VoiceService: caches reloaded and UseCase re-bound")
+        } catch (t: Throwable) {
+            Log.e(TAG, "reloadVoiceCaches failed", t)
+        }
     }
 }
