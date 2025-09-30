@@ -4,7 +4,7 @@ services:
     container_name: eeum-db
     restart: always
     env_file:
-      - /etc/eeum/eeum.env
+      - .env
     environment:
       POSTGRES_DB: eeum
       POSTGRES_USER: eeum
@@ -49,7 +49,7 @@ services:
     networks:
       - eeum-net
     env_file:
-      - /etc/eeum/eeum.env
+      - .env
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: "8081"
