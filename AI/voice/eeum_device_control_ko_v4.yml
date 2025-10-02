@@ -1,0 +1,249 @@
+context:
+  expressions:
+    SET_TURN_ON:
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device (좀) @켜다
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (좀) @켜다
+      - $장소:place (@위치_조사) $기기:device (좀) @켜다
+      - $범위:scope $기기:device (좀) @켜다
+      - $기기:device (좀) @켜다
+      - (좀) @켜다
+
+    SET_TURN_OFF:
+      - ($pv.TwoDigitInteger:num)(번) $장소:place (@위치_조사) $기기:device (좀) @끄다
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (좀) @끄다
+      - $장소:place (@위치_조사) $기기:device (좀) @끄다
+      - $범위:scope $기기:device (좀) @끄다
+      - $범위:scope (좀) @끄다
+      - $기기:device (좀) @끄다
+      - (좀) @끄다
+
+    SET_TEMPERATURE:
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) ($기기:device) (온도)
+        $pv.TwoDigitInteger:tmp [도씨,도] (로) @설정하다
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) ($기기:device) (온도)
+        $pv.TwoDigitInteger:tmp [도씨,도] (로) @설정하다
+      - $장소:place (@위치_조사) ($기기:device) (온도)
+        $pv.TwoDigitInteger:tmp [도씨,도] (로) @설정하다
+      - $기기:device $pv.TwoDigitInteger:tmp [도씨,도] (로) @설정하다
+      - 온도 (는,를) $pv.TwoDigitInteger:tmp [도씨,도] (로) @설정하다
+      - $pv.TwoDigitInteger:tmp [도씨,도] (로) @설정하다
+
+    SET_FAN_LEVEL:
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device (@바람) $세기:level
+        (으로,로) @설정하다
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (@바람) $세기:level
+        (으로,로) @설정하다
+      - $장소:place (@위치_조사) $기기:device (@바람) $세기:level (으로,로) @설정하다
+      - $기기:device (@바람) $세기:level (으로,로) @설정하다
+      - (@바람) $세기:level (으로,로) @설정하다
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) ($기기:device) (@바람)
+        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) ($기기:device) (@바람)
+        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
+      - $장소:place (@위치_조사) ($기기:device) (@바람)
+        $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
+      - $기기:device (@바람) $pv.SingleDigitInteger:step [단,단계] (으로,로) @설정하다
+      - $pv.SingleDigitInteger:level [단,단계] (으로,로) @설정하다
+
+    QUERY_IS_ON:
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device @전원_꺼짐 @존재_의문
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device @전원_꺼짐 @존재_의문
+      - $장소:place (@위치_조사) $기기:device @전원_꺼짐 @존재_의문
+      - ($pv.TwoDigitInteger:num)(번) $장소:place (@위치_조사) $기기:device 전원 (상태,상황)
+        [@알려줘,@얼마야,@상태_어때]
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device 전원 (상태,상황)
+        [@알려줘,@얼마야,@상태_어때]
+      - ($pv.TwoDigitInteger:num)(번) $장소:place (@위치_조사) $기기:device @전원_켜짐 @존재_의문
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device @전원_켜짐 @존재_의문
+
+    QUERY_WHERE_ON:
+      - (여기서) @장소_의문 $기기:device (이,가) @전원_켜짐 [있는,있는지] [@알려줘,@얼마야,@상태_어때]
+
+    QUERY_WHERE_ON_LOCATION:
+      - $기기:device [중,들] (지금) @전원_켜짐 [있는,있는지] [곳,방,위치] [@알려줘,@얼마야,@상태_어때]
+
+    QUERY_WHERE_OFF:
+      - (여기서) @장소_의문 $기기:device (이,가) @전원_꺼짐 [있는,있는지] [@알려줘,@얼마야,@상태_어때]
+
+    QUERY_WHERE_OFF_LOCATION:
+      - $기기:device [중,들] (지금) @전원_꺼짐 [있는,있는지] [곳,방,위치] [@알려줘,@얼마야,@상태_어때]
+
+    QUERY_TEMPERATURE:
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device [현재 온도, 온도]
+        [@온도_의문,@상태_어때,@얼마야,@알려줘]
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device [현재 온도, 온도]
+        [@온도_의문,@상태_어때,@얼마야,@알려줘]
+      - $장소:place (@위치_조사) $기기:device [현재 온도, 온도]
+        [@온도_의문,@상태_어때,@얼마야,@알려줘]
+
+    QUERY_FAN_LEVEL:
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device (@바람) [세기,단계]
+        [@정체_의문,@상태_어때,@얼마야]
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device (@바람) [세기,단계]
+        [@정체_의문,@상태_어때,@얼마야]
+      - $장소:place (@위치_조사) $기기:device (@바람) [세기,단계]
+        [@정체_의문,@상태_어때,@얼마야]
+
+    QUERY_ENERGY_USAGE:
+      - $pv.TwoDigitInteger:num 번 $장소:place (@위치_조사) $기기:device ($기간:date)
+        [전기,전력,에너지] [사용량,소비량] [@알려줘,@얼마야,@상태_어때]
+      - $장소:place (@위치_조사) $기기:device ($기간:date)
+        [전기,전력,에너지] [사용량,소비량] [@알려줘,@얼마야,@상태_어때]
+      - $장소:place ($pv.TwoDigitInteger:num)(번) (@위치_조사) $기기:device ($기간:date)
+        [전기,전력,에너지] [사용량,소비량] [@알려줘,@얼마야,@상태_어때]
+      - ($pv.TwoDigitInteger:num)(번) $장소:place [전기,전력,에너지] [사용량,소비량]
+        [@알려줘,@얼마야,@상태_어때]
+      - $장소:place ($pv.TwoDigitInteger:num)(번) [전기,전력,에너지] [사용량,소비량]
+        [@알려줘,@얼마야,@상태_어때]
+      - (우리집) [전기,전력,에너지] [사용량,소비량] [@알려줘,@얼마야,@상태_어때]
+
+  slots:
+    장소:
+      - 베란다
+      - 발코니
+      - 작업실
+      - 서재
+      - 주방
+      - 침실
+      - 홀
+      - 부엌
+      - 방
+      - 거실
+      - 화장실
+    세기:
+      - 강하게
+      - 제일 강하게
+      - 적당하게
+      - 세게
+      - 약하게
+      - 제일 세게
+      - 제일 약하게
+      - 최강
+      - 강
+      - 중
+      - 약
+      - 최소
+    범위:
+      - 다
+      - 모두
+      - 전부
+      - 전체
+      - 모든
+    기기:
+      - 냉방기
+      - 에어컨
+      - 선풍기
+      - 화면
+      - 빔
+      - 프로젝터
+      - 빔프로젝터
+      - 불
+      - 전등
+      - 조명
+    기간:
+      - 올해
+      - 어제
+      - 이번주
+      - 이번 주
+      - 이번 달
+      - 이번달
+      - 오늘
+
+  macros:
+    켜다:
+      - 켠
+      - 키고
+      - 켜고
+      - 틀어봐
+      - 키라
+      - 틀어줘
+      - 틀어
+      - 켜라
+      - 켜줘
+      - 켜
+    끄다:
+      - 꺼주라
+      - 꺼부려라
+      - 끄라
+      - 정지
+      - 멈춰
+      - 꺼봐
+      - 꺼줘
+      - 꺼
+    설정하다:
+      - 바꿔
+      - 바꿔줘
+      - 해라
+      - 해줘
+      - 맞춰
+      - 맞춰줘
+      - 설정해줘
+      - 설정
+      - 설정하고
+    연결하다:
+      - 하면서
+      - 다음에
+      - 한 다음에
+      - 그 다음에
+      - 하고
+      - 그리고
+      - 주고
+    바람:
+      - 바람
+      - 세기
+      - 풍량
+    전원_켜짐:
+      - 켜져
+      - 켜진
+      - 켜짐
+      - 켜져있어
+      - 켜져있는
+    전원_꺼짐:
+      - 꺼져
+      - 꺼진
+      - 꺼짐
+      - 꺼져있어
+      - 꺼져있는
+    존재_의문:
+      - 있어
+      - 있니
+      - 있나요
+      - 있습니까
+      - 있냐
+    알려줘:
+      - 알려줘
+      - 알려줘요
+      - 알려주세요
+      - 말해줘
+      - 말해줘요
+      - 알려주라
+      - 알려줄래
+      - 알려줄수있어
+    상태_어때:
+      - 어때
+      - 어때요
+      - 어떤가
+      - 어떤가요
+    정체_의문:
+      - 뭐야
+      - 뭐에요
+      - 무엇이야
+      - 무엇인가요
+    얼마야:
+      - 얼마야
+      - 얼마에요
+      - 얼마나
+    위치_조사:
+      - 의
+      - 에
+      - 에 있는
+    온도_의문:
+      - 몇도
+      - 몇도씨
+    장소_의문:
+      - 어느
+      - 어느 곳
+      - 어느 위치
+      - 어느 방
+      - 어디
+      - 어떤

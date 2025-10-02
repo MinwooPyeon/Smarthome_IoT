@@ -1,0 +1,59 @@
+#pragma once
+#include <string>
+
+struct AppConfig {
+    // --- device ---
+    std::string deviceId = "rasp-1";
+
+    // --- MQTT broker ---
+    std::string mqttHost = "43.201.62.254";
+    int         mqttPort = 8883;
+    std::string mqttUser = "eeum";
+    std::string mqttPass = "ssafy2086eeum";
+    int         mqttKeepAlive = 60;
+
+    // --- TLS (서버 인증 필수) ---
+    // NOTE: '~'는 mosquitto가 직접 확장 못 함 → 코드에서 확장 처리해줌
+    std::string mqttCAFile = "/home/eeum/broker_selfsigned_ca.crt";
+    std::string mqttClientCertFile = ""; // mTLS 필요 시
+    std::string mqttClientKeyFile  = ""; // mTLS 필요 시
+    bool        mqttTLSInsecure = true;  // SNI/호스트명 검증 off (테스트용)
+
+    // --- defaults for tests ---
+    int         defaultQos = 1;
+    bool        defaultRetain = false;
+
+    // --- publish topic ---
+    std::string topicEnv        = "hub/" + deviceId + "/env"; //realtime environment
+    std::string topicIrSignal   = "hub/" + deviceId + "/irSignal"; //ir raw data
+    std::string topicError      = "hub/" + deviceId + "/error"; //error
+    // --- subscribe topic ---
+    std::string topicOrderIrReq = "hub/" + deviceId + "/order/ir_req"; //ir signal require
+    std::string topicOrderEnv = "hub/" + deviceId + "/order/env"; //environment request
+    std::string topicRegisDevice = "hub/" + deviceId + "/sendDevice"; // Regist/Unregist IR Send Device
+    
+
+    // --- ENV Streaming ---
+    bool envStreamOn = false;
+    int envIntervalMs = 2000;
+
+    // --- EMWA Alpha ---
+    double      ewmaAlphaT = 0.2;
+    double      ewmaAlphaH = 0.2;
+    double      comfortClo = 0.5;
+    double      comfortMet = 1.l;
+    double      comfortTr = 0;
+    double      comfortVel = 0.1;
+
+};
+
+struct ActuatorConfig {
+    int dhtPinBcm    = 4;     // DHT11 GPIO (BCM)
+    int irPinBcm     = 17;    // IR Receiver GPIO (BCM)
+    int irGapUs      = 8000;  // 프레임 구분 gap(us) — IrReceiver 생성자 인자
+    int irGlitchUs   = 50;    // glitch filter (us) — IrReceiver::init(glitchUs)
+    // DHT11 재시도/타임아웃
+    int dhtAttempts     = 1;
+    int dhtTimeoutMs    = 1500;
+    int dhtCooldownMs   = 1200;
+};

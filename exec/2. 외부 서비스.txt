@@ -1,0 +1,11 @@
+local.properties 파일에 아래와 같은 키를 적어놔야 함
+
+음성 인식 - PicoVoice
+PICOVOICE_ACCESS_KEY=kZVJ7zjb1MUmb8qVkWCjIr4RR4c2OKOjZq9FfA0WunBNxrzDxsXI7g==
+
+피코보이스에서 로그인을 한 뒤 Porcupine에서 Wake Word를 학습, Home에서 PICOVOICE_ACCESS_KEY를 발급 받는다.
+
+지도 - Naver map
+NAVER_CLIENT_ID=60cr3nlklj
+
+네이버 클라우드 플랫폼에서 회원가입 후 어플을 등록하여 NAVER_CLIENT_ID를 발급 받는다.
