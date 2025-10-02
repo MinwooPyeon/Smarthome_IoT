@@ -1,0 +1,52 @@
+{
+  "cmake.configureOnOpen": true,
+  "cmake.buildDirectory": "${workspaceFolder}/build",
+  "cmake.generator": "Visual Studio 17 2022",
+  "cmake.preferredGenerators": [
+    "Visual Studio 17 2022",
+    "Visual Studio 16 2019",
+    "Ninja",
+    "Unix Makefiles"
+  ],
+  "cmake.configureArgs": ["-DCMAKE_BUILD_TYPE=Debug"],
+  "cmake.buildArgs": ["--config", "Debug"],
+  "files.associations": {
+    "*.h": "cpp",
+    "*.cpp": "cpp",
+    "*.hpp": "cpp",
+    "*.c": "c",
+    "*.cc": "cpp",
+    "*.cxx": "cpp"
+  },
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  "C_Cpp.default.intelliSenseMode": "windows-msvc-x64",
+  "C_Cpp.default.compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.37.32822/bin/Hostx64/x64/cl.exe",
+  "C_Cpp.default.cStandard": "c17",
+  "C_Cpp.default.cppStandard": "c++17",
+  "C_Cpp.default.includePath": [
+    "${workspaceFolder}/header",
+    "${workspaceFolder}/external",
+    "${workspaceFolder}/src"
+  ],
+  "C_Cpp.default.defines": [
+    "PLATFORM_WINDOWS",
+    "DEBUG_MODE=1",
+    "VERBOSE_LOGGING=1"
+  ],
+  "terminal.integrated.env.windows": {
+    "WIFI_SSID": "your_wifi_ssid",
+    "WIFI_PASSWORD": "your_wifi_password",
+    "MQTT_BROKER": "192.168.1.100",
+    "MQTT_PORT": "1883",
+    "MQTT_CLIENT_ID": "ir_remote_controller_debug"
+  },
+  "editor.formatOnSave": true,
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "idf.espIdfPathWin": "C:\\Users\\SSAFY\\esp\\v5.5.1\\esp-idf",
+  "idf.toolsPathWin": "C:\\Users\\SSAFY\\.espressif",
+  "idf.pythonInstallPath": "C:\\Users\\SSAFY\\.espressif\\tools\\idf-python\\3.11.2\\python.exe"
+}

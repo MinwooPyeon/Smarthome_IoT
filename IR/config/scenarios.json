@@ -1,0 +1,118 @@
+{
+  "scenarios": {
+    "home_cinema": {
+      "name": "홈시네마 모드",
+      "description": "프로젝터와 TV를 연동하여 홈시네마 환경 구성",
+      "steps": [
+        {
+          "step": 1,
+          "action": "프로젝터_전원",
+          "delay_ms": 2000,
+          "description": "프로젝터 전원 켜기"
+        },
+        {
+          "step": 2,
+          "action": "프로젝터_소스_HDMI",
+          "delay_ms": 1000,
+          "description": "프로젝터 HDMI 소스 선택"
+        },
+        {
+          "step": 3,
+          "action": "TV_전원",
+          "delay_ms": 1000,
+          "description": "TV 전원 켜기"
+        },
+        {
+          "step": 4,
+          "action": "TV_소스_HDMI1",
+          "delay_ms": 500,
+          "description": "TV HDMI1 소스 선택"
+        }
+      ]
+    },
+    "aircon_cooling": {
+      "name": "에어컨 냉방 모드",
+      "description": "에어컨을 냉방 모드로 설정하고 적정 온도 조정",
+      "steps": [
+        {
+          "step": 1,
+          "action": "에어컨_전원",
+          "delay_ms": 1000,
+          "description": "에어컨 전원 켜기"
+        },
+        {
+          "step": 2,
+          "action": "에어컨_냉방모드",
+          "delay_ms": 500,
+          "description": "냉방 모드 설정"
+        },
+        {
+          "step": 3,
+          "action": "에어컨_온도_26도",
+          "delay_ms": 500,
+          "description": "온도 26도로 설정"
+        },
+        {
+          "step": 4,
+          "action": "에어컨_팬_자동",
+          "delay_ms": 500,
+          "description": "팬 자동 모드 설정"
+        }
+      ]
+    },
+    "night_mode": {
+      "name": "야간 모드",
+      "description": "야간에 적합한 환경 설정",
+      "steps": [
+        {
+          "step": 1,
+          "action": "에어컨_야간모드",
+          "delay_ms": 1000,
+          "description": "에어컨 야간 모드 설정"
+        },
+        {
+          "step": 2,
+          "action": "공기청정기_야간모드",
+          "delay_ms": 500,
+          "description": "공기청정기 야간 모드 설정"
+        },
+        {
+          "step": 3,
+          "action": "TV_음소거",
+          "delay_ms": 500,
+          "description": "TV 음소거"
+        }
+      ]
+    },
+    "morning_routine": {
+      "name": "아침 루틴",
+      "description": "아침에 필요한 기기들을 순차적으로 켜기",
+      "steps": [
+        {
+          "step": 1,
+          "action": "에어컨_전원",
+          "delay_ms": 1000,
+          "description": "에어컨 켜기"
+        },
+        {
+          "step": 2,
+          "action": "에어컨_자동모드",
+          "delay_ms": 500,
+          "description": "자동 모드 설정"
+        },
+        {
+          "step": 3,
+          "action": "공기청정기_전원",
+          "delay_ms": 1000,
+          "description": "공기청정기 켜기"
+        },
+        {
+          "step": 4,
+          "action": "공기청정기_자동모드",
+          "delay_ms": 500,
+          "description": "자동 모드 설정"
+        }
+      ]
+    }
+  }
+}

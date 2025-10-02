@@ -1,0 +1,47 @@
+{
+    "wifi": {
+        "ssid": "iPhone",
+        "password": "49555412",
+        "timeout_ms": 10000,
+        "retry_count": 3
+    },
+    "mqtt": {
+        "broker": "43.201.62.254",
+        "port": 8883,
+        "client_id": "esp32_ir_controller",
+        "username": "eeum",
+        "password": "ssafy2086eeum",
+        "keepalive": 60,
+        "clean_session": true,
+        "will_topic": "esp32/status",
+        "will_message": "offline",
+        "use_tls": true
+    },
+    "gpio": {
+        "ir_tx_pin": 25,
+        "led_status_pin": 2,
+        "button_pin": 0
+    },
+    "ir": {
+        "protocol": "NEC",
+        "carrier_frequency": 38000,
+        "tx_pin": 25,
+        "debug_mode": true,
+        "timeout_ms": 1000
+    },
+    "system": {
+        "device_id": "esp-1",
+        "location": "living_room",
+        "auto_start": true,
+        "watchdog_enabled": true,
+        "watchdog_timeout_sec": 30,
+        "deep_sleep_enabled": false,
+        "deep_sleep_timeout_min": 30
+    },
+    "logging": {
+        "level": "INFO",
+        "serial_enabled": true,
+        "mqtt_enabled": true,
+        "max_log_size": 1024
+    }
+}

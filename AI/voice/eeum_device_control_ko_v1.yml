@@ -1,0 +1,147 @@
+context:
+  expressions:
+    TURN_ON_DEVICE:
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device @켜다 @연결하다 (@바람)
+        $pv.SingleDigitInteger:step [단,단계] (으로,로) @연결하다 온도
+        $pv.TwoDigitInteger:tmp 도 (로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device @켜다 @연결하다 (@바람) $세기:level
+        (으로) @연결하다 온도 $pv.TwoDigitInteger:tmp 도 (로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device @켜다 @연결하다 온도
+        $pv.TwoDigitInteger:tmp 도 (로) @연결하다 (@바람) $세기:level (으로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device @켜다 @연결하다 온도
+        $pv.TwoDigitInteger:tmp 도 (로) @연결하다 (@바람) $pv.SingleDigitInteger:step
+        [단,단계] (으로,로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device @켜다 @연결하다 온도
+        $pv.TwoDigitInteger:tmp 도 (로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device @켜다 @연결하다 (@바람)
+        $pv.SingleDigitInteger:step [단,단계] (으로,로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device @켜다 @연결하다 (@바람) $세기:level
+        (으로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device @켜다
+      - $범위:scope $기기:device @켜다
+    TURN_OFF_DEVICE:
+      - $범위:scope @끄다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device @끄다
+      - $범위:scope $기기:device @끄다
+    SET_STATE_DEVICE:
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device (의) (@바람)
+        $pv.SingleDigitInteger:step [단,단계] (으로,로) @연결하다 온도
+        $pv.TwoDigitInteger:tmp 도 (로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device (의) (@바람) $세기:level (으로)
+        @연결하다 온도 $pv.TwoDigitInteger:tmp 도 (로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device (의) 온도
+        $pv.TwoDigitInteger:tmp 도 (로) @연결하다 (@바람) $세기:level (으로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device (의) 온도
+        $pv.TwoDigitInteger:tmp 도 (로) @연결하다 (@바람) $pv.SingleDigitInteger:step
+        [단,단계] (으로,로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device (의) 온도
+        $pv.TwoDigitInteger:tmp 도 (로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device (@바람)
+        $pv.SingleDigitInteger:step [단,단계] (으로,로) @설정하다
+      - ($이름:name) ($호칭:kinship) $장소:place $기기:device (@바람) $세기:level (으로) @설정하다
+  slots:
+    장소:
+      - 베란다
+      - 발코니
+      - 작업실
+      - 서재
+      - 주방
+      - 침실
+      - 홀
+      - 부엌
+      - 방
+      - 거실
+      - 화장실
+    세기:
+      - 강하게
+      - 제일 강하게
+      - 적당하게
+      - 세게
+      - 약하게
+      - 제일 세게
+      - 제일 약하게
+      - 최강
+      - 강
+      - 중
+      - 약
+      - 최소
+    이름:
+      - 내
+      - 보균
+      - 주현
+      - 경진
+      - 민우
+      - 태훈
+      - 채영
+      - 유민
+    호칭:
+      - 언니
+      - 오빠
+      - 남동생
+      - 동생
+      - 여동생
+      - 누나
+      - 형
+      - 어머니
+      - 아버지
+      - 엄마
+      - 아빠
+    범위:
+      - 다
+      - 모두
+      - 전부
+      - 전체
+      - 모든
+    기기:
+      - 냉방기
+      - 에어컨
+      - 선풍기
+      - 화면
+      - 빔
+      - 프로젝터
+      - 빔프로젝터
+      - 불
+      - 전등
+      - 조명
+  macros:
+    켜다:
+      - 켠
+      - 키고
+      - 켜고
+      - 틀어봐
+      - 키라
+      - 틀어줘
+      - 틀어
+      - 켜라
+      - 켜줘
+      - 켜
+    끄다:
+      - 꺼주라
+      - 꺼부려라
+      - 끄라
+      - 정지
+      - 멈춰
+      - 꺼봐
+      - 꺼줘
+      - 꺼
+    설정하다:
+      - 바꿔
+      - 바꿔줘
+      - 해라
+      - 해줘
+      - 맞춰
+      - 맞춰줘
+      - 설정해줘
+      - 설정
+    연결하다:
+      - 설정하고
+      - 하면서
+      - 다음에
+      - 한 다음에
+      - 그 다음에
+      - 하고
+      - 그리고
+    바람:
+      - 바람
+      - 세기
+      - 풍량

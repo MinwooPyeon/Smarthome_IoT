@@ -1,0 +1,272 @@
+package com.example.eeum.ui.screens
+
+import androidx.activity.ComponentActivity
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import com.example.eeum.R
+import com.example.eeum.ui.pages.MyRoutinePage
+import com.example.eeum.ui.pages.RecommendRoutinePage
+import com.example.eeum.ui.theme.*
+import kotlinx.coroutines.launch
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.composed
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.example.eeum.core.AppEffect
+import com.example.eeum.core.AppEventBus
+import kotlin.math.roundToInt
+
+private val TabBg = Color(0xFFF5F5F5)
+private val TextUnselected = Color(0xFF4B5563)
+private val TextSelected = Color(0xFF007BFF)
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun RoutineScreen(navController: NavController) {
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val coroutineScope = rememberCoroutineScope()
+    val tabs = listOf("내 루틴", "AI 추천 루틴")
+
+    val activity = LocalContext.current as ComponentActivity
+    val routineVm: RoutineViewModel = viewModel(activity)
+
+    LaunchedEffect(Unit) {
+        AppEventBus.effects.collect { eff ->
+            if (eff is AppEffect.RoutinesChanged) {
+                routineVm.fetchAllRoutines()
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 60.dp)
+    ) {
+        // 헤더: 뒤로가기 + 중앙 타이틀 + 추가 버튼
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_page_move_left),
+                contentDescription = "뒤로가기",
+                colorFilter = ColorFilter.tint(Gray800),
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .size(24.dp)
+                    .clickable { navController.popBackStack() }
+            )
+            Text(
+                text = "루틴 관리",
+                color = Gray900,
+                style = TextStyle(
+                    fontSize = 30.sp,
+                    fontFamily = FontFamily(Font(R.font.goormsansbold))
+                ),
+                modifier = Modifier.align(Alignment.Center)
+            )
+            Text(
+                text = "추가",
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .clickable {
+                        navController.navigate("createRoutineFirst")
+                    },
+                color = TextSelected,
+                style = TextStyle(
+                    fontSize = 16.sp,
+                    fontFamily = FontFamily(Font(R.font.goormsansmedium))
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(40.dp))
+
+            SegmentedTabRow(
+                selectedIndex = pagerState.currentPage,
+                titles = tabs,
+                onSelect = { idx -> coroutineScope.launch { pagerState.animateScrollToPage(idx) } },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Pager: 각 페이지에 원하는 Composable 배치
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxWidth()
+            ) { page ->
+                when (page) {
+                    0 -> MyRoutinePage(navController)
+                    1 -> RecommendRoutinePage()
+                }
+            }
+        }
+    }
+
+@Composable
+private fun SegmentedTabRow(
+    selectedIndex: Int,
+    titles: List<String>,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // 전체 컨테이너 가로(px)
+    var containerWidthPx by remember { mutableStateOf(0f) }
+    val density = LocalDensity.current
+
+    val height = 52.dp
+    val corner = 8.dp
+    val capsuleCorner = 6.dp
+    val capsuleOuterPad = 4.dp
+    val count = titles.size.coerceAtLeast(1)
+
+    // 현재 캡슐의 좌측 x(px). 0 ~ (count-1)*tabWidthPx
+    var dragOffsetPx by remember { mutableStateOf(0f) }
+    var isDragging by remember { mutableStateOf(false) }
+
+    // 탭 너비(px)
+    val tabWidthPx = remember(containerWidthPx, count) {
+        if (count == 0) 0f else containerWidthPx / count
+    }
+
+    // 외부 선택이 바뀌면(페이지 스와이프 등) 드래그 중이 아닐 때 위치 동기화
+    LaunchedEffect(selectedIndex, tabWidthPx, isDragging) {
+        if (!isDragging && tabWidthPx > 0f) {
+            dragOffsetPx = selectedIndex * tabWidthPx
+        }
+    }
+
+    // 애니메이션된 캡슐
+    val animatedStartDp: Dp by animateDpAsState(
+        targetValue = with(density) { (dragOffsetPx / density.density).dp } + capsuleOuterPad,
+        label = "capsuleStart"
+    )
+    val capsuleWidthDp: Dp by animateDpAsState(
+        targetValue = with(density) { (tabWidthPx / density.density).dp } - capsuleOuterPad * 2,
+        label = "capsuleWidth"
+    )
+
+    Box(
+        modifier = modifier
+            .height(height)
+            .clip(RoundedCornerShape(corner))
+            .background(TabBg)
+            .onGloballyPositioned { containerWidthPx = it.size.width.toFloat() }
+    ) {
+        // 하얀 캡슐
+        Surface(
+            color = Color.White,
+            shape = RoundedCornerShape(capsuleCorner),
+            shadowElevation = 0.dp,
+            tonalElevation = 0.dp,
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(vertical = capsuleOuterPad)
+                .offset(x = animatedStartDp)
+                .width(capsuleWidthDp)
+                .draggable(
+                    orientation = Orientation.Horizontal,
+                    state = rememberDraggableState { delta ->
+                        if (tabWidthPx > 0f) {
+                            val max = (count - 1) * tabWidthPx
+                            dragOffsetPx = (dragOffsetPx + delta).coerceIn(0f, max)
+                        }
+                    },
+                    onDragStarted = { isDragging = true },
+                    onDragStopped = {
+                        isDragging = false
+                        if (tabWidthPx > 0f) {
+                            // 가장 가까운 탭으로 스냅
+                            val target = (dragOffsetPx / tabWidthPx).roundToInt()
+                                .coerceIn(0, count - 1)
+                            onSelect(target) // 상위에서 pagerState.animateScrollToPage 호출됨
+                        }
+                    }
+                )
+        ) {}
+
+        Row(
+            modifier = Modifier.matchParentSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            titles.forEachIndexed { index, title ->
+                val selected = index == selectedIndex
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            // 탭 터치로도 이동: 즉시 캡슐 위치 갱신 후 페이지 전환 호출
+                            if (tabWidthPx > 0f) {
+                                dragOffsetPx = index * tabWidthPx
+                            }
+                            isDragging = false
+                            onSelect(index)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 16.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (selected) TextSelected else TextUnselected
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun RoutineScreenPreview() {
+    val nav = androidx.navigation.compose.rememberNavController()
+    com.example.eeum.ui.theme.EeumTheme(dynamicColor = false) {
+        RoutineScreen(nav)
+    }
+}
+
+
