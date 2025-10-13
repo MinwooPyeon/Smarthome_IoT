@@ -33,14 +33,12 @@ bool ESP32IRStore::initialize() {
         return false;
     }
 
-    // NVS 네임스페이스 열기
     esp_err_t ret = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle_);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "NVS 네임스페이스 열기 실패: %s", esp_err_to_name(ret));
         return false;
     }
 
-    // 저장된 데이터 로드
     if (!loadFromNVS()) {
         ESP_LOGW(TAG, "NVS에서 데이터 로드 실패, 기본값 사용");
         setDefaultCodes();

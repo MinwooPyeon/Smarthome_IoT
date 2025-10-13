@@ -107,7 +107,6 @@ bool ESP32WiFiMQTT::connectWiFi(const std::string& ssid, const std::string& pass
 
     ESP_LOGI(TAG, "WiFi 연결 시작: %s", ssid.c_str());
 
-    // WiFi 설정
     wifi_config_t wifi_config = {};
     strncpy((char*)wifi_config.sta.ssid, ssid.c_str(), sizeof(wifi_config.sta.ssid) - 1);
     strncpy((char*)wifi_config.sta.password, password.c_str(), sizeof(wifi_config.sta.password) - 1);

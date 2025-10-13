@@ -96,17 +96,19 @@ bool IRSend::initialize() {
     config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
     config.tx_config.idle_output_en = true;
 
-    config.clk_div = 100;
+    config.clk_div = 50;
 
     esp_err_t ret = rmt_config(&config);
     if (ret != ESP_OK) {
         ESP_LOGE("IR_SEND", "RMT 설정 실패: %s", esp_err_to_name(ret));
+        ESP_LOGE("IR_SEND", "클럭 분주비: %d, 메모리 블록: %d", config.clk_div, config.mem_block_num);
         return false;
     }
 
     ret = rmt_driver_install(config.channel, 0, 0);
     if (ret != ESP_OK) {
         ESP_LOGE("IR_SEND", "RMT 드라이버 설치 실패: %s", esp_err_to_name(ret));
+        ESP_LOGE("IR_SEND", "채널: %d, 클럭 분주비: %d", config.channel, config.clk_div);
         return false;
     }
 
@@ -225,7 +227,6 @@ IRSendStatus IRSend::sendRawData(const std::vector<int>& raw_data) {
         return IRSendStatus(IRSendResult::INVALID_CODE, "Raw 데이터가 비어있음");
     }
 
-    // Raw 데이터 검증
     for (size_t i = 0; i < raw_data.size(); i++) {
         if (raw_data[i] <= 0 || raw_data[i] > 65535) {
             return IRSendStatus(IRSendResult::INVALID_CODE,
@@ -236,15 +237,12 @@ IRSendStatus IRSend::sendRawData(const std::vector<int>& raw_data) {
     std::vector<int> processed_data = raw_data;
 
     for (size_t i = 0; i < processed_data.size(); i++) {
-        if (processed_data[i] < 50) {
-            processed_data[i] = 50;
+        if (processed_data[i] < 5) {
+            processed_data[i] = 5;
         } else if (processed_data[i] > 65535) {
             processed_data[i] = 65535;
         }
 
-        if (processed_data[i] % 10 != 0) {
-            processed_data[i] = ((processed_data[i] + 5) / 10) * 10;
-        }
     }
 
     ESP_LOGI("IR_SEND", "Raw 데이터 검증 완료: %d개 펄스", (int)processed_data.size());
@@ -359,11 +357,8 @@ IRSendStatus IRSend::sendRepeatedSignal(const std::vector<int>& raw_data, int re
 
     std::vector<int> processed_data = raw_data;
     for (size_t i = 0; i < processed_data.size(); i++) {
-        if (processed_data[i] < 50) processed_data[i] = 50;
+        if (processed_data[i] < 5) processed_data[i] = 5;
         if (processed_data[i] > 65535) processed_data[i] = 65535;
-        if (processed_data[i] % 10 != 0) {
-            processed_data[i] = ((processed_data[i] + 5) / 10) * 10;
-        }
     }
 
     for (int i = 0; i < repeat_count; i++) {
