@@ -161,11 +161,11 @@ bool ESP32IRReceiver::initializeRMT() {
         .rmt_mode = RMT_MODE_RX,
         .channel = RMT_CHANNEL_0,
         .gpio_num = (gpio_num_t)gpio_pin_,
-        .clk_div = 80,
-        .mem_block_num = 1,
+        .clk_div = 50,
+        .mem_block_num = 4,
         .rx_config = {
-            .idle_threshold = 10000,
-            .filter_ticks_thresh = 100,
+            .idle_threshold = 15000,
+            .filter_ticks_thresh = 50,
             .filter_en = true
         }
     };
@@ -176,7 +176,7 @@ bool ESP32IRReceiver::initializeRMT() {
         return false;
     }
 
-    ret = rmt_driver_install(RMT_CHANNEL_0, 1000, 0);
+    ret = rmt_driver_install(RMT_CHANNEL_0, 2000, 0);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "RMT 드라이버 설치 실패: %s", esp_err_to_name(ret));
         return false;
@@ -228,7 +228,6 @@ void ESP32IRReceiver::rmt_rx_done_callback(rmt_channel_t channel,
         }
     }
 
-    // rmt_receive(receiver->rmt_rx_channel_, receiver->ir_code_queue_, -1);
 }
 
 void ESP32IRReceiver::receiveTask(void *pvParameters) {

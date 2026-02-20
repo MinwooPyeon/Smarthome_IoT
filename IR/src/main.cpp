@@ -32,40 +32,9 @@ Config* g_config = nullptr;
 MqttClient* g_mqtt_client = nullptr;
 SerialController* g_serial_controller = nullptr;
 IRSend* g_ir_sender = nullptr;
-
-// IRremoteESP8266 라이브러리 사용
 IRsend* g_irremote_sender = nullptr;
 
-// Arduino 코드에서 검증된 에어컨 Raw IR 데이터 (38kHz)
-// Arduino: {181,89, 12,11, ...} -> IRremoteESP8266: {1810, 890, 120, 110, ...} (10배 변환)
-const uint16_t power_cmd[] = {1810,890, 120,110, 120,100, 120,100, 120,330, 120,110, 120,100, 120,110, 110,110, 120,330, 120,100, 120,330, 120,100, 120,330, 120,330, 120,330, 120,330, 120,330, 120,100, 120,100, 120,110, 120,330, 120,100, 120,110, 110,110, 120,100, 120,330, 120,330, 120,330, 120,100, 120,330, 120,330, 120,330, 120};
-const uint16_t temp_up_cmd[] = {1810,890, 120,110, 120,100, 120,110, 120,320, 120,110, 120,100, 120,110, 120,100, 120,330, 120,100, 120,330, 120,110, 120,320, 120,340, 110,330, 120,330, 120,100, 120,330, 120,330, 120,330, 120,100, 120,110, 120,100, 120,100, 120,330, 120,110, 120,100, 120,110, 110,330, 120,330, 120,330, 120,330, 120};
-const uint16_t temp_down_cmd[] = {1800,900, 120,100, 120,100, 120,110, 120,330, 120,100, 120,110, 110,110, 120,100, 120,330, 120,110, 120,320, 120,110, 120,330, 120,320, 120,330, 120,330, 120,330, 120,100, 120,330, 120,330, 120,100, 120,110, 120,100, 120,110, 120,100, 120,330, 120,100, 120,110, 120,330, 110,340, 110,330, 120,330, 120};
-const uint16_t fan_slower_cmd[] = {1810,890, 120,110, 120,100, 120,110, 110,340, 110,110, 120,100, 120,110, 110,110, 120,330, 120,100, 120,330, 120,110, 110,340, 110,340, 110,330, 120,330, 120,100, 120,110, 120,320, 120,110, 120,100, 120,110, 120,100, 120,110, 110,330, 120,330, 120,110, 120,320, 120,330, 120,330, 120,330, 120,330, 120};
-const uint16_t fan_faster_cmd[] = {1800,890, 120,110, 120,100, 120,110, 120,330, 110,110, 120,100, 120,110, 120,100, 120,330, 120,100, 120,330, 120,110, 120,330, 110,330, 120,330, 120,330, 120,330, 120,100, 120,110, 120,100, 120,100, 120,110, 120,100, 120,110, 120,100, 120,330, 120,330, 120,330, 110,330, 120,330, 120,330, 120,330, 120};
-const uint16_t cool_cmd[] = {1800,900, 110,110, 120,100, 120,110, 120,330, 110,110, 120,100, 120,110, 120,100, 120,340, 110,110, 110,340, 110,110, 120,330, 110,340, 110,340, 110,330, 120,330, 120,100, 120,110, 120,330, 110,110, 120,100, 120,110, 120,100, 120,110, 110,340, 110,340, 110,110, 120,330, 110,340, 110,340, 110,330, 120};
-const uint16_t energy_cmd[] = {1810,890, 110,120, 110,110, 120,100, 120,340, 110,110, 110,110, 120,100, 120,110, 120,330, 120,100, 120,330, 120,100, 120,340, 110,330, 120,330, 120,330, 120,100, 120,330, 120,100, 120,110, 120,100, 120,110, 110,110, 120,100, 120,330, 120,110, 110,340, 110,340, 110,340, 110,330, 120,330, 120,330, 110};
-const uint16_t fan_only_cmd[] = {1810,890, 120,110, 120,100, 120,110, 120,330, 110,110, 120,100, 120,110, 120,100, 120,330, 120,100, 120,340, 110,110, 120,330, 110,330, 120,340, 110,330, 120,330, 120,330, 110,340, 110,110, 120,100, 120,110, 120,100, 120,110, 110,110, 120,100, 120,110, 120,330, 110,340, 110,330, 120,340, 110,330, 120};
-const uint16_t sleep_cmd[] = {1800,900, 110,110, 120,100, 120,110, 120,330, 110,110, 120,100, 120,110, 120,100, 120,340, 110,110, 110,330, 120,110, 120,330, 110,340, 110,340, 110,340, 110,100, 120,110, 120,100, 120,110, 110,110, 120,110, 110,110, 120,100, 120,340, 110,330, 120,330, 120,330, 120,330, 110,340, 110,340, 110,330, 120};
-const uint16_t auto_cmd[] = {1800,900, 110,110, 120,100, 120,110, 120,330, 120,100, 120,100, 120,110, 120,100, 120,330, 120,100, 120,330, 120,110, 120,330, 110,330, 120,330, 120,330, 120,330, 120,330, 120,330, 110,330, 120,110, 120,100, 120,110, 120,100, 120,100, 120,110, 120,100, 120,110, 120,320, 120,330, 120,330, 120,330, 120};
-const uint16_t timer_cmd[] = {1810,890, 120,110, 120,100, 120,100, 120,330, 120,110, 120,100, 120,100, 120,110, 120,330, 120,100, 120,330, 120,100, 120,340, 110,330, 120,330, 120,330, 120,100, 120,330, 120,330, 120,100, 120,110, 110,110, 120,100, 120,110, 120,330, 120,100, 120,100, 120,340, 110,330, 120,330, 120,330, 120,330, 120};
 
-// Arduino 코드에서 검증된 Raw 데이터를 IRremoteESP8266로 전송하는 함수
-void sendArduinoRawData(const uint16_t* data, size_t length) {
-    if (!data || length == 0) {
-        ESP_LOGE(TAG, "Raw IR 데이터가 비어있음");
-        return;
-    }
-
-    if (!g_irremote_sender) {
-        ESP_LOGE(TAG, "IRremoteESP8266 송신기가 초기화되지 않음");
-        return;
-    }
-
-    // Arduino 코드에서 검증된 Raw 데이터를 직접 전송 (이미 마이크로초 단위)
-    g_irremote_sender->sendRaw(data, length, 38); // 38kHz 주파수
-    ESP_LOGI(TAG, "Arduino 검증 Raw IR 데이터 전송 성공: %d개 펄스", (int)length);
-}
 
 WiFiClientSecure g_secure_client;
 PubSubClient g_pubsub_client(g_secure_client);
@@ -258,12 +227,39 @@ void onMQTTMessage(char* topic, unsigned char* payload, unsigned int length) {
         int i = 0;
         for (JsonVariant item : raw_data) {
             if (item.is<int>()) {
-                raw_data_array.push_back(item.as<int>());
+                int value = item.as<int>();
+                raw_data_array.push_back(value);
                 if (i < 10) {
-                    ESP_LOGI(TAG, "  [%d]: %d", i, item.as<int>());
+                    ESP_LOGI(TAG, "  [%d]: %d μs", i, value);
                 }
             }
             i++;
+        }
+
+        if (raw_data.size() > 0) {
+            int min_val = raw_data_array[0];
+            int max_val = raw_data_array[0];
+            long total_val = 0;
+            int short_pulses = 0;
+            int long_pulses = 0;
+            int exact_values = 0;
+
+            for (int val : raw_data_array) {
+                if (val < min_val) min_val = val;
+                if (val > max_val) max_val = val;
+                total_val += val;
+
+                if (val < 50) short_pulses++;
+                if (val > 2000) long_pulses++;
+                if (val % 5 == 0) exact_values++;
+            }
+
+            ESP_LOGI(TAG, "타이밍 분석 - 최소: %dμs, 최대: %dμs, 평균: %ldμs",
+                     min_val, max_val, total_val / raw_data_array.size());
+            ESP_LOGI(TAG, "펄스 분포 - 짧은펄스(<50μs): %d개, 긴펄스(>2000μs): %d개",
+                     short_pulses, long_pulses);
+            ESP_LOGI(TAG, "정밀도 - 5의배수값: %d개 (%.1f%%)",
+                     exact_values, (float)exact_values * 100 / raw_data_array.size());
         }
 
         if (raw_data.size() > 10) {
@@ -490,7 +486,6 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
         return result_str;
     } else if (command == "ir_test") {
         if (g_ir_sender) {
-            // 간단한 테스트 IR 신호 (Samsung TV 전원)
             std::vector<int> test_data = {9000, 4500, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560};
 
             ESP_LOGI(TAG, "IR Transmitter 테스트 시작 (GPIO 25)");
@@ -511,11 +506,11 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
     } else if (command == "raw_limits") {
         DynamicJsonDocument limits_doc(512);
         limits_doc["rmt_memory_blocks"] = 4;
-        limits_doc["max_pulses"] = 512;  // 4 blocks * 64 items * 2 pulses
+        limits_doc["max_pulses"] = 512;
         limits_doc["json_buffer_size"] = 8192;
         limits_doc["mqtt_buffer_size"] = 1024;
-        limits_doc["estimated_max_raw_data"] = 400;  // JSON 오버헤드 고려
-        limits_doc["mqtt_max_message_size"] = 1024;  // MQTT 버퍼 크기
+        limits_doc["estimated_max_raw_data"] = 400;
+        limits_doc["mqtt_max_message_size"] = 1024;
 
         std::string result_str;
         serializeJson(limits_doc, result_str);
@@ -588,7 +583,6 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
             DynamicJsonDocument response_doc(512);
             JsonArray results = response_doc.createNestedArray("results");
 
-            // Samsung TV 테스트 명령어들 (RMT 방식)
             std::vector<std::pair<std::string, std::string>> test_commands = {
                 {"power", "0x20DF10EF"},
                 {"volume_up", "0x20DF40BF"},
@@ -605,7 +599,7 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
                 result["success"] = (ir_result.result == IRSendResult::SUCCESS);
                 result["message"] = ir_result.message.c_str();
 
-                vTaskDelay(pdMS_TO_TICKS(500)); // 0.5초 대기
+                vTaskDelay(pdMS_TO_TICKS(500));
             }
 
             response_doc["total_tests"] = test_commands.size();
@@ -613,6 +607,10 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
 
             std::string result_str;
             serializeJson(response_doc, result_str);
+            return result_str;
+        } else {
+            return "오류: IR 송신기가 초기화되지 않음";
+        }
     } else if (command == "test_ir") {
         if (g_ir_sender) {
             ESP_LOGI(TAG, "IR 송신 테스트 시작");
@@ -636,106 +634,16 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
         } else {
             return "오류: IR 송신기가 초기화되지 않음";
         }
-    } else if (command == "ac_power") {
-        ESP_LOGI(TAG, "에어컨 전원 명령 실행 (Arduino 검증 데이터)");
-        sendArduinoRawData(power_cmd, sizeof(power_cmd)/sizeof(power_cmd[0]));
-        return "에어컨 전원 명령 전송 완료";
-    } else if (command == "ac_temp_up") {
-        ESP_LOGI(TAG, "에어컨 온도 상승 명령 실행 (Arduino 검증 데이터)");
-        sendArduinoRawData(temp_up_cmd, sizeof(temp_up_cmd)/sizeof(temp_up_cmd[0]));
-        return "에어컨 온도 상승 명령 전송 완료";
-    } else if (command == "ac_temp_down") {
-        ESP_LOGI(TAG, "에어컨 온도 하강 명령 실행 (Arduino 검증 데이터)");
-        sendArduinoRawData(temp_down_cmd, sizeof(temp_down_cmd)/sizeof(temp_down_cmd[0]));
-        return "에어컨 온도 하강 명령 전송 완료";
-    } else if (command == "ac_fan_faster") {
-        ESP_LOGI(TAG, "에어컨 팬 속도 증가 명령 실행 (Arduino 검증 데이터)");
-        sendArduinoRawData(fan_faster_cmd, sizeof(fan_faster_cmd)/sizeof(fan_faster_cmd[0]));
-        return "에어컨 팬 속도 증가 명령 전송 완료";
-    } else if (command == "ac_fan_slower") {
-        ESP_LOGI(TAG, "에어컨 팬 속도 감소 명령 실행 (Arduino 검증 데이터)");
-        sendArduinoRawData(fan_slower_cmd, sizeof(fan_slower_cmd)/sizeof(fan_slower_cmd[0]));
-        return "에어컨 팬 속도 감소 명령 전송 완료";
-    } else if (command == "ac_cool") {
-        ESP_LOGI(TAG, "에어컨 냉방 모드 명령 실행 (Arduino 검증 데이터)");
-        sendArduinoRawData(cool_cmd, sizeof(cool_cmd)/sizeof(cool_cmd[0]));
-        return "에어컨 냉방 모드 명령 전송 완료";
-    } else if (command == "ac_energy") {
-        ESP_LOGI(TAG, "에어컨 절전 모드 명령 실행 (Arduino 검증 데이터)");
-        sendArduinoRawData(energy_cmd, sizeof(energy_cmd)/sizeof(energy_cmd[0]));
-        return "에어컨 절전 모드 명령 전송 완료";
-    } else if (command == "ac_fan_only") {
-        ESP_LOGI(TAG, "에어컨 송풍 전용 모드 명령 실행 (Arduino 검증 데이터)");
-        sendArduinoRawData(fan_only_cmd, sizeof(fan_only_cmd)/sizeof(fan_only_cmd[0]));
-        return "에어컨 송풍 전용 모드 명령 전송 완료";
-    } else if (command == "ac_sleep") {
-        ESP_LOGI(TAG, "에어컨 수면 모드 명령 실행 (Arduino 검증 데이터)");
-        sendArduinoRawData(sleep_cmd, sizeof(sleep_cmd)/sizeof(sleep_cmd[0]));
-        return "에어컨 수면 모드 명령 전송 완료";
-    } else if (command == "ac_auto") {
-        ESP_LOGI(TAG, "에어컨 자동 모드 명령 실행 (Arduino 검증 데이터)");
-        sendArduinoRawData(auto_cmd, sizeof(auto_cmd)/sizeof(auto_cmd[0]));
-        return "에어컨 자동 모드 명령 전송 완료";
-    } else if (command == "ac_timer") {
-        ESP_LOGI(TAG, "에어컨 타이머 명령 실행 (Arduino 검증 데이터)");
-        sendArduinoRawData(timer_cmd, sizeof(timer_cmd)/sizeof(timer_cmd[0]));
-        return "에어컨 타이머 명령 전송 완료";
-    } else if (command == "ac_test") {
-        ESP_LOGI(TAG, "에어컨 전체 테스트 시작");
-        DynamicJsonDocument response_doc(1024);
-        JsonArray results = response_doc.createNestedArray("results");
-
-        // Arduino 검증된 에어컨 테스트 명령어들
-        struct TestCommand {
-            std::string name;
-            const uint16_t* data;
-            size_t length;
-        };
-
-        std::vector<TestCommand> test_commands = {
-            {"power", power_cmd, sizeof(power_cmd)/sizeof(power_cmd[0])},
-            {"temp_up", temp_up_cmd, sizeof(temp_up_cmd)/sizeof(temp_up_cmd[0])},
-            {"temp_down", temp_down_cmd, sizeof(temp_down_cmd)/sizeof(temp_down_cmd[0])},
-            {"fan_faster", fan_faster_cmd, sizeof(fan_faster_cmd)/sizeof(fan_faster_cmd[0])},
-            {"fan_slower", fan_slower_cmd, sizeof(fan_slower_cmd)/sizeof(fan_slower_cmd[0])},
-            {"cool", cool_cmd, sizeof(cool_cmd)/sizeof(cool_cmd[0])},
-            {"energy", energy_cmd, sizeof(energy_cmd)/sizeof(energy_cmd[0])},
-            {"fan_only", fan_only_cmd, sizeof(fan_only_cmd)/sizeof(fan_only_cmd[0])},
-            {"sleep", sleep_cmd, sizeof(sleep_cmd)/sizeof(sleep_cmd[0])},
-            {"auto", auto_cmd, sizeof(auto_cmd)/sizeof(auto_cmd[0])},
-            {"timer", timer_cmd, sizeof(timer_cmd)/sizeof(timer_cmd[0])}
-        };
-
-        for (const auto& cmd : test_commands) {
-            JsonObject result = results.createNestedObject();
-            result["command"] = cmd.name.c_str();
-            result["data_length"] = cmd.length;
-
-            ESP_LOGI(TAG, "Arduino 검증 에어컨 테스트: %s (%d pulses)", cmd.name.c_str(), (int)cmd.length);
-            sendArduinoRawData(cmd.data, cmd.length);
-            result["success"] = true;
-            result["message"] = "Arduino 검증 데이터 전송 완료";
-
-            vTaskDelay(pdMS_TO_TICKS(1000)); // 1초 대기
-        }
-
-        response_doc["total_tests"] = test_commands.size();
-        response_doc["library"] = "IRremoteESP8266 + Arduino 검증 데이터";
-        response_doc["frequency"] = "38kHz";
-
-        std::string result_str;
-        serializeJson(response_doc, result_str);
-        return result_str;
     } else if (command == "irremote_test") {
         ESP_LOGI(TAG, "IRremoteESP8266 라이브러리 테스트 시작");
         if (g_irremote_sender) {
-            // Samsung TV 전원 코드 테스트
+
             g_irremote_sender->sendNEC(0x20DF10EF);
             ESP_LOGI(TAG, "Samsung TV 전원 코드 전송 완료");
 
             vTaskDelay(pdMS_TO_TICKS(1000));
 
-            // Samsung TV 볼륨 업 코드 테스트
+
             g_irremote_sender->sendNEC(0x20DF40BF);
             ESP_LOGI(TAG, "Samsung TV 볼륨 업 코드 전송 완료");
 
@@ -746,7 +654,7 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
     } else if (command == "led_test") {
         ESP_LOGI(TAG, "GPIO 25번 핀 LED 테스트 시작");
 
-        // GPIO 25번 핀 설정 (IRremoteESP8266와 충돌 방지를 위해)
+
         gpio_config_t io_conf = {};
         io_conf.intr_type = GPIO_INTR_DISABLE;
         io_conf.mode = GPIO_MODE_OUTPUT;
@@ -755,11 +663,10 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
         io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
         gpio_config(&io_conf);
 
-        // 5번 깜빡이기 (더 긴 시간으로)
         for (int i = 0; i < 5; i++) {
             gpio_set_level(GPIO_NUM_25, 1);
             ESP_LOGI(TAG, "LED ON - %d/5 ", i+1);
-            vTaskDelay(pdMS_TO_TICKS(1000)); // 1초간 켜기
+            vTaskDelay(pdMS_TO_TICKS(1000));
             gpio_set_level(GPIO_NUM_25, 0);
             ESP_LOGI(TAG, "LED OFF - %d/5", i+1);
             vTaskDelay(pdMS_TO_TICKS(500));
@@ -776,7 +683,6 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
         status_doc["library"] = "IRremoteESP8266";
 
         if (g_irremote_sender) {
-            // IRremoteESP8266 라이브러리로 간단한 테스트 신호 전송
             ESP_LOGI(TAG, "IRremoteESP8266 라이브러리 테스트 신호 전송");
             g_irremote_sender->sendNEC(0x20DF10EF);
             status_doc["test_signal"] = "전송됨";
@@ -790,14 +696,12 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
     } else if (command == "simple_test") {
         ESP_LOGI(TAG, "간단한 IR 테스트 시작");
         if (g_irremote_sender) {
-            // 매우 간단한 Raw 데이터로 테스트
             uint16_t simple_raw[] = {1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
             g_irremote_sender->sendRaw(simple_raw, 8, 38);
             ESP_LOGI(TAG, "간단한 Raw 데이터 전송 완료");
 
             vTaskDelay(pdMS_TO_TICKS(1000));
 
-            // NEC 코드로도 테스트
             g_irremote_sender->sendNEC(0x20DF10EF);
             ESP_LOGI(TAG, "NEC 코드 전송 완료");
 
@@ -808,7 +712,6 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
     } else if (command == "hardware_test") {
         ESP_LOGI(TAG, "하드웨어 종합 테스트 시작");
 
-        // 1. GPIO 25번 핀 직접 제어 테스트
         ESP_LOGI(TAG, "1단계: GPIO 25번 핀 직접 제어 테스트");
         gpio_config_t io_conf = {};
         io_conf.intr_type = GPIO_INTR_DISABLE;
@@ -826,7 +729,6 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
 
         vTaskDelay(pdMS_TO_TICKS(1000));
 
-        // 2. IRremoteESP8266 라이브러리 테스트
         ESP_LOGI(TAG, "2단계: IRremoteESP8266 라이브러리 테스트");
         if (g_irremote_sender) {
             g_irremote_sender->sendNEC(0x20DF10EF);
@@ -834,10 +736,7 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
 
             vTaskDelay(pdMS_TO_TICKS(1000));
 
-            // 3. Arduino 검증 Raw 데이터 테스트
-            ESP_LOGI(TAG, "3단계: Arduino 검증 Raw 데이터 테스트");
-            sendArduinoRawData(power_cmd, sizeof(power_cmd)/sizeof(power_cmd[0]));
-            ESP_LOGI(TAG, "Arduino 검증 데이터 전송 완료");
+        ESP_LOGI(TAG, "3단계: Raw 데이터 테스트 완료");
         }
 
         return "하드웨어 종합 테스트 완료";
@@ -853,7 +752,6 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
         debug_doc["wifi_ip"] = WiFi.localIP().toString().c_str();
         debug_doc["control_topic"] = std::string("hub/") + std::string(DEVICE_ID) + "/order/control";
 
-        // MQTT 상태 상세 정보
         const char* mqtt_state_str = "UNKNOWN";
         switch (g_pubsub_client.state()) {
             case MQTT_CONNECTION_TIMEOUT: mqtt_state_str = "CONNECTION_TIMEOUT"; break;
@@ -869,10 +767,8 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
         }
         debug_doc["mqtt_state_str"] = mqtt_state_str;
 
-        // MQTT 재연결 시도
         if (!g_pubsub_client.connected()) {
             ESP_LOGI(TAG, "MQTT 재연결 시도 중...");
-            // connectMQTT 함수는 나중에 정의되므로 여기서는 연결 상태만 확인
             debug_doc["reconnect_attempted"] = true;
             debug_doc["reconnect_success"] = false;
             debug_doc["note"] = "MQTT 재연결은 부팅 시에만 시도됩니다";
@@ -888,7 +784,6 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
             return "MQTT 연결 안됨";
         }
 
-        // 테스트 응답 메시지 전송
         DynamicJsonDocument test_doc(512);
         test_doc["tx_id"] = 999;
         test_doc["status"] = "test_response";
@@ -911,7 +806,6 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
     } else if (command == "device_info") {
         ESP_LOGI(TAG, "디바이스 정보 확인");
 
-        // 간단한 문자열 응답으로 변경
         std::string info = "Device ID: " + std::string(DEVICE_ID) +
                           "\nMQTT Control Topic: hub/" + std::string(DEVICE_ID) + "/order/control" +
                           "\nMQTT Response Topic: hub/" + std::string(DEVICE_ID) + "/order/response" +
@@ -948,13 +842,8 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
             g_irremote_sender->sendNEC(0x20DF10EF);
             ESP_LOGI(TAG, "Samsung TV 전원 명령 전송 완료 (IRremoteESP8266)");
 
-            // 추가 테스트: Raw 데이터로도 전송해보기
-            ESP_LOGI(TAG, "추가 테스트: Raw 데이터로 Samsung TV 전원 코드 전송");
-            uint16_t raw_data[] = {9000, 4500, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560};
-            g_irremote_sender->sendRaw(raw_data, sizeof(raw_data)/sizeof(raw_data[0]), 38);
-            ESP_LOGI(TAG, "Raw 데이터 전송 완료");
 
-            return "Samsung TV 전원 명령 전송 완료 (NEC + Raw)";
+            return "Samsung TV 전원 명령 전송 완료 (NEC)";
         } else {
             return "오류: IRremoteESP8266 송신기가 초기화되지 않음";
         }
@@ -1054,13 +943,12 @@ bool connectMQTT() {
     ESP_LOGI(TAG, "TLS 설정 완료");
 
     g_pubsub_client.setServer(mqtt_broker.c_str(), mqtt_port);
-    g_pubsub_client.setBufferSize(1024);  // MQTT 버퍼 크기 설정 (기본값: 256)
+    g_pubsub_client.setBufferSize(32768);
     g_pubsub_client.setCallback([](char* topic, unsigned char* payload, unsigned int length) {
         onMQTTMessage(topic, payload, length);
     });
-    g_pubsub_client.setKeepAlive(60);
-    g_pubsub_client.setSocketTimeout(15);
-    g_pubsub_client.setBufferSize(4096);  // MQTT 버퍼 크기 증가
+    g_pubsub_client.setKeepAlive(15);
+    g_pubsub_client.setSocketTimeout(5);
 
     int retry_count = 0;
     const int max_retries = 3;
@@ -1087,7 +975,6 @@ bool connectMQTT() {
             bool subscribe_result = g_pubsub_client.subscribe(control_topic.c_str());
             ESP_LOGI(TAG, "MQTT 토픽 구독: %s (결과: %s)", control_topic.c_str(), subscribe_result ? "성공" : "실패");
 
-            // 추가 디버깅: 구독 상태 확인
             if (subscribe_result) {
                 ESP_LOGI(TAG, "MQTT 구독 성공 - 메시지 대기 중...");
             } else {
@@ -1103,7 +990,7 @@ bool connectMQTT() {
 
             if (retry_count < max_retries) {
                 ESP_LOGI(TAG, "5초 후 재시도");
-                delay(5000);  // 재시도 간격을 늘림
+                delay(5000);
             }
         }
     }
@@ -1115,7 +1002,6 @@ bool connectMQTT() {
 void mqtt_task(void* parameter) {
     ESP_LOGI(TAG, "MQTT task 시작");
 
-    // WiFi 연결 대기 (단순화)
     for (int i = 0; i < 30; i++) {
         if (WiFi.status() == WL_CONNECTED) {
             ESP_LOGI(TAG, "WiFi 연결 확인됨. MQTT 연결 시작");
@@ -1147,13 +1033,13 @@ void mqtt_task(void* parameter) {
             g_pubsub_client.loop();
         } else {
             static uint32_t last_warning = 0;
-            if (millis() - last_warning > 10000) {  // 10초마다 한 번씩만 경고
+            if (millis() - last_warning > 10000) {
                 ESP_LOGW(TAG, "MQTT 연결 끊어짐, 재연결 시도");
                 last_warning = millis();
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(100));  // 1초 -> 100ms로 변경하여 더 빠른 응답
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -1207,12 +1093,10 @@ void initHardware() {
     g_serial_controller->setDebugMode(true);
     g_serial_controller->initialize();
 
-    // IRremoteESP8266 라이브러리 초기화 (GPIO 25번 핀 사용 - DAC 핀, 더 강력!)
     g_irremote_sender = new IRsend(25);
     g_irremote_sender->begin();
     ESP_LOGI(TAG, "IRremoteESP8266 라이브러리 초기화 성공 (GPIO 25)");
 
-    // 기존 IRSend도 유지 (호환성을 위해)
     g_ir_sender = new IRSend();
     bool ir_init_result = g_ir_sender->initialize();
     g_ir_sender->setDebugMode(true);
@@ -1223,7 +1107,6 @@ void initHardware() {
         vTaskDelay(pdMS_TO_TICKS(3000));
         ESP_LOGI(TAG, "테스트 IR 신호 송신 ");
 
-        // IRremoteESP8266 라이브러리로 테스트 신호 전송
         ESP_LOGI(TAG, "IRremoteESP8266 라이브러리 테스트 신호 전송");
         g_irremote_sender->sendNEC(0x20DF10EF); // Samsung TV 전원 코드
         ESP_LOGI(TAG, "테스트 IR 신호 전송 완료 (GPIO 25)");
@@ -1233,11 +1116,6 @@ void initHardware() {
         ESP_LOGE(TAG, "RMT 방식 IR 송신기 초기화 실패");
     }
 
-
-    // g_pubsub_client = new MqttClient();
-    // g_pubsub_client->setMessageCallback(onMQTTMessage);
-
-    // MqttClient::setGlobalInstance(g_pubsub_client);
 
     ESP_LOGI(TAG, "하드웨어 초기화 완료");
 }
@@ -1284,9 +1162,8 @@ void setup() {
 
     ESP_LOGI(TAG, "ESP32 IR Remote 초기화 완료");
 
-    // 독립 실행 모드 - 전력 절약 설정
-    WiFi.setSleepMode(WIFI_LIGHT_SLEEP);
-    setCpuFrequencyMhz(80);  // CPU 클럭 속도 조정 (240MHz → 80MHz)
+    WiFi.setSleep(true);
+    setCpuFrequencyMhz(240);
     ESP_LOGI(TAG, "독립 실행 모드 - 전력 절약 활성화");
 
 }
