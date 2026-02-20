@@ -23,7 +23,7 @@ static void on_signal(int) {
     if (g_mqtt) {
         g_mqtt->stop();
         g_mqtt = nullptr;
-    }
+    }   
 }
 
 // 간단한 환경변수 헬퍼
