@@ -469,16 +469,6 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
         } else {
             return "오류: IR 송신기가 초기화되지 않았거나 Raw 데이터가 비어있음";
         }
-    } else if (command == "ir_status") {
-        DynamicJsonDocument ir_doc(256);
-        ir_doc["sending"] = (g_ir_sender != nullptr);
-        ir_doc["tx_pin"] = 25;
-        ir_doc["carrier_freq"] = 38000;
-        ir_doc["duty_cycle"] = 50;
-
-        std::string result_str;
-        serializeJson(ir_doc, result_str);
-        return result_str;
     } else if (command == "mqtt_status") {
         DynamicJsonDocument mqtt_doc(256);
         mqtt_doc["connected"] = g_pubsub_client.connected();
@@ -613,6 +603,10 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
 
             std::string result_str;
             serializeJson(response_doc, result_str);
+            return result_str;
+        } else {
+            return "오류: IR 송신기가 초기화되지 않음";
+        }
     } else if (command == "test_ir") {
         if (g_ir_sender) {
             ESP_LOGI(TAG, "IR 송신 테스트 시작");
@@ -974,52 +968,6 @@ std::string onSerialCommand(const std::string& command, const JsonObject& params
         } else {
             return "오류: IRremoteESP8266 송신기가 초기화되지 않음";
         }
-    } else if (command == "analyze_raw") {
-        if (!params.containsKey("raw_data") || !params["raw_data"].is<JsonArray>()) {
-            return "오류: raw_data 배열이 필요";
-        }
-
-        JsonArray raw_data = params["raw_data"];
-        DynamicJsonDocument analysis_doc(1024);
-        JsonArray original = analysis_doc.createNestedArray("original");
-        JsonArray processed = analysis_doc.createNestedArray("processed");
-        JsonArray differences = analysis_doc.createNestedArray("differences");
-
-        for (JsonVariant item : raw_data) {
-            if (item.is<int>()) {
-                int original_val = item.as<int>();
-                int processed_val = original_val;
-
-                if (processed_val < 50) processed_val = 50;
-                if (processed_val > 65535) processed_val = 65535;
-                if (processed_val % 10 != 0) {
-                    processed_val = ((processed_val + 5) / 10) * 10;
-                }
-
-                original.add(original_val);
-                processed.add(processed_val);
-                differences.add(processed_val - original_val);
-            }
-        }
-
-        analysis_doc["total_pulses"] = raw_data.size();
-        analysis_doc["max_difference"] = 0;
-        analysis_doc["avg_difference"] = 0.0;
-
-        int total_diff = 0;
-        int max_diff = 0;
-        for (JsonVariant diff : differences) {
-            int d = diff.as<int>();
-            total_diff += abs(d);
-            if (abs(d) > max_diff) max_diff = abs(d);
-        }
-
-        analysis_doc["max_difference"] = max_diff;
-        analysis_doc["avg_difference"] = raw_data.size() > 0 ? (double)total_diff / raw_data.size() : 0.0;
-
-        std::string result_str;
-        serializeJson(analysis_doc, result_str);
-        return result_str;
     } else if (command == "restart") {
         ESP_LOGI(TAG, "시스템 재시작 요청");
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -1054,7 +1002,6 @@ bool connectMQTT() {
     ESP_LOGI(TAG, "TLS 설정 완료");
 
     g_pubsub_client.setServer(mqtt_broker.c_str(), mqtt_port);
-    g_pubsub_client.setBufferSize(1024);  // MQTT 버퍼 크기 설정 (기본값: 256)
     g_pubsub_client.setCallback([](char* topic, unsigned char* payload, unsigned int length) {
         onMQTTMessage(topic, payload, length);
     });
@@ -1261,7 +1208,9 @@ void setup() {
     ESP_LOGI(TAG, "ESP32 IR Remote 시작");
     ESP_LOGI(TAG, "모델: ESP32-WROOM-32E");
     ESP_LOGI(TAG, "Free heap: %d bytes", esp_get_free_heap_size());
-    ESP_LOGI(TAG, "Chip revision: %d", esp_chip_info_t().revision);
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    ESP_LOGI(TAG, "Chip revision: %d", chip_info.revision);
 
     ESP_LOGI(TAG, "보안 시스템 초기화 건너뜀 (개발 중)");
 

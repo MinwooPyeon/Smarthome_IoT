@@ -2,6 +2,7 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <ctime>
 
 MatterClient::MatterClient()
     : network_connected_(false)
@@ -51,7 +52,7 @@ MatterClient& MatterClient::operator=(const MatterClient& other)
 MatterClient& MatterClient::operator=(MatterClient&& other) noexcept
 {
     if (this != &other) {
-        network_connected_ = std::move(other.network_connected_);
+        network_connected_ = other.network_connected_;
         device_statuses_ = std::move(other.device_statuses_);
         network_address_ = std::move(other.network_address_);
         debug_mode_ = other.debug_mode_;

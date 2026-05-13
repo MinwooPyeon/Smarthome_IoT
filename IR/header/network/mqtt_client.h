@@ -48,7 +48,7 @@ public:
 
 private:
 #ifdef _WIN32
-    bool connected;
+    bool is_connected_;
     std::string username_;
     std::string password_;
     std::string will_topic_;
@@ -60,28 +60,26 @@ private:
     std::string broker;
     int port;
     std::string client_id;
-    std::function<void(const std::string&, const std::string&)> messageCallback;
 #elif defined(ESP32) || defined(ESP_PLATFORM)
-            PubSubClient* mqtt_client_;
-            bool is_connected_;
-            std::string username_;
-            std::string password_;
-            std::string will_topic_;
-            std::string will_message_;
-            bool use_tls_;
-            std::string ca_cert_;
-            std::string client_cert_;
-            std::string client_key_;
-            std::string broker;
-            int port;
-            std::string client_id;
-#else
-    struct mosquitto* mosq;
-    bool connected;
+    PubSubClient* mqtt_client_;
+    bool is_connected_;
+    std::string username_;
+    std::string password_;
+    std::string will_topic_;
+    std::string will_message_;
+    bool use_tls_;
+    std::string ca_cert_;
+    std::string client_cert_;
+    std::string client_key_;
     std::string broker;
     int port;
     std::string client_id;
-    std::function<void(const std::string&, const std::string&)> messageCallback;
+#else
+    struct mosquitto* mosq;
+    bool is_connected_;
+    std::string broker;
+    int port;
+    std::string client_id;
 
     static void onConnect(struct mosquitto* mosq, void* userdata, int result);
     static void onDisconnect(struct mosquitto* mosq, void* userdata, int result);

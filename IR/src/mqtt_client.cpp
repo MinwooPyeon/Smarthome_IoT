@@ -6,10 +6,10 @@
 #include <sstream>
 #include <vector>
 
+#include <ArduinoJson.h>
 #if defined(ESP32) || defined(ESP_PLATFORM)
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include <ArduinoJson.h>
 #endif
 
 MqttClient* MqttClient::global_instance_ = nullptr;

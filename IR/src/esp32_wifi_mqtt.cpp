@@ -4,8 +4,6 @@
 #include <esp_event.h>
 #include <esp_netif.h>
 #include <cstring>
-#ifdef ESP32
-#endif
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/event_groups.h>
@@ -175,12 +173,7 @@ bool ESP32WiFiMQTT::connectMQTT(const std::string& broker, int port, const std::
 
     ESP_LOGI(TAG, "MQTT 연결 시작: %s:%d", broker.c_str(), port);
 
-#ifdef ESP32
-    mqtt_client_ = (void*)0x12345678;
     ESP_LOGI(TAG, "MQTT 연결 시뮬레이션: %s:%d", broker.c_str(), port);
-#else
-    ESP_LOGI(TAG, "MQTT 연결 시뮬레이션: %s:%d", broker.c_str(), port);
-#endif
 
     EventBits_t bits = xEventGroupWaitBits(mqtt_event_group_,
                                           MQTT_CONNECTED_BIT | MQTT_FAIL_BIT,
@@ -206,11 +199,6 @@ void ESP32WiFiMQTT::disconnectMQTT() {
     if (!mqtt_connected_) return;
 
     ESP_LOGI(TAG, "MQTT 연결 해제");
-#ifdef ESP32
-    ESP_LOGI(TAG, "MQTT 연결 해제 Simulation");
-#else
-    ESP_LOGI(TAG, "MQTT 연결 해제 Simulation");
-#endif
     mqtt_connected_ = false;
     updateMQTTStatistics();
 }
@@ -227,13 +215,8 @@ bool ESP32WiFiMQTT::subscribe(const std::string& topic) {
 
     ESP_LOGI(TAG, "MQTT 구독: %s", topic.c_str());
 
-#ifdef ESP32
     ESP_LOGI(TAG, "MQTT 구독 Simulation: %s", topic.c_str());
     return true;
-#else
-    ESP_LOGI(TAG, "MQTT 구독 Simulation: %s", topic.c_str());
-    return true;
-#endif
 }
 
 bool ESP32WiFiMQTT::publish(const std::string& topic, const std::string& message) {
@@ -244,11 +227,7 @@ bool ESP32WiFiMQTT::publish(const std::string& topic, const std::string& message
 
     ESP_LOGI(TAG, "MQTT 발행: %s -> %s", topic.c_str(), message.c_str());
 
-#ifdef ESP32
     ESP_LOGI(TAG, "MQTT 발행 Simulation: %s -> %s", topic.c_str(), message.c_str());
-#else
-    ESP_LOGI(TAG, "MQTT 발행 Simulation: %s -> %s", topic.c_str(), message.c_str());
-#endif
 
     portENTER_CRITICAL(&stats_mutex_);
     stats_.mqtt_messages_sent++;
@@ -458,10 +437,7 @@ void ESP32WiFiMQTT::cleanupWiFi() {
 bool ESP32WiFiMQTT::initializeMQTT() {
     ESP_LOGI(TAG, "MQTT 초기화 시작");
 
-#ifdef ESP32
-    mqtt_client_ = (void*)0x12345678;
-    ESP_LOGI(TAG, "MQTT 클라이언트 시뮬레이션 생성 완료");
-#endif
+    mqtt_client_ = nullptr;
 
     ESP_LOGI(TAG, "MQTT 초기화 완료");
     return true;
