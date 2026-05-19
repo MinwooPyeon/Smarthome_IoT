@@ -74,6 +74,18 @@ bool Config::isValid() const {
     if (ir_retry_count_ < 0) {
         return false;
     }
+    // MQTT 활성화 시 브로커 주소 필수
+    if (mqtt_enabled_ && mqtt_broker_.empty()) {
+        return false;
+    }
+    // TLS 활성화 시 인증서 경로 필수
+    if (tls_enabled_ && (tls_cert_path_.empty() || tls_key_path_.empty() || tls_ca_path_.empty())) {
+        return false;
+    }
+    // 사용자명 설정 시 비밀번호 필수
+    if (!mqtt_username_.empty() && mqtt_password_.empty()) {
+        return false;
+    }
     return true;
 }
 

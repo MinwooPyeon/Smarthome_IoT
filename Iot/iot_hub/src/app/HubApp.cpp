@@ -36,7 +36,18 @@ bool HubApp::init() {
 
     std::vector<Error> errs;
     mgr_.initializeAll(&errs);
+    for (const auto& e : errs) {
+        mqttHelper_.publishError(e.code, e.message);
+    }
+    if (!errs.empty()) return false;
+
+    errs.clear();
     mgr_.startAll(&errs);
+    for (const auto& e : errs) {
+        mqttHelper_.publishError(e.code, e.message);
+    }
+    if (!errs.empty()) return false;
+
     return true;
 }
 
